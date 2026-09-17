@@ -1,0 +1,28 @@
+# Rust
+core/target/
+**/*.rs.bk
+
+# Flutter / Dart
+mobile/.dart_tool/
+mobile/.packages
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/.idea/
+
+# AgentDesk daemon runtime data (token, certificate) — must never be committed
+.agentdesk/
+**/agentdesk-config/
+*.token
+*.pem
+*.der
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

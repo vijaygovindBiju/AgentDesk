@@ -1,0 +1,73 @@
+# AgentDesk — Security
+
+## Why this matters even for a prototype
+
+The laptop accepts `respond_request { approve }`. An open endpoint on shared Wi-Fi would let anyone on the network approve a database migration or a destructive command on behalf of the user. That is a worse failure mode than a typical dev server, so the MVP does not run unauthenticated or in plaintext.
+
+## Threat model (MVP)
+
+In scope:
+
+- Passive attacker on the same LAN reading traffic (event content, logs, token).
+- Active attacker on the same LAN connecting to the daemon and issuing commands.
+- Active attacker impersonating the daemon to the phone (rogue AP / ARP spoofing).
+
+Out of scope for the MVP:
+
+- Compromised laptop or phone.
+- Attacker with physical access to the laptop screen while the token is displayed.
+- Denial of service.
+- Internet exposure (the daemon is LAN-only; no port forwarding, no NAT traversal).
+
+## MVP mechanisms
+
+### 1. Transport encryption: TLS (`wss://`)
+
+- The daemon generates a self-signed certificate on first run (`rcgen`), stores it under the user's config directory, and serves TLS via `rustls`.
+- It prints the SHA-256 fingerprint of the DER certificate at startup, next to the address and token.
+- The phone **pins** that fingerprint: it accepts the server certificate only if its SHA-256 matches the pinned value. Standard CA validation is not used (self-signed).
+- The fingerprint is entered once on the phone, alongside the token. This is the seam where QR pairing plugs in later (QR = address + token + fingerprint).
+
+This provides confidentiality and integrity on the wire and prevents daemon impersonation.
+
+### 2. Authentication: shared token
+
+- A random 256-bit token is generated at first run and stored with `0600` permissions in the config directory; it can be regenerated with `agentdesk token rotate`.
+- The phone sends it in the first frame (`hello`), never in the URL, so it does not appear in access logs or proxies.
+- Mismatch → immediate close (`4001`). Compared in constant time.
+- The daemon refuses to bind to a non-loopback address unless a token is configured (fail closed).
+
+### 3. Authorization
+
+Single trust level in the MVP: a holder of the token can do everything. Per-device permissions are future work.
+
+### 4. Development-only insecure mode
+
+`agentdesk --insecure-dev`:
+
+- plain `ws://`, **bound to `127.0.0.1` only** (the flag is rejected together with any other bind address),
+- token check still enforced,
+- prominent startup warning and `mode: "insecure_dev"` in `welcome` so the phone shows a banner.
+
+Intended for `adb reverse` / emulator testing without certificates. It is not a supported deployment mode and must never be the default.
+
+## Implementation rules
+
+- Use established libraries (`rustls`, `rcgen`, `tokio-tungstenite`; Dart `SecurityContext` / `badCertificateCallback` for pinning). Do not implement cryptographic primitives or protocols by hand.
+- Never log the token or full log content at info level. Debug logging of payloads must be opt-in and documented.
+- Token and certificate files are never committed; `.gitignore` covers the config directory if it ever lands in the repo.
+- Constant-time comparison for the token.
+
+## Known limitations of the MVP
+
+- Fingerprint and token are entered manually; usability of that flow is not a goal yet.
+- One token = one trust domain; losing a phone means rotating the token for everyone (there is only one device anyway).
+- No replay protection beyond TLS; acceptable because commands are idempotent or single-shot (`already_resolved`).
+- Self-signed certificate is per-laptop; moving the daemon means re-pinning.
+
+## Future work
+
+- QR pairing carrying address + token + fingerprint; per-device tokens.
+- Device registry with revocation; per-device permissions (read-only vs. can-approve).
+- Certificate rotation with overlap.
+- If internet access is ever added: a relay with end-to-end encryption, not port forwarding.
