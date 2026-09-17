@@ -38,9 +38,9 @@ The Git history should read as a readable development history of AgentDesk.
 | | |
 |---|---|
 | **Current Phase** | Phase 1 — Foundation |
-| **Current Task** | P1.3 `agentdesk-model` event types |
-| **Next Action** | P1.3 — add serde + uuid + chrono to `agentdesk-model` and define `RawAgentEvent`, `Event`, `Category`, `Severity`, `Operation` per EVENT_MODEL.md. |
-| **Overall MVP progress** | Phase 0 of 9 complete · 0 / 9 implementation phases · 2 % of checklist items |
+| **Current Task** | P1.4 `agentdesk-model` queue entry types |
+| **Next Action** | P1.4 — add `QueueEntry`, `EntryState`, `Resolution` to `agentdesk-model` (new module `queue.rs`) per DATA_MODEL.md, with round-trip tests. |
+| **Overall MVP progress** | Phase 0 of 9 complete · 0 / 9 implementation phases · 5 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -70,7 +70,7 @@ Exit criteria met: developer approved architecture with amendments; all decision
 
 - [x] P1.1 Rust workspace at `core/` with crates `agentdesk-model`, `agentdesk-core`, `agentdesk-sim`, `agentdesk-server`, `agentdesk-bench` (empty `lib.rs`/`main.rs`). Done when `cargo build && cargo test` succeed from `core/`.
 - [x] P1.2 `.gitignore` covering `core/target`, Flutter build artefacts, and the daemon config dir pattern. Done when `git status` after a build shows no artefacts.
-- [ ] P1.3 `agentdesk-model`: `RawAgentEvent`, `Event`, `Details`, `LogRange`, `RequestInfo`, `Category`, `Severity`, `Operation` as in EVENT_MODEL.md. Done when types compile with serde derives and `schema_version` is a constant.
+- [x] P1.3 `agentdesk-model`: `RawAgentEvent`, `Event`, `Details`, `LogRange`, `RequestInfo`, `Category`, `Severity`, `Operation` as in EVENT_MODEL.md. Done when types compile with serde derives and `schema_version` is a constant.
 - [ ] P1.4 `agentdesk-model`: `QueueEntry`, `EntryState`, `Resolution` as in DATA_MODEL.md. Done when types compile with serde.
 - [ ] P1.5 `agentdesk-model`: envelope `Message { type, request_id, payload }` and every message type in COMMUNICATION.md as a tagged enum (`hello`, `welcome`, `snapshot`, `event`, `score_update`, `state_update`, `raw_event`, `raw_line`, `get_event_details`, `event_details`, `get_event_logs`, `event_logs`, `ack`, `dismiss`, `respond_request`, `command_result`, `get_metrics`, `metrics`, `error`). Done when a JSON sample of each round-trips.
 - [ ] P1.6 Flutter project skeleton at `mobile/` (`flutter create`, package name `agentdesk`), placeholder home screen. Done when `flutter analyze` and `flutter test` pass.
@@ -78,9 +78,9 @@ Exit criteria met: developer approved architecture with amendments; all decision
 
 ### Validation
 
-- [ ] P1.T1 Serde round-trip test for every message type and for `Event` / `RawAgentEvent` / `QueueEntry`.
-- [ ] P1.T2 Unknown fields are ignored on decode; missing required fields are rejected (one test each on `Event`).
-- [ ] P1.T3 `Category` serialises to exactly `request | error | completed | working`; `Operation` to the six documented values.
+- [~] P1.T1 Serde round-trip test for every message type and for `Event` / `RawAgentEvent` / `QueueEntry`. (`Event`, `RawAgentEvent` done; `QueueEntry` and messages pending P1.4/P1.5)
+- [x] P1.T2 Unknown fields are ignored on decode; missing required fields are rejected (one test each on `Event`).
+- [x] P1.T3 `Category` serialises to exactly `request | error | completed | working`; `Operation` to the six documented values.
 
 ### Exit criteria
 

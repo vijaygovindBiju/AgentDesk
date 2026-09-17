@@ -26,9 +26,15 @@ What an adapter produces. Agent-specific adapters normalize into this; nothing d
     "line": 42,
     "error": "Undefined variable `token`"
   },
-  "log_lines": ["..."]                 // raw lines emitted alongside this event (may be empty)
+  "log_lines": ["..."],                // raw lines emitted alongside this event (may be empty)
+  "request": {                         // only for kinds that block on a human decision
+    "prompt": "Allow database migration on `users`?",
+    "options": ["approve", "deny"]
+  }
 }
 ```
+
+`task_id`, `details`, `log_lines`, and `request` are optional on the wire (absent ⇒ none/empty). `details` values are JSON scalars; keys are serialised in sorted order so output is deterministic for golden-file tests.
 
 ## Event (processor output, stored, pushed)
 
