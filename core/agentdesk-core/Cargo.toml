@@ -7,3 +7,4 @@ repository.workspace = true
 
 [dependencies]
 agentdesk-model.workspace = true
+chrono = "0.4.45"

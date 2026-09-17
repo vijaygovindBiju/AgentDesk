@@ -4,6 +4,7 @@
 
 ### Added
 
+- Phase 2 complete: `agentdesk-core` classifier (19-row rules table, suffix fallbacks, cause-split cancellation), `Adapter` trait and `Clock` (`SystemClock`/`VirtualClock`), `agentdesk-sim` with validated JSON scenario format, seeded deterministic simulator, blocking requests with approve/deny, headless `run_to_end` driver, default scenario (1445 raw events, 99.4 % Working), `stats` example, and `docs/SIMULATOR.md`.
 - Phase 1 complete: Rust workspace (`agentdesk-model`, `-core`, `-sim`, `-server`, `-bench`); `agentdesk-model` with event schemas, queue metadata, and the full 19-message wire protocol, all with serde round-trip tests; Flutter skeleton with four-tier placeholder home and widget test.
 
 - Repository skeleton: `README.md`, `docs/`, empty `core/` and `mobile/` directories.

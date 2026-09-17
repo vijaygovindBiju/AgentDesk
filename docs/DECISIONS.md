@@ -239,3 +239,35 @@ Reason: Attention-worthiness depends on who stopped the task, not on the word "c
 Trade-offs: Relies on adapters distinguishing cause; the unknown-cause default is deliberately the low-attention bucket because real agents usually surface unexpected stops as explicit errors anyway. The Completed section may contain non-successes, mitigated by explicit summary text.
 
 Consequences: Simulator emits both `cancelled_by_user` and `cancelled_by_agent`; bench coverage counts `cancelled_by_agent`/`aborted` as Errors.
+
+---
+
+## Decision: Adapters are passive and time-driven (`poll(now)` / `next_due()`)
+
+Date: 2026-09-17
+
+Problem: The simulator must be deterministic for golden files and the bench, yet the same `Adapter` trait must later wrap real agents that produce output on their own schedule. An adapter that owns threads or timers cannot be replayed reproducibly.
+
+Options: (A) push model — adapter runs its own task and sends into a channel; (B) pull model — owner calls `poll(now)` and the adapter returns everything due, plus `next_due()` for scheduling; (C) iterator of `(at, output)` pairs.
+
+Decision: (B). `Adapter { agents(), poll(now), next_due(), respond(task_id, decision, now), is_finished() }`. Time is always injected; adapters never read the wall clock.
+
+Reason: Determinism falls out for free; output is independent of polling granularity (tested); the same code path serves the virtual-clock bench and the real-clock daemon. Real agents will be wrapped by a small buffering shim that collects their asynchronous output and hands it over on `poll`.
+
+Trade-offs: Real-agent adapters need that shim (one channel + buffer); latency is bounded by the daemon's poll cadence, which is acceptable for an attention system.
+
+Consequences: `Clock` trait with `SystemClock` and `VirtualClock` lives in `agentdesk-core` and is reused by the queue and task tracker in Phase 3–4.
+
+---
+
+## Decision: Every progress tick is a raw event, not just a log line
+
+Date: 2026-09-17
+
+Problem: The `raw_events` baseline (DECISIONS: "Measurement baseline") is only fair if the simulator's event density is realistic. Whether "Compiling 213/500" is an *event* or merely a *log line* changes the baseline by an order of magnitude.
+
+Decision: In the simulator, each `progress` tick is a `progress` event carrying its line in `log_lines`. Pure noise that a real adapter would not surface as an event (dependency downloads, file reads) is emitted as `AdapterOutput::Line`.
+
+Reason: A naive notification app forwarding structured agent output would see progress ticks as events; treating them as events is the conservative (less flattering to AgentDesk) choice for the `raw_events` baseline.
+
+Trade-offs: Default scenario is 99.4 % Working events, which is realistic for compile/test loops but should be revisited once a Claude Code adapter shows its actual event density. Recorded as a bench caveat.

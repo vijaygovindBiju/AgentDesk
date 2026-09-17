@@ -101,7 +101,41 @@ Tier is fixed by category. **Nothing moves an entry across tiers** — not sever
 
 ## Classification
 
-Pure function `classify(raw) -> Classification { category, severity }` driven by a rules table keyed on `kind`, with a prefix/fallback rule (`*_failed → error/3`, `*_completed → completed/2`, unknown → `working/0` + `unclassified_events` metric). The rules table is data, so a future Claude Code adapter can extend it without touching the classifier.
+Pure function `classify(kind) -> Classification { category, severity, summary, matched }` (`agentdesk-core::classifier`) driven by a rules table keyed on `kind`. The table is data, so a future Claude Code adapter can extend it without touching the logic. The `summary` column is the Level-1 headline shown on the phone.
+
+### Rules table (as implemented; the test suite asserts every row)
+
+| kind | category | severity | summary |
+|------|----------|----------|---------|
+| `approval_required` | request | 3 | Approval Required |
+| `input_required` | request | 3 | Input Required |
+| `credential_required` | request | 3 | Credential Required |
+| `build_failed` | error | 3 | Build Failed |
+| `command_failed` | error | 3 | Command Failed |
+| `adapter_error` | error | 3 | Adapter Error |
+| `test_failed` | error | 2 | Tests Failed |
+| `cancelled_by_agent` | error | 2 | Cancelled |
+| `aborted` | error | 2 | Aborted |
+| `build_completed` | completed | 2 | Build Completed |
+| `task_completed` | completed | 2 | Task Completed |
+| `tests_passed` | completed | 1 | Tests Passed |
+| `install_completed` | completed | 1 | Install Completed |
+| `cancelled_by_user` | completed | 1 | Cancelled |
+| `cancelled` | completed | 1 | Cancelled |
+| `started` | working | 1 | Started |
+| `waiting` | working | 1 | Waiting |
+| `progress` | working | 0 | Working |
+| `installing` | working | 0 | Installing |
+
+### Fallbacks (in order, after an exact match fails)
+
+| pattern | category | severity | matched | notes |
+|---------|----------|----------|---------|-------|
+| `*_failed` | error | 3 | `Suffix` | summary humanised from kind (`deploy_failed` → "Deploy Failed") |
+| `*_completed` | completed | 2 | `Suffix` | |
+| anything else | working | 0 | `Fallback` | counted as `unclassified_events`; never dropped, never panics |
+
+A task is **closed** by any event whose category is `completed` or `error` — which is exactly why the cancellation kinds are mapped into those two categories rather than special-cased.
 
 ## Scoring (queue metadata, not part of the Event)
 

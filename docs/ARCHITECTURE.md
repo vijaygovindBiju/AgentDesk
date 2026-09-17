@@ -66,10 +66,11 @@ Why separate crates: `model` is pure data and is mirrored into Dart; `core` is f
 ### Adapter (trait) and Simulator
 
 - **Responsibility**: turn agent-specific activity into `RawAgentEvent`s and raw log lines.
-- **Inputs**: Simulator — a seed and a scenario script. Future adapters — agent hooks, PTY output, structured APIs.
-- **Outputs**: `RawAgentEvent { agent_id, agent_seq, task_id, kind, operation, message, details, log_lines }`.
+- **Inputs**: Simulator — a seed and a scenario script (`docs/SIMULATOR.md`). Future adapters — agent hooks, PTY output, structured APIs.
+- **Outputs**: `AdapterOutput::Event(RawAgentEvent)` or `AdapterOutput::Line { agent_id, text }` (pure log noise that is not an event).
+- **Interface** (`agentdesk-core::adapter::Adapter`): adapters are **passive and time-driven**. The owner calls `poll(now)` to collect everything due at or before `now` (in due-time order), `next_due()` to learn how long to sleep or how far to advance a virtual clock, `respond(task_id, decision, now)` to deliver a human decision, and `agents()` for identity (`AgentInfo`). No threads or timers inside an adapter, so the same scenario yields the same output regardless of polling granularity.
 - **Dependencies**: none on the rest of core (it only produces).
-- **State**: per-agent `agent_seq` counter; simulator scenario cursor and RNG.
+- **State**: per-agent `agent_seq` counter; simulator per-task cursor, blocked state and seeded RNG (`StdRng::seed_from_u64`).
 - **Failure**: runs in its own task. A panic or error is converted into an Error event about the adapter itself; the daemon keeps running.
 
 ### Log Store

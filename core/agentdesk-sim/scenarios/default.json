@@ -1,0 +1,163 @@
+{
+  "name": "default",
+  "description": "Two agents on one project over ~15 virtual minutes. Realistic Working density (one progress event per compile/test line), 1 approval request, 3 errors (build_failed, test_failed, cancelled_by_agent), 3 important completions, 1 user cancellation, and one 12-minute build that exceeds the 5-minute expected duration for escalation.",
+  "agents": [
+    { "agent_id": "sim-backend", "name": "Backend Agent", "project": "Hybrid" },
+    { "agent_id": "sim-frontend", "name": "Frontend Agent", "project": "Hybrid" }
+  ],
+  "tasks": [
+    {
+      "task_id": "task-auth",
+      "agent_id": "sim-backend",
+      "title": "Implement authentication",
+      "operation": "build",
+      "start_offset_ms": 0,
+      "steps": [
+        { "type": "started", "message": "Implementing authentication service" },
+        { "type": "log", "lines": ["Reading auth_service.dart", "Reading token_store.dart", "Planning changes"], "interval_ms": 400 },
+        { "type": "progress", "count": 40, "interval_ms": 500, "jitter_ms": 150, "template": "Editing auth_service.dart ({i}/{n})" },
+        { "type": "progress", "count": 120, "interval_ms": 100, "jitter_ms": 40, "template": "Compiling {i}/{n}" },
+        {
+          "type": "event",
+          "kind": "build_failed",
+          "message": "auth_service.dart:42 Undefined variable: token",
+          "details": { "task": "Implement authentication", "error": "Undefined variable `token`", "file": "auth_service.dart", "line": 42 },
+          "log_lines": [
+            "lib/auth_service.dart:42:18: Error: Undefined name 'token'.",
+            "      return token.isValid;",
+            "             ^^^^^",
+            "Error: Compilation failed."
+          ]
+        }
+      ]
+    },
+    {
+      "task_id": "task-deps",
+      "agent_id": "sim-frontend",
+      "title": "Install and build dependencies",
+      "operation": "install",
+      "start_offset_ms": 2000,
+      "steps": [
+        { "type": "started", "message": "Installing dependencies" },
+        { "type": "log", "lines": [
+          "Resolving dependencies...", "Downloading http 1.2.1...", "Downloading provider 6.1.2...",
+          "Downloading go_router 14.2.0...", "Downloading intl 0.19.0...", "Downloading collection 1.18.0...",
+          "Downloading path 1.9.0...", "Downloading meta 1.15.0...", "Downloading vector_math 2.1.4...",
+          "Downloading characters 1.3.0...", "Downloading material_color_utilities 0.11.1...",
+          "Got dependencies."
+        ], "interval_ms": 250 },
+        { "type": "progress", "count": 300, "interval_ms": 100, "jitter_ms": 30, "template": "Compiling {i}/{n}" },
+        {
+          "type": "event",
+          "kind": "build_completed",
+          "message": "Dependencies installed and project compiled",
+          "details": { "task": "Install and build dependencies", "packages": 11, "duration": "32s" }
+        }
+      ]
+    },
+    {
+      "task_id": "task-refactor",
+      "agent_id": "sim-frontend",
+      "title": "Refactor settings screen",
+      "operation": "edit",
+      "start_offset_ms": 30000,
+      "steps": [
+        { "type": "started", "message": "Refactoring settings_screen.dart" },
+        { "type": "progress", "count": 20, "interval_ms": 700, "jitter_ms": 200, "template": "Rewriting widget {i}/{n}" },
+        {
+          "type": "event",
+          "kind": "cancelled_by_user",
+          "message": "Refactor cancelled by user",
+          "details": { "task": "Refactor settings screen" }
+        }
+      ]
+    },
+    {
+      "task_id": "task-db",
+      "agent_id": "sim-backend",
+      "title": "Add users table migration",
+      "operation": "other",
+      "start_offset_ms": 60000,
+      "steps": [
+        { "type": "started", "message": "Preparing database migration" },
+        { "type": "progress", "count": 5, "interval_ms": 800, "template": "Generating migration step {i}/{n}" },
+        {
+          "type": "request",
+          "kind": "approval_required",
+          "prompt": "Allow database migration on `users`?",
+          "options": ["approve", "deny"],
+          "message": "Migration 0007_add_users_email will alter table `users`",
+          "on_deny_kind": "cancelled_by_user"
+        },
+        { "type": "progress", "count": 10, "interval_ms": 300, "template": "Applying migration {i}/{n}" },
+        {
+          "type": "event",
+          "kind": "task_completed",
+          "message": "Migration 0007_add_users_email applied",
+          "details": { "task": "Add users table migration", "table": "users" }
+        }
+      ]
+    },
+    {
+      "task_id": "task-tests",
+      "agent_id": "sim-frontend",
+      "title": "Run widget tests",
+      "operation": "test",
+      "start_offset_ms": 90000,
+      "steps": [
+        { "type": "started", "message": "Running widget tests" },
+        { "type": "progress", "count": 200, "interval_ms": 300, "jitter_ms": 100, "template": "Running test {i}/{n}" },
+        {
+          "type": "event",
+          "kind": "test_failed",
+          "message": "widget_test.dart:17 Expected 3 tiles, found 2",
+          "details": { "task": "Run widget tests", "file": "widget_test.dart", "line": 17, "failed": 1, "passed": 199 },
+          "log_lines": [
+            "00:58 +199 -1: HomeScreen shows tiles [E]",
+            "  Expected: <3>",
+            "    Actual: <2>",
+            "  package:agentdesk/test/widget_test.dart 17:5  main.<fn>"
+          ]
+        }
+      ]
+    },
+    {
+      "task_id": "task-longbuild",
+      "agent_id": "sim-backend",
+      "title": "Full release build",
+      "operation": "build",
+      "start_offset_ms": 120000,
+      "steps": [
+        { "type": "started", "message": "Starting full release build" },
+        { "type": "progress", "count": 720, "interval_ms": 1000, "jitter_ms": 50, "template": "Compiling module {i}/{n}" },
+        {
+          "type": "event",
+          "kind": "build_completed",
+          "message": "Release build finished (720 modules)",
+          "details": { "task": "Full release build", "modules": 720, "duration": "12m" }
+        }
+      ]
+    },
+    {
+      "task_id": "task-lint",
+      "agent_id": "sim-frontend",
+      "title": "Fix analyzer warnings",
+      "operation": "analyze",
+      "start_offset_ms": 200000,
+      "steps": [
+        { "type": "started", "message": "Analyzing project" },
+        { "type": "progress", "count": 15, "interval_ms": 600, "jitter_ms": 100, "template": "Fixing warning {i}/{n}" },
+        {
+          "type": "event",
+          "kind": "cancelled_by_agent",
+          "message": "Aborted: conflicting edits detected in settings_screen.dart",
+          "details": { "task": "Fix analyzer warnings", "file": "settings_screen.dart" },
+          "log_lines": [
+            "warning: settings_screen.dart was modified by another task (task-refactor)",
+            "aborting to avoid clobbering concurrent edits"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -5,10 +5,12 @@
 //! the Flutter client. See docs/EVENT_MODEL.md, docs/DATA_MODEL.md and
 //! docs/COMMUNICATION.md.
 
+pub mod agent;
 pub mod event;
 pub mod message;
 pub mod queue;
 
+pub use agent::*;
 pub use event::*;
 pub use message::*;
 pub use queue::*;

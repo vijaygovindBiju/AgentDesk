@@ -37,10 +37,10 @@ The Git history should read as a readable development history of AgentDesk.
 
 | | |
 |---|---|
-| **Current Phase** | Phase 2 — Classification and simulated agent (awaiting approval to start) |
+| **Current Phase** | Phase 3 — Event pipeline (awaiting approval to start) |
 | **Current Task** | — |
-| **Next Action** | On approval, start Phase 2 with P2.1: `agentdesk-core::classifier` rules table (`kind` → category/severity) with prefix fallbacks. |
-| **Overall MVP progress** | Phases 0–1 complete · 1 / 9 implementation phases · 10 % of checklist items |
+| **Next Action** | On approval, start Phase 3 with P3.1: Log Store (per-agent ring buffer, offsets, paging, pins) in `agentdesk-core`. |
+| **Overall MVP progress** | Phases 0–2 complete · 2 / 9 implementation phases · 23 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -88,7 +88,7 @@ Exit criteria met: developer approved architecture with amendments; all decision
 
 ---
 
-## Phase 2 — Classification and simulated agent
+## Phase 2 — Classification and simulated agent (complete)
 
 **Goal**: the first hypothesis-bearing logic (classifier) and a realistic, reproducible input source (simulator).
 
@@ -98,21 +98,21 @@ Exit criteria met: developer approved architecture with amendments; all decision
 
 ### Tasks
 
-- [ ] P2.1 `agentdesk-core::classifier`: rules table keyed on `kind` → `(Category, Severity)`; prefix fallbacks (`*_failed`, `*_completed`); unknown → `working/0`. Done when `classify()` is a pure function over a data table.
-- [ ] P2.2 Document the initial rules table in EVENT_MODEL.md (kinds used by the simulator).
-- [ ] P2.3 `agentdesk-sim`: `Adapter` trait (`next() -> Option<AdapterOutput>` where output is a raw event or a log line), defined in `agentdesk-core` so future adapters implement the same trait.
-- [ ] P2.4 `agentdesk-sim`: scenario format (agents, tasks with `operation`, steps: progress bursts, completions, errors with file/line, approval requests that block until answered, cancellations, long-running tasks). Done when a scenario file parses and validates.
-- [ ] P2.5 `agentdesk-sim`: seeded RNG (`rand` with `StdRng::seed_from_u64`) and a virtual clock (`Clock` trait) so time is compressed in tests. Done when two runs with the same seed produce byte-identical output.
-- [ ] P2.6 `agentdesk-sim`: default scenario with realistic Working density (per-line progress ticks) and at least: 2 agents, 1 request, 2 errors, 3 completions, 1 long-running build, 1 `cancelled_by_user`, 1 `cancelled_by_agent`. Committed under `core/agentdesk-sim/scenarios/`.
-- [ ] P2.7 `agentdesk-sim`: `respond(task_id, decision)` unblocks a waiting request. Done when a blocked task resumes after approve and terminates after deny.
+- [x] P2.1 `agentdesk-core::classifier`: rules table keyed on `kind` → `(Category, Severity)`; prefix fallbacks (`*_failed`, `*_completed`); unknown → `working/0`. Done when `classify()` is a pure function over a data table.
+- [x] P2.2 Document the initial rules table in EVENT_MODEL.md (kinds used by the simulator).
+- [x] P2.3 `agentdesk-sim`: `Adapter` trait (`next() -> Option<AdapterOutput>` where output is a raw event or a log line), defined in `agentdesk-core` so future adapters implement the same trait.
+- [x] P2.4 `agentdesk-sim`: scenario format (agents, tasks with `operation`, steps: progress bursts, completions, errors with file/line, approval requests that block until answered, cancellations, long-running tasks). Done when a scenario file parses and validates.
+- [x] P2.5 `agentdesk-sim`: seeded RNG (`rand` with `StdRng::seed_from_u64`) and a virtual clock (`Clock` trait) so time is compressed in tests. Done when two runs with the same seed produce byte-identical output.
+- [x] P2.6 `agentdesk-sim`: default scenario with realistic Working density (per-line progress ticks) and at least: 2 agents, 1 request, 2 errors, 3 completions, 1 long-running build, 1 `cancelled_by_user`, 1 `cancelled_by_agent`. Committed under `core/agentdesk-sim/scenarios/`.
+- [x] P2.7 `agentdesk-sim`: `respond(task_id, decision)` unblocks a waiting request. Done when a blocked task resumes after approve and terminates after deny.
 
 ### Validation
 
-- [ ] P2.T1 Table-driven classifier test: every rule row asserted.
-- [ ] P2.T2 Fallback tests: `foo_failed`, `foo_completed`, unknown kind (no panic, `working/0`).
-- [ ] P2.T3 Simulator determinism test (same seed ⇒ identical sequence).
-- [ ] P2.T4 Simulator emits strictly increasing `agent_seq` per agent.
-- [ ] P2.T5 Default scenario contains the documented minimum mix (counted by kind).
+- [x] P2.T1 Table-driven classifier test: every rule row asserted.
+- [x] P2.T2 Fallback tests: `foo_failed`, `foo_completed`, unknown kind (no panic, `working/0`).
+- [x] P2.T3 Simulator determinism test (same seed ⇒ identical sequence).
+- [x] P2.T4 Simulator emits strictly increasing `agent_seq` per agent.
+- [x] P2.T5 Default scenario contains the documented minimum mix (counted by kind).
 
 ### Exit criteria
 

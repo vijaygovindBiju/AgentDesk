@@ -53,6 +53,7 @@ AgentDesk/
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Entities |
 | [docs/EVENT_MODEL.md](docs/EVENT_MODEL.md) | Event schema, categories, scoring |
 | [docs/COMMUNICATION.md](docs/COMMUNICATION.md) | WebSocket protocol |
+| [docs/SIMULATOR.md](docs/SIMULATOR.md) | Simulated agent: guarantees and scenario format |
 | [docs/SECURITY.md](docs/SECURITY.md) | Threat model and MVP security |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Engineering decision records |
 | [docs/TESTING.md](docs/TESTING.md) | Test strategy |
