@@ -47,7 +47,7 @@ Single trust level in the MVP: a holder of the token can do everything. Per-devi
 
 - plain `ws://`, **bound to `127.0.0.1` only** (the flag is rejected together with any other bind address),
 - token check still enforced,
-- prominent startup warning and `mode: "insecure_dev"` in `welcome` so the phone shows a banner.
+- prominent startup warning and `transport: "insecure_dev"` in `welcome` so the phone shows a banner.
 
 Intended for `adb reverse` / emulator testing without certificates. It is not a supported deployment mode and must never be the default.
 

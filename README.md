@@ -10,7 +10,29 @@ The phone is **not** a second terminal. It is an attention and control interface
 
 ## Status
 
-Pre-implementation. Architecture and documentation are agreed; see `docs/TODO.md` for the current state.
+Early implementation. Current phase, next action, and progress live in `docs/TODO.md`.
+
+## Building and testing
+
+Laptop side (Rust, from `core/`):
+
+```sh
+cd core
+cargo build
+cargo test
+cargo clippy --all-targets
+```
+
+Mobile side (Flutter, from `mobile/`):
+
+```sh
+cd mobile
+flutter pub get
+flutter analyze
+flutter test
+```
+
+Nothing runs end to end yet; the daemon and bench binaries are placeholders until their phases land.
 
 ## Layout
 

@@ -28,7 +28,7 @@ Every frame:
 | Direction | Type | Payload |
 |-----------|------|---------|
 | phone → laptop | `hello` | `{ token, device_id, client_version, schema_version }` |
-| laptop → phone | `welcome` | `{ daemon_version, schema_version, mode, server_time }` |
+| laptop → phone | `welcome` | `{ daemon_version, schema_version, pipeline_mode, transport, server_time }` — `pipeline_mode ∈ raw_lines \| raw_events \| agentdesk`, `transport ∈ tls \| insecure_dev` |
 | laptop → phone | `snapshot` | `{ entries: [QueueEntry…], events: [Event…] }` |
 
 `hello` must be the first frame. Anything else before it, or a wrong token, closes the socket with code `4001`. Schema mismatch closes with `4002`. `snapshot` follows `welcome` immediately and contains all live (non-dismissed, non-superseded) entries and their events.

@@ -4,8 +4,15 @@
 
 ### Added
 
+- Phase 1 complete: Rust workspace (`agentdesk-model`, `-core`, `-sim`, `-server`, `-bench`); `agentdesk-model` with event schemas, queue metadata, and the full 19-message wire protocol, all with serde round-trip tests; Flutter skeleton with four-tier placeholder home and widget test.
+
 - Repository skeleton: `README.md`, `docs/`, empty `core/` and `mobile/` directories.
 - Initial documentation set: PROJECT, ARCHITECTURE, SYSTEM_DESIGN, DATA_MODEL, EVENT_MODEL, COMMUNICATION, SECURITY, DECISIONS, TESTING, ROADMAP, TODO, CHANGELOG.
+
+### Changed
+
+- `welcome` now carries `pipeline_mode` and `transport` separately (previously a single ambiguous `mode`).
+- `RawAgentEvent` gained an optional `request` field so adapters can supply approval prompt/options.
 
 ### Architecture
 

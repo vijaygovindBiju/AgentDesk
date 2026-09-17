@@ -37,10 +37,10 @@ The Git history should read as a readable development history of AgentDesk.
 
 | | |
 |---|---|
-| **Current Phase** | Phase 1 — Foundation |
-| **Current Task** | P1.4 `agentdesk-model` queue entry types |
-| **Next Action** | P1.4 — add `QueueEntry`, `EntryState`, `Resolution` to `agentdesk-model` (new module `queue.rs`) per DATA_MODEL.md, with round-trip tests. |
-| **Overall MVP progress** | Phase 0 of 9 complete · 0 / 9 implementation phases · 5 % of checklist items |
+| **Current Phase** | Phase 2 — Classification and simulated agent (awaiting approval to start) |
+| **Current Task** | — |
+| **Next Action** | On approval, start Phase 2 with P2.1: `agentdesk-core::classifier` rules table (`kind` → category/severity) with prefix fallbacks. |
+| **Overall MVP progress** | Phases 0–1 complete · 1 / 9 implementation phases · 10 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -58,7 +58,7 @@ Exit criteria met: developer approved architecture with amendments; all decision
 
 ---
 
-## Phase 1 — Foundation: workspace and shared model
+## Phase 1 — Foundation: workspace and shared model (complete)
 
 **Goal**: a buildable monorepo and the shared data contract (`agentdesk-model`) that every other component depends on.
 
@@ -71,14 +71,14 @@ Exit criteria met: developer approved architecture with amendments; all decision
 - [x] P1.1 Rust workspace at `core/` with crates `agentdesk-model`, `agentdesk-core`, `agentdesk-sim`, `agentdesk-server`, `agentdesk-bench` (empty `lib.rs`/`main.rs`). Done when `cargo build && cargo test` succeed from `core/`.
 - [x] P1.2 `.gitignore` covering `core/target`, Flutter build artefacts, and the daemon config dir pattern. Done when `git status` after a build shows no artefacts.
 - [x] P1.3 `agentdesk-model`: `RawAgentEvent`, `Event`, `Details`, `LogRange`, `RequestInfo`, `Category`, `Severity`, `Operation` as in EVENT_MODEL.md. Done when types compile with serde derives and `schema_version` is a constant.
-- [ ] P1.4 `agentdesk-model`: `QueueEntry`, `EntryState`, `Resolution` as in DATA_MODEL.md. Done when types compile with serde.
-- [ ] P1.5 `agentdesk-model`: envelope `Message { type, request_id, payload }` and every message type in COMMUNICATION.md as a tagged enum (`hello`, `welcome`, `snapshot`, `event`, `score_update`, `state_update`, `raw_event`, `raw_line`, `get_event_details`, `event_details`, `get_event_logs`, `event_logs`, `ack`, `dismiss`, `respond_request`, `command_result`, `get_metrics`, `metrics`, `error`). Done when a JSON sample of each round-trips.
-- [ ] P1.6 Flutter project skeleton at `mobile/` (`flutter create`, package name `agentdesk`), placeholder home screen. Done when `flutter analyze` and `flutter test` pass.
-- [ ] P1.7 README: how to build/test both halves.
+- [x] P1.4 `agentdesk-model`: `QueueEntry`, `EntryState`, `Resolution` as in DATA_MODEL.md. Done when types compile with serde.
+- [x] P1.5 `agentdesk-model`: envelope `Message { type, request_id, payload }` and every message type in COMMUNICATION.md as a tagged enum (`hello`, `welcome`, `snapshot`, `event`, `score_update`, `state_update`, `raw_event`, `raw_line`, `get_event_details`, `event_details`, `get_event_logs`, `event_logs`, `ack`, `dismiss`, `respond_request`, `command_result`, `get_metrics`, `metrics`, `error`). Done when a JSON sample of each round-trips.
+- [x] P1.6 Flutter project skeleton at `mobile/` (`flutter create`, package name `agentdesk`), placeholder home screen. Done when `flutter analyze` and `flutter test` pass.
+- [x] P1.7 README: how to build/test both halves.
 
 ### Validation
 
-- [~] P1.T1 Serde round-trip test for every message type and for `Event` / `RawAgentEvent` / `QueueEntry`. (`Event`, `RawAgentEvent` done; `QueueEntry` and messages pending P1.4/P1.5)
+- [x] P1.T1 Serde round-trip test for every message type and for `Event` / `RawAgentEvent` / `QueueEntry`.
 - [x] P1.T2 Unknown fields are ignored on decode; missing required fields are rejected (one test each on `Event`).
 - [x] P1.T3 `Category` serialises to exactly `request | error | completed | working`; `Operation` to the six documented values.
 
@@ -235,11 +235,11 @@ Committed, reproducible measurement showing both reduction and full important-ev
 ### Tasks
 
 - [ ] P6.1 `agentdesk-server`: `tokio-tungstenite` listener; per-connection task with a bounded outbound channel implementing `TransportSink`; registers with the core task.
-- [ ] P6.2 Handshake: first frame must be `hello`; constant-time token compare; `welcome` (with `mode`) then `snapshot`; close `4001` on failure, `4002` on schema mismatch.
+- [ ] P6.2 Handshake: first frame must be `hello`; constant-time token compare; `welcome` (with `pipeline_mode` and `transport`) then `snapshot`; close `4001` on failure, `4002` on schema mismatch.
 - [ ] P6.3 Request/reply dispatch with `request_id` echo; `error` reply for malformed frames; `get_event_details` marks `seen`.
 - [ ] P6.4 Slow-client handling: full outbound channel ⇒ close `4003`, counted in `slow_client_disconnects`.
 - [ ] P6.5 Token lifecycle: generate 256-bit token on first run into the config dir (`0600`); `agentdesk token show|rotate`; refuse non-loopback bind without a token.
-- [ ] P6.6 `--insecure-dev`: plain `ws://`, forced `127.0.0.1`, loud warning, `mode: "insecure_dev"` in `welcome`. Rejected in combination with any other bind address.
+- [ ] P6.6 `--insecure-dev`: plain `ws://`, forced `127.0.0.1`, loud warning, `transport: "insecure_dev"` in `welcome`. Rejected in combination with any other bind address.
 - [ ] P6.7 `agentdesk` binary: `run --scenario --seed --mode [--insecure-dev]` wiring simulator + core + server; startup prints address and token.
 - [ ] P6.8 Logging: token and payload contents never at info level; document the debug flag.
 
@@ -274,7 +274,7 @@ A test client can connect over loopback, receive snapshot and pushes, page logs,
 - [ ] P7.4 Home screen: four sections in tier order; entry shows category colour, agent, project, summary, message; escalation badge for `escalation_level ≥ 1`; "still blocking" indicator for dismissed-but-unresolved requests; empty-state copy.
 - [ ] P7.5 Event screen: Level 2 details; sends `get_event_details` on open; `Approve`/`Deny` for requests; `Dismiss`; `View logs`; shows `command_result` errors inline.
 - [ ] P7.6 Log viewer: tail-first page, "load earlier" paging backwards, "earlier logs no longer available" on `evicted`.
-- [ ] P7.7 Debug screen: connection status, `mode` banner (red for `insecure_dev`), client counters `summaries_rendered`, `taps`, `log_pages_requested`, laptop `get_metrics` result.
+- [ ] P7.7 Debug screen: connection status, `transport` banner (red for `insecure_dev`), client counters `summaries_rendered`, `taps`, `log_pages_requested`, laptop `get_metrics` result.
 - [ ] P7.8 Update ARCHITECTURE.md mobile section if the screen structure changed.
 
 ### Validation
