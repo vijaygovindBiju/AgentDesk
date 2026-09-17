@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = [
+    "agentdesk-model",
+    "agentdesk-core",
+    "agentdesk-sim",
+    "agentdesk-server",
+    "agentdesk-bench",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/placeholder/AgentDesk"
+
+[workspace.dependencies]
+agentdesk-model = { path = "agentdesk-model" }
+agentdesk-core = { path = "agentdesk-core" }
+agentdesk-sim = { path = "agentdesk-sim" }
