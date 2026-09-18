@@ -41,7 +41,7 @@ The Git history should read as a readable development history of AgentDesk.
 | **Current Phase** | Phase 6 — Transport server (token, development mode) (awaiting approval to start) |
 | **Current Task** | — |
 | **Next Action** | On approval, start Phase 6 with P6.1: `agentdesk-server`: `tokio-tungstenite` listener; per-connection task with a bounded outbound channel implementing `TransportSink`; registers with the core task. |
-| **Last Commit** | `048222d` `docs(todo): record commit c6d7dde for phase 4 completion` |
+| **Last Commit** | `217ac6b` `feat(bench): implement measurement bench, fake client, and multi-mode reporting` |
 | **Overall MVP progress** | Phases 0–5 complete · 5 / 9 implementation phases · 60 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
@@ -190,7 +190,7 @@ Core runs headless from a simulator to a sink, deterministically, in all three m
 
 ---
 
-## Phase 5 — Measurement bench (complete)
+## Phase 5 — Measurement bench (complete · commit 217ac6b)
 
 **Goal**: answer the core question numerically before building any UI: does `agentdesk` mode transmit and surface materially less than `raw_events` and `raw_lines` on the same seeded run?
 
