@@ -41,7 +41,7 @@ The Git history should read as a readable development history of AgentDesk.
 | **Current Phase** | Phase 7 — Flutter client (awaiting approval to start) |
 | **Current Task** | — |
 | **Next Action** | On approval, start Phase 7 with P7.1: Dart models mirroring `agentdesk-model` (hand-written) with `fromJson`/`toJson`. |
-| **Last Commit** | `0ebf623` `docs(todo): record commit 217ac6b for phase 5 completion` |
+| **Last Commit** | `1837dad` `feat(server): implement transport server with token handshake, request dispatch, and insecure-dev mode` |
 | **Overall MVP progress** | Phases 0–6 complete · 6 / 9 implementation phases · 70 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
@@ -226,7 +226,7 @@ Committed, reproducible measurement showing both reduction and full important-ev
 
 ---
 
-## Phase 6 — Transport server (token, development mode) (complete)
+## Phase 6 — Transport server (token, development mode) (complete · commit 1837dad)
 
 **Goal**: expose the core over WebSocket with the full message catalogue and token authentication, using the loopback-only `--insecure-dev` mode so the Flutter client can be developed before TLS lands.
 
