@@ -17,6 +17,9 @@ version = "0.1.0"
 dependencies = [
  "agentdesk-model",
  "chrono",
+ "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]

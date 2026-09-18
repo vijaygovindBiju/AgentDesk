@@ -1,5 +1,19 @@
 # AgentDesk — Changelog
 
+## 2026-09-18
+
+### Added
+
+- Phase 3 complete: synchronous event pipeline in `agentdesk-core`:
+  - `LogStore`: bounded per-agent ring buffer with monotonic line offsets, tailing, paging, pin windows (`[start-200, end+50]`) surviving ring eviction, and eviction detection.
+  - `EventStore`: immutable in-memory storage for classified events.
+  - `scoring`: pure scoring function calculating severity base, recency decay (30 min window), escalation bonus, and seen/resolved penalties clamped to 0..=100.
+  - `PriorityQueue`: ordered snapshot by `(tier asc, score desc, seq desc)`, periodic tick re-scoring emitting deltas, and state machine (`ack`, `dismiss`, `respond_request`, `escalate`, `supersede`).
+  - `EventProcessor`: strictly increasing global `seq`, `agent_seq` preservation, `log_range` attachment, classification, log pinning for Request/Error, and metrics tracking.
+  - `Metrics`: flat diagnostic and measurement counters with JSON snapshotting.
+  - `Pipeline`: synchronous composite binding processor, event store, queue, log store, and metrics.
+  - Test coverage: 35 unit/property tests in `agentdesk-core` and end-to-end scenario pipeline test in `agentdesk-sim`.
+
 ## 2026-09-17
 
 ### Added

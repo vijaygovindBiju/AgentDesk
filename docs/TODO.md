@@ -37,10 +37,10 @@ The Git history should read as a readable development history of AgentDesk.
 
 | | |
 |---|---|
-| **Current Phase** | Phase 3 — Event pipeline (awaiting approval to start) |
+| **Current Phase** | Phase 4 — Runtime: core task, time, escalation, modes (awaiting approval to start) |
 | **Current Task** | — |
-| **Next Action** | On approval, start Phase 3 with P3.1: Log Store (per-agent ring buffer, offsets, paging, pins) in `agentdesk-core`. |
-| **Overall MVP progress** | Phases 0–2 complete · 2 / 9 implementation phases · 23 % of checklist items |
+| **Next Action** | On approval, start Phase 4 with P4.1: `Clock` trait with real and virtual implementations; `tokio` runtime added to `agentdesk-core`. |
+| **Overall MVP progress** | Phases 0–3 complete · 3 / 9 implementation phases · 38 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -120,7 +120,7 @@ Classifier and simulator fully tested; default scenario committed; EVENT_MODEL.m
 
 ---
 
-## Phase 3 — Event pipeline (synchronous core)
+## Phase 3 — Event pipeline (synchronous core) (complete)
 
 **Goal**: turn `RawAgentEvent`s into stored, classified, queued, scored events with log references — the heart of the hypothesis.
 
@@ -130,24 +130,24 @@ Classifier and simulator fully tested; default scenario committed; EVENT_MODEL.m
 
 ### Tasks
 
-- [ ] P3.1 Log Store: per-agent ring buffer with monotonically increasing offsets, `append`, `page(offset, limit)`, `tail(limit)`, `pin(event_id, range)`, `evicted` detection. Configurable capacity (default 10 000) and pin window (200 before / 50 after), page cap 500.
-- [ ] P3.2 Event Store: `insert`, `get`, immutable after insert.
-- [ ] P3.3 Scoring: `score(entry, event, now) -> u16` with the constants in EVENT_MODEL.md in one module.
-- [ ] P3.4 Priority Queue: `QueueEntry` map; `insert`, `ordered_snapshot()` by `(tier, score desc, seq desc)`; `rescore(now) -> Vec<ScoreUpdate>` returning only changed entries; state machine `ack/dismiss/respond/supersede/escalate` returning `StateUpdate` or a typed error (`no_such_event`, `not_a_request`, `already_resolved`).
-- [ ] P3.5 Event Processor: assigns `event_id`, global `seq`, `ts`, `log_range`; calls classifier; pins logs for `request`/`error`; inserts into Event Store and Queue; returns the `Event` and side-effects.
-- [ ] P3.6 Metrics struct with the counters listed in ARCHITECTURE.md, incremented by the processor/queue/log store; `snapshot() -> serde_json::Value`.
-- [ ] P3.7 Update DATA_MODEL.md / EVENT_MODEL.md if any field changed while implementing.
+- [x] P3.1 Log Store: per-agent ring buffer with monotonically increasing offsets, `append`, `page(offset, limit)`, `tail(limit)`, `pin(event_id, range)`, `evicted` detection. Configurable capacity (default 10 000) and pin window (200 before / 50 after), page cap 500.
+- [x] P3.2 Event Store: `insert`, `get`, immutable after insert.
+- [x] P3.3 Scoring: `score(entry, event, now) -> u16` with the constants in EVENT_MODEL.md in one module.
+- [x] P3.4 Priority Queue: `QueueEntry` map; `insert`, `ordered_snapshot()` by `(tier, score desc, seq desc)`; `rescore(now) -> Vec<ScoreUpdate>` returning only changed entries; state machine `ack/dismiss/respond/supersede/escalate` returning `StateUpdate` or a typed error (`no_such_event`, `not_a_request`, `already_resolved`).
+- [x] P3.5 Event Processor: assigns `event_id`, global `seq`, `ts`, `log_range`; calls classifier; pins logs for `request`/`error`; inserts into Event Store and Queue; returns the `Event` and side-effects.
+- [x] P3.6 Metrics struct with the counters listed in ARCHITECTURE.md, incremented by the processor/queue/log store; `snapshot() -> serde_json::Value`.
+- [x] P3.7 Update DATA_MODEL.md / EVENT_MODEL.md if any field changed while implementing.
 
 ### Validation
 
-- [ ] P3.T1 Log Store: eviction keeps offsets increasing; tail returns true start offset; `evicted: true` when appropriate; pinned window survives full rotation; window clamps at buffer start; `limit` capped; `limit: 0` ⇒ empty ok.
-- [ ] P3.T2 Queue ordering test + property test: different tiers ⇒ lower tier first regardless of score/escalation/state.
-- [ ] P3.T3 Property test: within Working, escalation level 1 outscores level 0 of equal age; level 2 outscores level 1.
-- [ ] P3.T4 Scoring: recency decays to 0 at 30 min and not below; seen and resolved penalties applied; clamp 0..=100.
-- [ ] P3.T5 State machine: all transitions in SYSTEM_DESIGN.md incl. idempotent ack, dismiss-from-new, `resolution` independent of `state`, error variants.
-- [ ] P3.T6 Dismissed/superseded excluded from snapshot but fetchable from Event Store.
-- [ ] P3.T7 Processor: strictly increasing `seq`; `agent_seq` preserved; `log_range` matches ring offsets; pins only for request/error; malformed raw event dropped and counted.
-- [ ] P3.T8 Pipeline test driven by the simulator: every Request/Error in the scenario appears exactly once in the queue.
+- [x] P3.T1 Log Store: eviction keeps offsets increasing; tail returns true start offset; `evicted: true` when appropriate; pinned window survives full rotation; window clamps at buffer start; `limit` capped; `limit: 0` ⇒ empty ok.
+- [x] P3.T2 Queue ordering test + property test: different tiers ⇒ lower tier first regardless of score/escalation/state.
+- [x] P3.T3 Property test: within Working, escalation level 1 outscores level 0 of equal age; level 2 outscores level 1.
+- [x] P3.T4 Scoring: recency decays to 0 at 30 min and not below; seen and resolved penalties applied; clamp 0..=100.
+- [x] P3.T5 State machine: all transitions in SYSTEM_DESIGN.md incl. idempotent ack, dismiss-from-new, `resolution` independent of `state`, error variants.
+- [x] P3.T6 Dismissed/superseded excluded from snapshot but fetchable from Event Store.
+- [x] P3.T7 Processor: strictly increasing `seq`; `agent_seq` preserved; `log_range` matches ring offsets; pins only for request/error; malformed raw event dropped and counted.
+- [x] P3.T8 Pipeline test driven by the simulator: every Request/Error in the scenario appears exactly once in the queue.
 
 ### Exit criteria
 
