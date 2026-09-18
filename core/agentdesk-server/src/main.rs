@@ -1,3 +1,194 @@
-fn main() {
-    println!("agentdesk daemon: not implemented yet (see docs/TODO.md)");
+//! Main executable for the AgentDesk daemon.
+//! See docs/TODO.md Phase 6 and docs/COMMUNICATION.md.
+
+use std::fs;
+use std::sync::Arc;
+use std::time::Duration;
+
+use agentdesk_core::{
+    Adapter, AdapterCommand, Clock, CoreCommand, CoreTask, LogStoreConfig, SystemClock,
+    ThresholdTable,
+};
+use agentdesk_server::{
+    default_config_dir, load_or_generate_token, parse_args, print_help, rotate_token,
+    set_log_level, token_path, CliCommand, LogLevel, RunOptions, Server, ServerConfig,
+    TokenOptions,
+};
+use agentdesk_sim::{Scenario, Simulator};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<String> = std::env::args().collect();
+    let command = match parse_args(args) {
+        Ok(cmd) => cmd,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            eprintln!();
+            print_help();
+            std::process::exit(1);
+        }
+    };
+
+    match command {
+        CliCommand::Help => {
+            print_help();
+            Ok(())
+        }
+        CliCommand::TokenShow(opts) => {
+            handle_token_show(opts)?;
+            Ok(())
+        }
+        CliCommand::TokenRotate(opts) => {
+            handle_token_rotate(opts)?;
+            Ok(())
+        }
+        CliCommand::Run(opts) => {
+            handle_run(opts).await?;
+            Ok(())
+        }
+    }
+}
+
+fn handle_token_show(opts: TokenOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = opts.config_dir.unwrap_or_else(default_config_dir);
+    let path = token_path(&config_dir);
+    let token = load_or_generate_token(&path)?;
+    println!("{}", token);
+    Ok(())
+}
+
+fn handle_token_rotate(opts: TokenOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = opts.config_dir.unwrap_or_else(default_config_dir);
+    let path = token_path(&config_dir);
+    let token = rotate_token(&path)?;
+    println!("{}", token);
+    Ok(())
+}
+
+async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> {
+    if opts.debug {
+        set_log_level(LogLevel::Debug);
+    }
+
+    let config_dir = opts.config_dir.clone().unwrap_or_else(default_config_dir);
+    let token_file = token_path(&config_dir);
+
+    // Resolve or generate token
+    let token = match opts.token {
+        Some(t) => t,
+        None => load_or_generate_token(&token_file)?,
+    };
+
+    let server_config = ServerConfig {
+        bind_addr: opts.bind.clone(),
+        port: opts.port,
+        token: token.clone(),
+        insecure_dev: opts.insecure_dev,
+        pipeline_mode: opts.mode,
+        outbound_capacity: agentdesk_server::DEFAULT_OUTBOUND_CAPACITY,
+        debug_logging: opts.debug,
+    };
+
+    if let Err(e) = server_config.validate() {
+        eprintln!("Configuration error: {}", e);
+        std::process::exit(1);
+    }
+
+    // Load scenario
+    let scenario = if let Some(path) = &opts.scenario {
+        let content = fs::read_to_string(path)?;
+        Scenario::from_json(&content)?
+    } else {
+        Scenario::default_scenario()
+    };
+
+    let clock = Arc::new(SystemClock);
+    let start_time = clock.now();
+    let mut sim = Simulator::new(scenario, opts.seed, start_time);
+
+    let (tx_adapter, mut rx_adapter) = tokio::sync::mpsc::channel(64);
+    let (tx_core, rx_core) = tokio::sync::mpsc::channel(256);
+
+    let mut core = CoreTask::with_seed(
+        opts.mode,
+        clock.clone(),
+        opts.seed,
+        LogStoreConfig::default(),
+        ThresholdTable::default(),
+        Some(tx_adapter),
+    );
+    core.register_agents(sim.agents());
+
+    // Spawn core task
+    let core_sender = tx_core.clone();
+    tokio::spawn(core.run(rx_core));
+
+    // Bind server listener
+    let server = Server::bind(server_config, core_sender.clone(), clock.clone()).await?;
+    let local_addr = server.local_addr();
+
+    // P6.7: Startup prints address and token
+    println!("============================================================");
+    println!(" AgentDesk Daemon started");
+    println!(" Address: ws://{}", local_addr);
+    println!(" Mode:    {:?}", opts.mode);
+    println!(" Token:   {}", token);
+    if opts.insecure_dev {
+        println!(" Note:    --insecure-dev mode active (loopback plain ws://)");
+    }
+    println!("============================================================");
+
+    // Spawn server accept loop
+    let server_handle = tokio::spawn(async move {
+        if let Err(e) = server.run().await {
+            eprintln!("Server error: {}", e);
+        }
+    });
+
+    // Spawn tick generator (every 10 seconds)
+    let tick_sender = core_sender.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            if tick_sender.send(CoreCommand::Tick).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Simulator driving loop
+    let sim_sender = core_sender.clone();
+    tokio::spawn(async move {
+        loop {
+            let now = chrono::Utc::now();
+            let outputs = sim.poll(now);
+            for out in outputs {
+                if sim_sender.send(CoreCommand::Adapter(out)).await.is_err() {
+                    return;
+                }
+            }
+
+            // Check if any adapter responses arrived
+            tokio::select! {
+                adapter_cmd = rx_adapter.recv() => {
+                    if let Some(AdapterCommand::Respond { task_id, decision, now }) = adapter_cmd {
+                        let _ = sim.respond(&task_id, decision, now);
+                    }
+                }
+                _ = tokio::time::sleep(Duration::from_millis(50)) => {}
+            }
+        }
+    });
+
+    // Wait for server or shutdown signal
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            println!("\nReceived Ctrl-C, shutting down AgentDesk...");
+            let _ = core_sender.send(CoreCommand::Shutdown).await;
+        }
+        _ = server_handle => {}
+    }
+
+    Ok(())
 }

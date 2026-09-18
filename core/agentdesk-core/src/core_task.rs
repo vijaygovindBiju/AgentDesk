@@ -188,6 +188,14 @@ impl CoreTask {
             CoreCommand::SendSnapshot { client_id } => {
                 if self.mode == PipelineMode::Agentdesk {
                     self.send_snapshot(client_id);
+                } else {
+                    self.send_to(
+                        client_id,
+                        Message::push(Body::Snapshot(Snapshot {
+                            entries: Vec::new(),
+                            events: Vec::new(),
+                        })),
+                    );
                 }
             }
             CoreCommand::Shutdown => {}

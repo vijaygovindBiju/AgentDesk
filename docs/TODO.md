@@ -38,11 +38,11 @@ The Git history should read as a readable development history of AgentDesk.
 
 | | |
 |---|---|
-| **Current Phase** | Phase 6 — Transport server (token, development mode) (awaiting approval to start) |
+| **Current Phase** | Phase 7 — Flutter client (awaiting approval to start) |
 | **Current Task** | — |
-| **Next Action** | On approval, start Phase 6 with P6.1: `agentdesk-server`: `tokio-tungstenite` listener; per-connection task with a bounded outbound channel implementing `TransportSink`; registers with the core task. |
-| **Last Commit** | `217ac6b` `feat(bench): implement measurement bench, fake client, and multi-mode reporting` |
-| **Overall MVP progress** | Phases 0–5 complete · 5 / 9 implementation phases · 60 % of checklist items |
+| **Next Action** | On approval, start Phase 7 with P7.1: Dart models mirroring `agentdesk-model` (hand-written) with `fromJson`/`toJson`. |
+| **Last Commit** | `0ebf623` `docs(todo): record commit 217ac6b for phase 5 completion` |
+| **Overall MVP progress** | Phases 0–6 complete · 6 / 9 implementation phases · 70 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -226,7 +226,7 @@ Committed, reproducible measurement showing both reduction and full important-ev
 
 ---
 
-## Phase 6 — Transport server (token, development mode)
+## Phase 6 — Transport server (token, development mode) (complete)
 
 **Goal**: expose the core over WebSocket with the full message catalogue and token authentication, using the loopback-only `--insecure-dev` mode so the Flutter client can be developed before TLS lands.
 
@@ -236,27 +236,27 @@ Committed, reproducible measurement showing both reduction and full important-ev
 
 ### Tasks
 
-- [ ] P6.1 `agentdesk-server`: `tokio-tungstenite` listener; per-connection task with a bounded outbound channel implementing `TransportSink`; registers with the core task.
-- [ ] P6.2 Handshake: first frame must be `hello`; constant-time token compare; `welcome` (with `pipeline_mode` and `transport`) then `snapshot`; close `4001` on failure, `4002` on schema mismatch.
-- [ ] P6.3 Request/reply dispatch with `request_id` echo; `error` reply for malformed frames; `get_event_details` marks `seen`.
-- [ ] P6.4 Slow-client handling: full outbound channel ⇒ close `4003`, counted in `slow_client_disconnects`.
-- [ ] P6.5 Token lifecycle: generate 256-bit token on first run into the config dir (`0600`); `agentdesk token show|rotate`; refuse non-loopback bind without a token.
-- [ ] P6.6 `--insecure-dev`: plain `ws://`, forced `127.0.0.1`, loud warning, `transport: "insecure_dev"` in `welcome`. Rejected in combination with any other bind address.
-- [ ] P6.7 `agentdesk` binary: `run --scenario --seed --mode [--insecure-dev]` wiring simulator + core + server; startup prints address and token.
-- [ ] P6.8 Logging: token and payload contents never at info level; document the debug flag.
+- [x] P6.1 `agentdesk-server`: `tokio-tungstenite` listener; per-connection task with a bounded outbound channel implementing `TransportSink`; registers with the core task.
+- [x] P6.2 Handshake: first frame must be `hello`; constant-time token compare; `welcome` (with `pipeline_mode` and `transport`) then `snapshot`; close `4001` on failure, `4002` on schema mismatch.
+- [x] P6.3 Request/reply dispatch with `request_id` echo; `error` reply for malformed frames; `get_event_details` marks `seen`.
+- [x] P6.4 Slow-client handling: full outbound channel ⇒ close `4003`, counted in `slow_client_disconnects`.
+- [x] P6.5 Token lifecycle: generate 256-bit token on first run into the config dir (`0600`); `agentdesk token show|rotate`; refuse non-loopback bind without a token.
+- [x] P6.6 `--insecure-dev`: plain `ws://`, forced `127.0.0.1`, loud warning, `transport: "insecure_dev"` in `welcome`. Rejected in combination with any other bind address.
+- [x] P6.7 `agentdesk` binary: `run --scenario --seed --mode [--insecure-dev]` wiring simulator + core + server; startup prints address and token.
+- [x] P6.8 Logging: token and payload contents never at info level; document the debug flag.
 
 ### Validation
 
-- [ ] P6.T1 Handshake tests: correct token, wrong token, non-hello first frame, schema mismatch.
-- [ ] P6.T2 Every request type gets exactly one reply with the same `request_id`.
-- [ ] P6.T3 Malformed JSON ⇒ `error`, connection stays open.
-- [ ] P6.T4 Slow client ⇒ `4003`, core keeps processing (assert later events still reach a second client).
-- [ ] P6.T5 `--insecure-dev` with a non-loopback bind is rejected at startup.
-- [ ] P6.T6 Captured logs at default level contain no token.
+- [x] P6.T1 Handshake tests: correct token, wrong token, non-hello first frame, schema mismatch.
+- [x] P6.T2 Every request type gets exactly one reply with the same `request_id`.
+- [x] P6.T3 Malformed JSON ⇒ `error`, connection stays open.
+- [x] P6.T4 Slow client ⇒ `4003`, core keeps processing (assert later events still reach a second client).
+- [x] P6.T5 `--insecure-dev` with a non-loopback bind is rejected at startup.
+- [x] P6.T6 Captured logs at default level contain no token.
 
 ### Exit criteria
 
-A test client can connect over loopback, receive snapshot and pushes, page logs, approve a request, and observe the simulator continue.
+A test client can connect over loopback, receive snapshot and pushes, page logs, approve a request, and observe the simulator continue. Verified by `phase6_exit_criteria_end_to_end` test.
 
 ---
 

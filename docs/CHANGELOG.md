@@ -4,6 +4,15 @@
 
 ### Added
 
+- Phase 6 complete: Transport server (token authentication, development mode) in `agentdesk-server`:
+  - `Server` & `ServerConfig`: WebSocket listener using `tokio-tungstenite` exposing `CoreTask` over WebSocket (`ws://`). Supports configurable bind address, port, and `--insecure-dev` mode strictly locked to `127.0.0.1` (P6.1, P6.6).
+  - Token authentication & lifecycle: 256-bit cryptographically secure token generated on first run and stored with `0600` permissions (`0700` parent dir) under config directory; CLI commands `agentdesk token show` and `agentdesk token rotate`; constant-time token verification using `subtle::ConstantTimeEq`; non-loopback bind without token rejected (P6.2, P6.5).
+  - Handshake protocol: first frame validation requiring `hello`; unauthorized or non-hello first frame closed with `4001` (`close_code::UNAUTHORIZED`); schema mismatch closed with `4002` (`close_code::SCHEMA_MISMATCH`); on success, returns `welcome` followed immediately by core `snapshot` (P6.2).
+  - Request/reply dispatch & error handling: bidirectional routing between WebSocket clients and `CoreTask` actor via `CoreCommand::Client`, echoing `request_id` on replies; malformed JSON frames return `error` replies while keeping the socket connection open; `get_event_details` marks entries `seen` (P6.3).
+  - Slow-client protection: bounded outbound channel (`ServerConnectionSink` implementing `TransportSink`); channel overflow terminates slow connection with close code `4003` (`close_code::SLOW_CLIENT`) and increments `slow_client_disconnects` in metrics while core continues processing (P6.4).
+  - Main binary CLI: `agentdesk run --scenario <path> --seed <u64> --mode <mode> [--insecure-dev] [--bind <addr>] [--port <port>] [--debug]` wiring simulator, core task, and WebSocket server; startup prints bind address, mode, and token (P6.7).
+  - Safe logging: tokens and raw payload contents never logged at `info` level; opt-in `--debug` flag for payload inspection (P6.8).
+  - Test coverage: 15 unit and integration tests verifying handshake security, all request/reply pairs, malformed JSON recovery, slow-client overflow termination, `--insecure-dev` bind restrictions, token privacy in logs, and end-to-end exit criteria (P6.T1–P6.T6).
 - Phase 5 complete: Measurement bench in `agentdesk-bench`:
   - `ScenarioGroundTruth`: Ground truth event and escalation export directly from scenario definition in `agentdesk-sim` (P5.4).
   - `FakeClient`: Scripted client tap policy (`TapPolicy::Default`) tracking `summaries_rendered`, `taps`, `log_pages_requested`, `duplicates`, and observed escalations (P5.2).
