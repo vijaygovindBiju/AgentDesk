@@ -38,11 +38,11 @@ The Git history should read as a readable development history of AgentDesk.
 
 | | |
 |---|---|
-| **Current Phase** | Phase 4 — Runtime: core task, time, escalation, modes (awaiting approval to start) |
+| **Current Phase** | Phase 5 — Measurement bench (awaiting approval to start) |
 | **Current Task** | — |
-| **Next Action** | On approval, start Phase 4 with P4.1: `Clock` trait with real and virtual implementations; `tokio` runtime added to `agentdesk-core`. |
-| **Last Commit** | `df1bd03` `docs(todo): add git commit recording to checkpoint rule and track commits` |
-| **Overall MVP progress** | Phases 0–3 complete · 3 / 9 implementation phases · 38 % of checklist items |
+| **Next Action** | On approval, start Phase 5 with P5.1: `agentdesk-bench` binary: args `--scenario --seed --mode --tap-policy`, runs the core task with a fake client sink. |
+| **Last Commit** | `ed17501` `docs(todo): add git commit recording to checkpoint rule and track commits` |
+| **Overall MVP progress** | Phases 0–4 complete · 4 / 9 implementation phases · 50 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -157,7 +157,7 @@ All Phase 3 tests green; memory bounded by configuration (asserted by a test tha
 
 ---
 
-## Phase 4 — Runtime: core task, time, escalation, modes
+## Phase 4 — Runtime: core task, time, escalation, modes (complete)
 
 **Goal**: run the pipeline as a single async core task with a clock, tick-driven re-scoring and escalation, a transport-sink abstraction, and the three pipeline modes.
 
@@ -167,22 +167,22 @@ All Phase 3 tests green; memory bounded by configuration (asserted by a test tha
 
 ### Tasks
 
-- [ ] P4.1 `Clock` trait with real and virtual implementations; `tokio` runtime added to `agentdesk-core`.
-- [ ] P4.2 Task Tracker: open/close tasks by `task_id`; per-operation threshold table (EVENT_MODEL.md) injected; on tick, escalate latest Working entry 0→1→2 and stop; on close, supersede the task's Working entries.
-- [ ] P4.3 `TransportSink` trait: `send(&Message)` returning bytes written; `CountingSink`/`VecSink` for tests; all outbound frames go through it (this is where `transmitted_events`/`transmitted_bytes` are counted).
-- [ ] P4.4 Core task: owns Event Store, Queue, Log Store, Tracker, Metrics; `mpsc` inbox for `AdapterOutput`, `ClientCommand { client_id, Message }`, `Tick`; dispatches replies/pushes to sinks by `client_id` / broadcast. No shared mutexes on core state.
-- [ ] P4.5 Pipeline mode enum `raw_lines | raw_events | agentdesk` selected at core construction; `raw_*` modes bypass processor/queue and forward directly to sinks while still counting metrics.
-- [ ] P4.6 `get_metrics` handled by the core task.
-- [ ] P4.7 Request response path: `respond_request` reaches the adapter (`respond(task_id, decision)`) so the simulator unblocks.
-- [ ] P4.8 SYSTEM_DESIGN.md concurrency section updated to match the implemented channel layout.
+- [x] P4.1 `Clock` trait with real and virtual implementations; `tokio` runtime added to `agentdesk-core`.
+- [x] P4.2 Task Tracker: open/close tasks by `task_id`; per-operation threshold table (EVENT_MODEL.md) injected; on tick, escalate latest Working entry 0→1→2 and stop; on close, supersede the task's Working entries.
+- [x] P4.3 `TransportSink` trait: `send(&Message)` returning bytes written; `CountingSink`/`VecSink` for tests; all outbound frames go through it (this is where `transmitted_events`/`transmitted_bytes` are counted).
+- [x] P4.4 Core task: owns Event Store, Queue, Log Store, Tracker, Metrics; `mpsc` inbox for `AdapterOutput`, `ClientCommand { client_id, Message }`, `Tick`; dispatches replies/pushes to sinks by `client_id` / broadcast. No shared mutexes on core state.
+- [x] P4.5 Pipeline mode enum `raw_lines | raw_events | agentdesk` selected at core construction; `raw_*` modes bypass processor/queue and forward directly to sinks while still counting metrics.
+- [x] P4.6 `get_metrics` handled by the core task.
+- [x] P4.7 Request response path: `respond_request` reaches the adapter (`respond(task_id, decision)`) so the simulator unblocks.
+- [x] P4.8 SYSTEM_DESIGN.md concurrency section updated to match the implemented channel layout.
 
 ### Validation
 
-- [ ] P4.T1 Tracker: escalates at `expected` and `2×expected`, never a third time; closing event supersedes and stops escalation; task without Working never escalates; event without `task_id` never tracked.
-- [ ] P4.T2 Tick emits `score_update` only for changed entries.
-- [ ] P4.T3 Core task end-to-end with virtual clock and `VecSink`: simulator scenario ⇒ ordered outbound messages; golden-file comparison.
-- [ ] P4.T4 Mode test: `raw_events` forwards every raw event; `raw_lines` forwards every line; `agentdesk` forwards only queue-derived messages.
-- [ ] P4.T5 A `respond_request` on a blocked simulated task resumes it and produces the subsequent completion event.
+- [x] P4.T1 Tracker: escalates at `expected` and `2×expected`, never a third time; closing event supersedes and stops escalation; task without Working never escalates; event without `task_id` never tracked.
+- [x] P4.T2 Tick emits `score_update` only for changed entries.
+- [x] P4.T3 Core task end-to-end with virtual clock and `VecSink`: simulator scenario ⇒ ordered outbound messages; golden-file comparison.
+- [x] P4.T4 Mode test: `raw_events` forwards every raw event; `raw_lines` forwards every line; `agentdesk` forwards only queue-derived messages.
+- [x] P4.T5 A `respond_request` on a blocked simulated task resumes it and produces the subsequent completion event.
 
 ### Exit criteria
 

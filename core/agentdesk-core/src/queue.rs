@@ -78,6 +78,7 @@ impl PriorityQueue {
                 }
             }
         }
+        updates.sort_by_key(|u| u.event_id);
         updates
     }
 

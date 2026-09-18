@@ -115,7 +115,30 @@ The same seed and scenario are run in all three; the bench (`agentdesk-bench`) u
 
 ## Concurrency model (laptop)
 
-Single `tokio` runtime. Core state (Event Store, Queue, Log Store, Task Tracker, Metrics) is owned by one **core task** that receives messages over an `mpsc` channel from adapters, the tick, and connection tasks. Connection tasks only hold a sender to core and a receiver for their own outbound messages. No shared mutexes around core state. This keeps the pipeline deterministic for the bench and keeps a slow socket from blocking processing.
+Single `tokio` runtime. Core state (`EventStore`, `PriorityQueue`, `LogStore`, `TaskTracker`, `Metrics`) is entirely owned by one **core task** that runs a single-threaded event loop processing commands from an `mpsc::Receiver<CoreCommand>`.
+
+### Channel Layout & Commands
+
+1. **Inbox (`mpsc::Sender<CoreCommand>` / `CoreHandle`)**:
+   - `CoreCommand::Adapter(AdapterOutput)`: Ingestion of adapter output (`AdapterOutput::Line` or `AdapterOutput::Event`).
+   - `CoreCommand::Client { client_id, message }`: Client requests (`RespondRequest`, `AckEvent`, `DismissEvent`, `GetEventDetails`, `GetLogPage`, `GetMetrics`).
+   - `CoreCommand::Tick`: Periodic timer event triggering watchdog escalation checks and queue re-scoring.
+   - `CoreCommand::Connect { client_id, sink }`: Registers a new client `TransportSink`.
+   - `CoreCommand::Disconnect { client_id }`: Removes a disconnected client sink.
+   - `CoreCommand::SendSnapshot { client_id }`: Sends initial snapshot frame containing agents and live queue entries.
+   - `CoreCommand::Shutdown`: Signals graceful termination of the event loop.
+
+2. **Outbound Sinks (`TransportSink`)**:
+   - Each connected client registers a `Box<dyn TransportSink>` (e.g. `ChannelSink` in server mode, `VecSink`/`CountingSink` in bench/test mode).
+   - Point-to-point messages (command replies, requested log pages, details, snapshots, metrics) are dispatched directly to `client_id`.
+   - Live queue changes (`Event` push, `ScoreUpdate`, `StateUpdate`) are broadcast to all registered sinks.
+   - Sink writes update `Metrics.transmitted_events` and `Metrics.transmitted_bytes`.
+
+3. **Adapter Feedback (`mpsc::Sender<AdapterCommand>`)**:
+   - For interactive requests requiring approval, `respond_request` routes an `AdapterCommand::Respond { task_id, decision, now }` back to the adapter/simulator to unblock paused agent tasks.
+
+Zero shared mutexes are used around core state. This design guarantees deterministic replay during benchmarking and ensures slow client sockets never stall pipeline event processing.
+
 
 ## Offline behaviour (future, not MVP)
 

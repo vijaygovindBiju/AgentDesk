@@ -12,6 +12,9 @@ use agentdesk_model::{
     SCHEMA_VERSION,
 };
 
+use rand::rngs::StdRng;
+use rand::{RngExt, SeedableRng};
+
 use crate::classifier::{classify, Matched};
 use crate::event_store::EventStore;
 use crate::log_store::LogStore;
@@ -27,6 +30,7 @@ pub enum ProcessError {
 pub struct EventProcessor {
     next_seq: u64,
     agents: HashMap<AgentId, AgentInfo>,
+    rng: Option<StdRng>,
 }
 
 impl Default for EventProcessor {
@@ -40,6 +44,24 @@ impl EventProcessor {
         EventProcessor {
             next_seq: 0,
             agents: HashMap::new(),
+            rng: None,
+        }
+    }
+
+    pub fn with_seed(seed: u64) -> Self {
+        EventProcessor {
+            next_seq: 0,
+            agents: HashMap::new(),
+            rng: Some(StdRng::seed_from_u64(seed)),
+        }
+    }
+
+    fn next_event_id(&mut self) -> EventId {
+        if let Some(ref mut rng) = self.rng {
+            let bytes: [u8; 16] = rng.random();
+            uuid::Builder::from_random_bytes(bytes).into_uuid()
+        } else {
+            Uuid::new_v4()
         }
     }
 
@@ -117,7 +139,7 @@ impl EventProcessor {
         }
 
         // 3. Assign identity and strictly increasing global seq
-        let event_id: EventId = Uuid::new_v4();
+        let event_id: EventId = self.next_event_id();
         self.next_seq += 1;
         let seq = self.next_seq;
 

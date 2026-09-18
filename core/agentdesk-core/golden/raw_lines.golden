@@ -1,0 +1,1455 @@
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":0,"ts":"2026-01-01T00:00:00Z","text":"Reading auth_service.dart"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":1,"ts":"2026-01-01T00:00:00.400Z","text":"Reading token_store.dart"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":2,"ts":"2026-01-01T00:00:00.800Z","text":"Planning changes"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":3,"ts":"2026-01-01T00:00:01.200Z","text":"Editing auth_service.dart (1/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":4,"ts":"2026-01-01T00:00:01.779Z","text":"Editing auth_service.dart (2/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":0,"ts":"2026-01-01T00:00:02Z","text":"Resolving dependencies..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":1,"ts":"2026-01-01T00:00:02.250Z","text":"Downloading http 1.2.1..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":5,"ts":"2026-01-01T00:00:02.360Z","text":"Editing auth_service.dart (3/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":2,"ts":"2026-01-01T00:00:02.500Z","text":"Downloading provider 6.1.2..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":3,"ts":"2026-01-01T00:00:02.750Z","text":"Downloading go_router 14.2.0..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":6,"ts":"2026-01-01T00:00:02.956Z","text":"Editing auth_service.dart (4/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":4,"ts":"2026-01-01T00:00:03Z","text":"Downloading intl 0.19.0..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":5,"ts":"2026-01-01T00:00:03.250Z","text":"Downloading collection 1.18.0..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":6,"ts":"2026-01-01T00:00:03.500Z","text":"Downloading path 1.9.0..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":7,"ts":"2026-01-01T00:00:03.517Z","text":"Editing auth_service.dart (5/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":7,"ts":"2026-01-01T00:00:03.750Z","text":"Downloading meta 1.15.0..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":8,"ts":"2026-01-01T00:00:04Z","text":"Downloading vector_math 2.1.4..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":8,"ts":"2026-01-01T00:00:04.022Z","text":"Editing auth_service.dart (6/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":9,"ts":"2026-01-01T00:00:04.250Z","text":"Downloading characters 1.3.0..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":10,"ts":"2026-01-01T00:00:04.500Z","text":"Downloading material_color_utilities 0.11.1..."}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":9,"ts":"2026-01-01T00:00:04.584Z","text":"Editing auth_service.dart (7/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":11,"ts":"2026-01-01T00:00:04.750Z","text":"Got dependencies."}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":12,"ts":"2026-01-01T00:00:05Z","text":"Compiling 1/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":13,"ts":"2026-01-01T00:00:05.126Z","text":"Compiling 2/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":10,"ts":"2026-01-01T00:00:05.195Z","text":"Editing auth_service.dart (8/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":14,"ts":"2026-01-01T00:00:05.230Z","text":"Compiling 3/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":15,"ts":"2026-01-01T00:00:05.358Z","text":"Compiling 4/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":16,"ts":"2026-01-01T00:00:05.473Z","text":"Compiling 5/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":17,"ts":"2026-01-01T00:00:05.585Z","text":"Compiling 6/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":18,"ts":"2026-01-01T00:00:05.689Z","text":"Compiling 7/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":11,"ts":"2026-01-01T00:00:05.695Z","text":"Editing auth_service.dart (9/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":19,"ts":"2026-01-01T00:00:05.805Z","text":"Compiling 8/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":20,"ts":"2026-01-01T00:00:05.905Z","text":"Compiling 9/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":21,"ts":"2026-01-01T00:00:06.021Z","text":"Compiling 10/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":22,"ts":"2026-01-01T00:00:06.122Z","text":"Compiling 11/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":12,"ts":"2026-01-01T00:00:06.228Z","text":"Editing auth_service.dart (10/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":23,"ts":"2026-01-01T00:00:06.242Z","text":"Compiling 12/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":24,"ts":"2026-01-01T00:00:06.357Z","text":"Compiling 13/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":25,"ts":"2026-01-01T00:00:06.472Z","text":"Compiling 14/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":26,"ts":"2026-01-01T00:00:06.573Z","text":"Compiling 15/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":27,"ts":"2026-01-01T00:00:06.683Z","text":"Compiling 16/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":28,"ts":"2026-01-01T00:00:06.796Z","text":"Compiling 17/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":13,"ts":"2026-01-01T00:00:06.855Z","text":"Editing auth_service.dart (11/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":29,"ts":"2026-01-01T00:00:06.920Z","text":"Compiling 18/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":30,"ts":"2026-01-01T00:00:07.032Z","text":"Compiling 19/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":31,"ts":"2026-01-01T00:00:07.152Z","text":"Compiling 20/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":32,"ts":"2026-01-01T00:00:07.265Z","text":"Compiling 21/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":14,"ts":"2026-01-01T00:00:07.385Z","text":"Editing auth_service.dart (12/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":33,"ts":"2026-01-01T00:00:07.392Z","text":"Compiling 22/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":34,"ts":"2026-01-01T00:00:07.518Z","text":"Compiling 23/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":35,"ts":"2026-01-01T00:00:07.638Z","text":"Compiling 24/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":36,"ts":"2026-01-01T00:00:07.744Z","text":"Compiling 25/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":37,"ts":"2026-01-01T00:00:07.861Z","text":"Compiling 26/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":38,"ts":"2026-01-01T00:00:07.973Z","text":"Compiling 27/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":15,"ts":"2026-01-01T00:00:08.024Z","text":"Editing auth_service.dart (13/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":39,"ts":"2026-01-01T00:00:08.075Z","text":"Compiling 28/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":40,"ts":"2026-01-01T00:00:08.205Z","text":"Compiling 29/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":41,"ts":"2026-01-01T00:00:08.323Z","text":"Compiling 30/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":42,"ts":"2026-01-01T00:00:08.437Z","text":"Compiling 31/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":43,"ts":"2026-01-01T00:00:08.537Z","text":"Compiling 32/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":16,"ts":"2026-01-01T00:00:08.588Z","text":"Editing auth_service.dart (14/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":44,"ts":"2026-01-01T00:00:08.641Z","text":"Compiling 33/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":45,"ts":"2026-01-01T00:00:08.756Z","text":"Compiling 34/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":46,"ts":"2026-01-01T00:00:08.886Z","text":"Compiling 35/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":47,"ts":"2026-01-01T00:00:09.012Z","text":"Compiling 36/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":48,"ts":"2026-01-01T00:00:09.128Z","text":"Compiling 37/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":17,"ts":"2026-01-01T00:00:09.146Z","text":"Editing auth_service.dart (15/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":49,"ts":"2026-01-01T00:00:09.251Z","text":"Compiling 38/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":50,"ts":"2026-01-01T00:00:09.368Z","text":"Compiling 39/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":51,"ts":"2026-01-01T00:00:09.475Z","text":"Compiling 40/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":52,"ts":"2026-01-01T00:00:09.586Z","text":"Compiling 41/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":53,"ts":"2026-01-01T00:00:09.698Z","text":"Compiling 42/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":18,"ts":"2026-01-01T00:00:09.768Z","text":"Editing auth_service.dart (16/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":54,"ts":"2026-01-01T00:00:09.805Z","text":"Compiling 43/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":55,"ts":"2026-01-01T00:00:09.924Z","text":"Compiling 44/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":56,"ts":"2026-01-01T00:00:10.038Z","text":"Compiling 45/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":57,"ts":"2026-01-01T00:00:10.167Z","text":"Compiling 46/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":58,"ts":"2026-01-01T00:00:10.272Z","text":"Compiling 47/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":19,"ts":"2026-01-01T00:00:10.305Z","text":"Editing auth_service.dart (17/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":59,"ts":"2026-01-01T00:00:10.386Z","text":"Compiling 48/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":60,"ts":"2026-01-01T00:00:10.489Z","text":"Compiling 49/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":61,"ts":"2026-01-01T00:00:10.599Z","text":"Compiling 50/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":62,"ts":"2026-01-01T00:00:10.706Z","text":"Compiling 51/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":63,"ts":"2026-01-01T00:00:10.823Z","text":"Compiling 52/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":20,"ts":"2026-01-01T00:00:10.885Z","text":"Editing auth_service.dart (18/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":64,"ts":"2026-01-01T00:00:10.944Z","text":"Compiling 53/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":65,"ts":"2026-01-01T00:00:11.058Z","text":"Compiling 54/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":66,"ts":"2026-01-01T00:00:11.177Z","text":"Compiling 55/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":67,"ts":"2026-01-01T00:00:11.303Z","text":"Compiling 56/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":21,"ts":"2026-01-01T00:00:11.393Z","text":"Editing auth_service.dart (19/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":68,"ts":"2026-01-01T00:00:11.420Z","text":"Compiling 57/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":69,"ts":"2026-01-01T00:00:11.533Z","text":"Compiling 58/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":70,"ts":"2026-01-01T00:00:11.661Z","text":"Compiling 59/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":71,"ts":"2026-01-01T00:00:11.762Z","text":"Compiling 60/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":72,"ts":"2026-01-01T00:00:11.877Z","text":"Compiling 61/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":22,"ts":"2026-01-01T00:00:11.966Z","text":"Editing auth_service.dart (20/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":73,"ts":"2026-01-01T00:00:12Z","text":"Compiling 62/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":74,"ts":"2026-01-01T00:00:12.110Z","text":"Compiling 63/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":75,"ts":"2026-01-01T00:00:12.221Z","text":"Compiling 64/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":76,"ts":"2026-01-01T00:00:12.343Z","text":"Compiling 65/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":77,"ts":"2026-01-01T00:00:12.464Z","text":"Compiling 66/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":23,"ts":"2026-01-01T00:00:12.514Z","text":"Editing auth_service.dart (21/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":78,"ts":"2026-01-01T00:00:12.581Z","text":"Compiling 67/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":79,"ts":"2026-01-01T00:00:12.693Z","text":"Compiling 68/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":80,"ts":"2026-01-01T00:00:12.815Z","text":"Compiling 69/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":81,"ts":"2026-01-01T00:00:12.943Z","text":"Compiling 70/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":24,"ts":"2026-01-01T00:00:13.026Z","text":"Editing auth_service.dart (22/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":82,"ts":"2026-01-01T00:00:13.045Z","text":"Compiling 71/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":83,"ts":"2026-01-01T00:00:13.162Z","text":"Compiling 72/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":84,"ts":"2026-01-01T00:00:13.286Z","text":"Compiling 73/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":85,"ts":"2026-01-01T00:00:13.409Z","text":"Compiling 74/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":86,"ts":"2026-01-01T00:00:13.518Z","text":"Compiling 75/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":87,"ts":"2026-01-01T00:00:13.623Z","text":"Compiling 76/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":25,"ts":"2026-01-01T00:00:13.653Z","text":"Editing auth_service.dart (23/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":88,"ts":"2026-01-01T00:00:13.747Z","text":"Compiling 77/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":89,"ts":"2026-01-01T00:00:13.856Z","text":"Compiling 78/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":90,"ts":"2026-01-01T00:00:13.960Z","text":"Compiling 79/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":91,"ts":"2026-01-01T00:00:14.068Z","text":"Compiling 80/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":92,"ts":"2026-01-01T00:00:14.196Z","text":"Compiling 81/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":26,"ts":"2026-01-01T00:00:14.285Z","text":"Editing auth_service.dart (24/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":93,"ts":"2026-01-01T00:00:14.318Z","text":"Compiling 82/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":94,"ts":"2026-01-01T00:00:14.422Z","text":"Compiling 83/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":95,"ts":"2026-01-01T00:00:14.548Z","text":"Compiling 84/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":96,"ts":"2026-01-01T00:00:14.652Z","text":"Compiling 85/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":97,"ts":"2026-01-01T00:00:14.764Z","text":"Compiling 86/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":27,"ts":"2026-01-01T00:00:14.825Z","text":"Editing auth_service.dart (25/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":98,"ts":"2026-01-01T00:00:14.876Z","text":"Compiling 87/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":99,"ts":"2026-01-01T00:00:15.003Z","text":"Compiling 88/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":100,"ts":"2026-01-01T00:00:15.107Z","text":"Compiling 89/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":101,"ts":"2026-01-01T00:00:15.224Z","text":"Compiling 90/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":102,"ts":"2026-01-01T00:00:15.338Z","text":"Compiling 91/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":28,"ts":"2026-01-01T00:00:15.413Z","text":"Editing auth_service.dart (26/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":103,"ts":"2026-01-01T00:00:15.462Z","text":"Compiling 92/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":104,"ts":"2026-01-01T00:00:15.589Z","text":"Compiling 93/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":105,"ts":"2026-01-01T00:00:15.692Z","text":"Compiling 94/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":106,"ts":"2026-01-01T00:00:15.818Z","text":"Compiling 95/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":107,"ts":"2026-01-01T00:00:15.923Z","text":"Compiling 96/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":29,"ts":"2026-01-01T00:00:15.994Z","text":"Editing auth_service.dart (27/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":108,"ts":"2026-01-01T00:00:16.052Z","text":"Compiling 97/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":109,"ts":"2026-01-01T00:00:16.156Z","text":"Compiling 98/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":110,"ts":"2026-01-01T00:00:16.286Z","text":"Compiling 99/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":111,"ts":"2026-01-01T00:00:16.413Z","text":"Compiling 100/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":112,"ts":"2026-01-01T00:00:16.519Z","text":"Compiling 101/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":113,"ts":"2026-01-01T00:00:16.633Z","text":"Compiling 102/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":30,"ts":"2026-01-01T00:00:16.643Z","text":"Editing auth_service.dart (28/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":114,"ts":"2026-01-01T00:00:16.735Z","text":"Compiling 103/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":115,"ts":"2026-01-01T00:00:16.859Z","text":"Compiling 104/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":116,"ts":"2026-01-01T00:00:16.962Z","text":"Compiling 105/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":117,"ts":"2026-01-01T00:00:17.074Z","text":"Compiling 106/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":118,"ts":"2026-01-01T00:00:17.188Z","text":"Compiling 107/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":31,"ts":"2026-01-01T00:00:17.243Z","text":"Editing auth_service.dart (29/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":119,"ts":"2026-01-01T00:00:17.313Z","text":"Compiling 108/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":120,"ts":"2026-01-01T00:00:17.414Z","text":"Compiling 109/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":121,"ts":"2026-01-01T00:00:17.516Z","text":"Compiling 110/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":122,"ts":"2026-01-01T00:00:17.631Z","text":"Compiling 111/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":123,"ts":"2026-01-01T00:00:17.735Z","text":"Compiling 112/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":32,"ts":"2026-01-01T00:00:17.773Z","text":"Editing auth_service.dart (30/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":124,"ts":"2026-01-01T00:00:17.843Z","text":"Compiling 113/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":125,"ts":"2026-01-01T00:00:17.952Z","text":"Compiling 114/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":126,"ts":"2026-01-01T00:00:18.055Z","text":"Compiling 115/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":127,"ts":"2026-01-01T00:00:18.160Z","text":"Compiling 116/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":128,"ts":"2026-01-01T00:00:18.282Z","text":"Compiling 117/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":33,"ts":"2026-01-01T00:00:18.377Z","text":"Editing auth_service.dart (31/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":129,"ts":"2026-01-01T00:00:18.396Z","text":"Compiling 118/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":130,"ts":"2026-01-01T00:00:18.513Z","text":"Compiling 119/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":131,"ts":"2026-01-01T00:00:18.631Z","text":"Compiling 120/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":132,"ts":"2026-01-01T00:00:18.743Z","text":"Compiling 121/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":133,"ts":"2026-01-01T00:00:18.870Z","text":"Compiling 122/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":34,"ts":"2026-01-01T00:00:18.916Z","text":"Editing auth_service.dart (32/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":134,"ts":"2026-01-01T00:00:18.985Z","text":"Compiling 123/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":135,"ts":"2026-01-01T00:00:19.104Z","text":"Compiling 124/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":136,"ts":"2026-01-01T00:00:19.204Z","text":"Compiling 125/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":137,"ts":"2026-01-01T00:00:19.324Z","text":"Compiling 126/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":35,"ts":"2026-01-01T00:00:19.418Z","text":"Editing auth_service.dart (33/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":138,"ts":"2026-01-01T00:00:19.428Z","text":"Compiling 127/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":139,"ts":"2026-01-01T00:00:19.528Z","text":"Compiling 128/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":140,"ts":"2026-01-01T00:00:19.634Z","text":"Compiling 129/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":141,"ts":"2026-01-01T00:00:19.755Z","text":"Compiling 130/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":142,"ts":"2026-01-01T00:00:19.883Z","text":"Compiling 131/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":36,"ts":"2026-01-01T00:00:19.996Z","text":"Editing auth_service.dart (34/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":143,"ts":"2026-01-01T00:00:19.996Z","text":"Compiling 132/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":144,"ts":"2026-01-01T00:00:20.098Z","text":"Compiling 133/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":145,"ts":"2026-01-01T00:00:20.219Z","text":"Compiling 134/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":146,"ts":"2026-01-01T00:00:20.327Z","text":"Compiling 135/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":147,"ts":"2026-01-01T00:00:20.429Z","text":"Compiling 136/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":148,"ts":"2026-01-01T00:00:20.558Z","text":"Compiling 137/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":37,"ts":"2026-01-01T00:00:20.563Z","text":"Editing auth_service.dart (35/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":149,"ts":"2026-01-01T00:00:20.667Z","text":"Compiling 138/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":150,"ts":"2026-01-01T00:00:20.767Z","text":"Compiling 139/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":151,"ts":"2026-01-01T00:00:20.882Z","text":"Compiling 140/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":152,"ts":"2026-01-01T00:00:20.989Z","text":"Compiling 141/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":38,"ts":"2026-01-01T00:00:21.091Z","text":"Editing auth_service.dart (36/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":153,"ts":"2026-01-01T00:00:21.115Z","text":"Compiling 142/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":154,"ts":"2026-01-01T00:00:21.228Z","text":"Compiling 143/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":155,"ts":"2026-01-01T00:00:21.340Z","text":"Compiling 144/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":156,"ts":"2026-01-01T00:00:21.470Z","text":"Compiling 145/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":157,"ts":"2026-01-01T00:00:21.589Z","text":"Compiling 146/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":158,"ts":"2026-01-01T00:00:21.704Z","text":"Compiling 147/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":39,"ts":"2026-01-01T00:00:21.720Z","text":"Editing auth_service.dart (37/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":159,"ts":"2026-01-01T00:00:21.806Z","text":"Compiling 148/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":160,"ts":"2026-01-01T00:00:21.927Z","text":"Compiling 149/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":161,"ts":"2026-01-01T00:00:22.057Z","text":"Compiling 150/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":162,"ts":"2026-01-01T00:00:22.173Z","text":"Compiling 151/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":40,"ts":"2026-01-01T00:00:22.294Z","text":"Editing auth_service.dart (38/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":163,"ts":"2026-01-01T00:00:22.295Z","text":"Compiling 152/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":164,"ts":"2026-01-01T00:00:22.397Z","text":"Compiling 153/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":165,"ts":"2026-01-01T00:00:22.497Z","text":"Compiling 154/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":166,"ts":"2026-01-01T00:00:22.619Z","text":"Compiling 155/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":167,"ts":"2026-01-01T00:00:22.737Z","text":"Compiling 156/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":41,"ts":"2026-01-01T00:00:22.823Z","text":"Editing auth_service.dart (39/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":168,"ts":"2026-01-01T00:00:22.846Z","text":"Compiling 157/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":169,"ts":"2026-01-01T00:00:22.954Z","text":"Compiling 158/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":170,"ts":"2026-01-01T00:00:23.076Z","text":"Compiling 159/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":171,"ts":"2026-01-01T00:00:23.206Z","text":"Compiling 160/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":172,"ts":"2026-01-01T00:00:23.330Z","text":"Compiling 161/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":42,"ts":"2026-01-01T00:00:23.434Z","text":"Editing auth_service.dart (40/40)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":173,"ts":"2026-01-01T00:00:23.459Z","text":"Compiling 162/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":174,"ts":"2026-01-01T00:00:23.581Z","text":"Compiling 163/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":175,"ts":"2026-01-01T00:00:23.682Z","text":"Compiling 164/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":176,"ts":"2026-01-01T00:00:23.785Z","text":"Compiling 165/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":177,"ts":"2026-01-01T00:00:23.906Z","text":"Compiling 166/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":178,"ts":"2026-01-01T00:00:24.033Z","text":"Compiling 167/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":43,"ts":"2026-01-01T00:00:24.058Z","text":"Compiling 1/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":179,"ts":"2026-01-01T00:00:24.139Z","text":"Compiling 168/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":44,"ts":"2026-01-01T00:00:24.171Z","text":"Compiling 2/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":180,"ts":"2026-01-01T00:00:24.253Z","text":"Compiling 169/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":45,"ts":"2026-01-01T00:00:24.303Z","text":"Compiling 3/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":181,"ts":"2026-01-01T00:00:24.376Z","text":"Compiling 170/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":46,"ts":"2026-01-01T00:00:24.413Z","text":"Compiling 4/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":182,"ts":"2026-01-01T00:00:24.488Z","text":"Compiling 171/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":47,"ts":"2026-01-01T00:00:24.516Z","text":"Compiling 5/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":183,"ts":"2026-01-01T00:00:24.605Z","text":"Compiling 172/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":48,"ts":"2026-01-01T00:00:24.647Z","text":"Compiling 6/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":184,"ts":"2026-01-01T00:00:24.725Z","text":"Compiling 173/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":49,"ts":"2026-01-01T00:00:24.758Z","text":"Compiling 7/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":185,"ts":"2026-01-01T00:00:24.852Z","text":"Compiling 174/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":50,"ts":"2026-01-01T00:00:24.894Z","text":"Compiling 8/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":186,"ts":"2026-01-01T00:00:24.975Z","text":"Compiling 175/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":51,"ts":"2026-01-01T00:00:25.006Z","text":"Compiling 9/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":187,"ts":"2026-01-01T00:00:25.078Z","text":"Compiling 176/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":52,"ts":"2026-01-01T00:00:25.111Z","text":"Compiling 10/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":188,"ts":"2026-01-01T00:00:25.199Z","text":"Compiling 177/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":53,"ts":"2026-01-01T00:00:25.239Z","text":"Compiling 11/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":189,"ts":"2026-01-01T00:00:25.321Z","text":"Compiling 178/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":54,"ts":"2026-01-01T00:00:25.373Z","text":"Compiling 12/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":190,"ts":"2026-01-01T00:00:25.447Z","text":"Compiling 179/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":55,"ts":"2026-01-01T00:00:25.484Z","text":"Compiling 13/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":191,"ts":"2026-01-01T00:00:25.548Z","text":"Compiling 180/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":56,"ts":"2026-01-01T00:00:25.600Z","text":"Compiling 14/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":192,"ts":"2026-01-01T00:00:25.666Z","text":"Compiling 181/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":57,"ts":"2026-01-01T00:00:25.734Z","text":"Compiling 15/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":193,"ts":"2026-01-01T00:00:25.774Z","text":"Compiling 182/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":58,"ts":"2026-01-01T00:00:25.849Z","text":"Compiling 16/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":194,"ts":"2026-01-01T00:00:25.883Z","text":"Compiling 183/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":59,"ts":"2026-01-01T00:00:25.972Z","text":"Compiling 17/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":195,"ts":"2026-01-01T00:00:25.995Z","text":"Compiling 184/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":60,"ts":"2026-01-01T00:00:26.072Z","text":"Compiling 18/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":196,"ts":"2026-01-01T00:00:26.111Z","text":"Compiling 185/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":61,"ts":"2026-01-01T00:00:26.173Z","text":"Compiling 19/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":197,"ts":"2026-01-01T00:00:26.227Z","text":"Compiling 186/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":62,"ts":"2026-01-01T00:00:26.295Z","text":"Compiling 20/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":198,"ts":"2026-01-01T00:00:26.337Z","text":"Compiling 187/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":63,"ts":"2026-01-01T00:00:26.431Z","text":"Compiling 21/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":199,"ts":"2026-01-01T00:00:26.456Z","text":"Compiling 188/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":64,"ts":"2026-01-01T00:00:26.558Z","text":"Compiling 22/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":200,"ts":"2026-01-01T00:00:26.570Z","text":"Compiling 189/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":65,"ts":"2026-01-01T00:00:26.684Z","text":"Compiling 23/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":201,"ts":"2026-01-01T00:00:26.697Z","text":"Compiling 190/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":66,"ts":"2026-01-01T00:00:26.800Z","text":"Compiling 24/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":202,"ts":"2026-01-01T00:00:26.814Z","text":"Compiling 191/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":67,"ts":"2026-01-01T00:00:26.928Z","text":"Compiling 25/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":203,"ts":"2026-01-01T00:00:26.944Z","text":"Compiling 192/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":68,"ts":"2026-01-01T00:00:27.035Z","text":"Compiling 26/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":204,"ts":"2026-01-01T00:00:27.051Z","text":"Compiling 193/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":69,"ts":"2026-01-01T00:00:27.139Z","text":"Compiling 27/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":205,"ts":"2026-01-01T00:00:27.158Z","text":"Compiling 194/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":70,"ts":"2026-01-01T00:00:27.264Z","text":"Compiling 28/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":206,"ts":"2026-01-01T00:00:27.280Z","text":"Compiling 195/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":207,"ts":"2026-01-01T00:00:27.383Z","text":"Compiling 196/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":71,"ts":"2026-01-01T00:00:27.396Z","text":"Compiling 29/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":208,"ts":"2026-01-01T00:00:27.487Z","text":"Compiling 197/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":72,"ts":"2026-01-01T00:00:27.516Z","text":"Compiling 30/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":209,"ts":"2026-01-01T00:00:27.607Z","text":"Compiling 198/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":73,"ts":"2026-01-01T00:00:27.629Z","text":"Compiling 31/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":210,"ts":"2026-01-01T00:00:27.728Z","text":"Compiling 199/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":74,"ts":"2026-01-01T00:00:27.733Z","text":"Compiling 32/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":211,"ts":"2026-01-01T00:00:27.849Z","text":"Compiling 200/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":75,"ts":"2026-01-01T00:00:27.851Z","text":"Compiling 33/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":212,"ts":"2026-01-01T00:00:27.960Z","text":"Compiling 201/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":76,"ts":"2026-01-01T00:00:27.986Z","text":"Compiling 34/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":213,"ts":"2026-01-01T00:00:28.089Z","text":"Compiling 202/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":77,"ts":"2026-01-01T00:00:28.097Z","text":"Compiling 35/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":78,"ts":"2026-01-01T00:00:28.206Z","text":"Compiling 36/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":214,"ts":"2026-01-01T00:00:28.219Z","text":"Compiling 203/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":79,"ts":"2026-01-01T00:00:28.308Z","text":"Compiling 37/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":215,"ts":"2026-01-01T00:00:28.342Z","text":"Compiling 204/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":80,"ts":"2026-01-01T00:00:28.443Z","text":"Compiling 38/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":216,"ts":"2026-01-01T00:00:28.443Z","text":"Compiling 205/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":81,"ts":"2026-01-01T00:00:28.548Z","text":"Compiling 39/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":217,"ts":"2026-01-01T00:00:28.557Z","text":"Compiling 206/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":82,"ts":"2026-01-01T00:00:28.672Z","text":"Compiling 40/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":218,"ts":"2026-01-01T00:00:28.675Z","text":"Compiling 207/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":83,"ts":"2026-01-01T00:00:28.774Z","text":"Compiling 41/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":219,"ts":"2026-01-01T00:00:28.791Z","text":"Compiling 208/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":84,"ts":"2026-01-01T00:00:28.905Z","text":"Compiling 42/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":220,"ts":"2026-01-01T00:00:28.912Z","text":"Compiling 209/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":85,"ts":"2026-01-01T00:00:29.033Z","text":"Compiling 43/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":221,"ts":"2026-01-01T00:00:29.038Z","text":"Compiling 210/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":86,"ts":"2026-01-01T00:00:29.148Z","text":"Compiling 44/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":222,"ts":"2026-01-01T00:00:29.160Z","text":"Compiling 211/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":87,"ts":"2026-01-01T00:00:29.249Z","text":"Compiling 45/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":223,"ts":"2026-01-01T00:00:29.267Z","text":"Compiling 212/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":88,"ts":"2026-01-01T00:00:29.364Z","text":"Compiling 46/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":224,"ts":"2026-01-01T00:00:29.370Z","text":"Compiling 213/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":225,"ts":"2026-01-01T00:00:29.497Z","text":"Compiling 214/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":89,"ts":"2026-01-01T00:00:29.499Z","text":"Compiling 47/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":226,"ts":"2026-01-01T00:00:29.598Z","text":"Compiling 215/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":90,"ts":"2026-01-01T00:00:29.621Z","text":"Compiling 48/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":227,"ts":"2026-01-01T00:00:29.723Z","text":"Compiling 216/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":91,"ts":"2026-01-01T00:00:29.739Z","text":"Compiling 49/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":92,"ts":"2026-01-01T00:00:29.844Z","text":"Compiling 50/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":228,"ts":"2026-01-01T00:00:29.848Z","text":"Compiling 217/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":93,"ts":"2026-01-01T00:00:29.967Z","text":"Compiling 51/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":229,"ts":"2026-01-01T00:00:29.974Z","text":"Compiling 218/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":230,"ts":"2026-01-01T00:00:30Z","text":"Rewriting widget 1/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":231,"ts":"2026-01-01T00:00:30.093Z","text":"Compiling 219/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":94,"ts":"2026-01-01T00:00:30.097Z","text":"Compiling 52/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":232,"ts":"2026-01-01T00:00:30.207Z","text":"Compiling 220/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":95,"ts":"2026-01-01T00:00:30.226Z","text":"Compiling 53/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":233,"ts":"2026-01-01T00:00:30.329Z","text":"Compiling 221/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":96,"ts":"2026-01-01T00:00:30.346Z","text":"Compiling 54/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":234,"ts":"2026-01-01T00:00:30.449Z","text":"Compiling 222/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":97,"ts":"2026-01-01T00:00:30.456Z","text":"Compiling 55/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":98,"ts":"2026-01-01T00:00:30.577Z","text":"Compiling 56/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":235,"ts":"2026-01-01T00:00:30.577Z","text":"Compiling 223/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":236,"ts":"2026-01-01T00:00:30.679Z","text":"Compiling 224/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":99,"ts":"2026-01-01T00:00:30.694Z","text":"Compiling 57/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":237,"ts":"2026-01-01T00:00:30.761Z","text":"Rewriting widget 2/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":238,"ts":"2026-01-01T00:00:30.805Z","text":"Compiling 225/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":100,"ts":"2026-01-01T00:00:30.820Z","text":"Compiling 58/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":239,"ts":"2026-01-01T00:00:30.922Z","text":"Compiling 226/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":101,"ts":"2026-01-01T00:00:30.928Z","text":"Compiling 59/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":240,"ts":"2026-01-01T00:00:31.034Z","text":"Compiling 227/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":102,"ts":"2026-01-01T00:00:31.038Z","text":"Compiling 60/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":241,"ts":"2026-01-01T00:00:31.134Z","text":"Compiling 228/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":103,"ts":"2026-01-01T00:00:31.149Z","text":"Compiling 61/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":242,"ts":"2026-01-01T00:00:31.248Z","text":"Compiling 229/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":104,"ts":"2026-01-01T00:00:31.255Z","text":"Compiling 62/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":243,"ts":"2026-01-01T00:00:31.371Z","text":"Compiling 230/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":105,"ts":"2026-01-01T00:00:31.376Z","text":"Compiling 63/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":244,"ts":"2026-01-01T00:00:31.471Z","text":"Rewriting widget 3/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":245,"ts":"2026-01-01T00:00:31.486Z","text":"Compiling 231/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":106,"ts":"2026-01-01T00:00:31.499Z","text":"Compiling 64/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":246,"ts":"2026-01-01T00:00:31.607Z","text":"Compiling 232/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":107,"ts":"2026-01-01T00:00:31.632Z","text":"Compiling 65/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":247,"ts":"2026-01-01T00:00:31.731Z","text":"Compiling 233/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":108,"ts":"2026-01-01T00:00:31.767Z","text":"Compiling 66/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":248,"ts":"2026-01-01T00:00:31.855Z","text":"Compiling 234/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":109,"ts":"2026-01-01T00:00:31.878Z","text":"Compiling 67/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":249,"ts":"2026-01-01T00:00:31.962Z","text":"Compiling 235/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":110,"ts":"2026-01-01T00:00:32.017Z","text":"Compiling 68/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":250,"ts":"2026-01-01T00:00:32.076Z","text":"Compiling 236/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":111,"ts":"2026-01-01T00:00:32.119Z","text":"Compiling 69/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":251,"ts":"2026-01-01T00:00:32.188Z","text":"Compiling 237/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":112,"ts":"2026-01-01T00:00:32.246Z","text":"Compiling 70/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":252,"ts":"2026-01-01T00:00:32.288Z","text":"Compiling 238/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":113,"ts":"2026-01-01T00:00:32.356Z","text":"Compiling 71/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":253,"ts":"2026-01-01T00:00:32.364Z","text":"Rewriting widget 4/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":254,"ts":"2026-01-01T00:00:32.397Z","text":"Compiling 239/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":114,"ts":"2026-01-01T00:00:32.464Z","text":"Compiling 72/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":255,"ts":"2026-01-01T00:00:32.522Z","text":"Compiling 240/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":115,"ts":"2026-01-01T00:00:32.580Z","text":"Compiling 73/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":256,"ts":"2026-01-01T00:00:32.629Z","text":"Compiling 241/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":116,"ts":"2026-01-01T00:00:32.703Z","text":"Compiling 74/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":257,"ts":"2026-01-01T00:00:32.743Z","text":"Compiling 242/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":117,"ts":"2026-01-01T00:00:32.809Z","text":"Compiling 75/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":258,"ts":"2026-01-01T00:00:32.843Z","text":"Compiling 243/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":118,"ts":"2026-01-01T00:00:32.915Z","text":"Compiling 76/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":259,"ts":"2026-01-01T00:00:32.969Z","text":"Compiling 244/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":119,"ts":"2026-01-01T00:00:33.030Z","text":"Compiling 77/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":260,"ts":"2026-01-01T00:00:33.098Z","text":"Compiling 245/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":261,"ts":"2026-01-01T00:00:33.117Z","text":"Rewriting widget 5/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":120,"ts":"2026-01-01T00:00:33.136Z","text":"Compiling 78/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":262,"ts":"2026-01-01T00:00:33.206Z","text":"Compiling 246/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":121,"ts":"2026-01-01T00:00:33.239Z","text":"Compiling 79/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":263,"ts":"2026-01-01T00:00:33.335Z","text":"Compiling 247/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":122,"ts":"2026-01-01T00:00:33.349Z","text":"Compiling 80/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":264,"ts":"2026-01-01T00:00:33.450Z","text":"Compiling 248/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":123,"ts":"2026-01-01T00:00:33.463Z","text":"Compiling 81/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":265,"ts":"2026-01-01T00:00:33.556Z","text":"Compiling 249/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":124,"ts":"2026-01-01T00:00:33.595Z","text":"Compiling 82/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":266,"ts":"2026-01-01T00:00:33.657Z","text":"Compiling 250/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":125,"ts":"2026-01-01T00:00:33.707Z","text":"Compiling 83/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":267,"ts":"2026-01-01T00:00:33.765Z","text":"Compiling 251/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":126,"ts":"2026-01-01T00:00:33.837Z","text":"Compiling 84/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":268,"ts":"2026-01-01T00:00:33.871Z","text":"Compiling 252/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":269,"ts":"2026-01-01T00:00:33.961Z","text":"Rewriting widget 6/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":127,"ts":"2026-01-01T00:00:33.972Z","text":"Compiling 85/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":270,"ts":"2026-01-01T00:00:33.985Z","text":"Compiling 253/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":271,"ts":"2026-01-01T00:00:34.095Z","text":"Compiling 254/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":128,"ts":"2026-01-01T00:00:34.101Z","text":"Compiling 86/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":129,"ts":"2026-01-01T00:00:34.206Z","text":"Compiling 87/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":272,"ts":"2026-01-01T00:00:34.210Z","text":"Compiling 255/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":273,"ts":"2026-01-01T00:00:34.314Z","text":"Compiling 256/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":130,"ts":"2026-01-01T00:00:34.323Z","text":"Compiling 88/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":274,"ts":"2026-01-01T00:00:34.414Z","text":"Compiling 257/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":131,"ts":"2026-01-01T00:00:34.444Z","text":"Compiling 89/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":275,"ts":"2026-01-01T00:00:34.540Z","text":"Compiling 258/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":132,"ts":"2026-01-01T00:00:34.580Z","text":"Compiling 90/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":276,"ts":"2026-01-01T00:00:34.656Z","text":"Compiling 259/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":133,"ts":"2026-01-01T00:00:34.714Z","text":"Compiling 91/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":277,"ts":"2026-01-01T00:00:34.768Z","text":"Compiling 260/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":134,"ts":"2026-01-01T00:00:34.821Z","text":"Compiling 92/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":278,"ts":"2026-01-01T00:00:34.831Z","text":"Rewriting widget 7/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":279,"ts":"2026-01-01T00:00:34.896Z","text":"Compiling 261/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":135,"ts":"2026-01-01T00:00:34.930Z","text":"Compiling 93/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":280,"ts":"2026-01-01T00:00:35.010Z","text":"Compiling 262/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":136,"ts":"2026-01-01T00:00:35.068Z","text":"Compiling 94/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":281,"ts":"2026-01-01T00:00:35.117Z","text":"Compiling 263/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":137,"ts":"2026-01-01T00:00:35.193Z","text":"Compiling 95/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":282,"ts":"2026-01-01T00:00:35.224Z","text":"Compiling 264/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":138,"ts":"2026-01-01T00:00:35.302Z","text":"Compiling 96/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":283,"ts":"2026-01-01T00:00:35.339Z","text":"Compiling 265/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":139,"ts":"2026-01-01T00:00:35.407Z","text":"Compiling 97/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":284,"ts":"2026-01-01T00:00:35.461Z","text":"Compiling 266/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":140,"ts":"2026-01-01T00:00:35.532Z","text":"Compiling 98/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":285,"ts":"2026-01-01T00:00:35.591Z","text":"Compiling 267/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":141,"ts":"2026-01-01T00:00:35.639Z","text":"Compiling 99/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":286,"ts":"2026-01-01T00:00:35.668Z","text":"Rewriting widget 8/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":287,"ts":"2026-01-01T00:00:35.712Z","text":"Compiling 268/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":142,"ts":"2026-01-01T00:00:35.761Z","text":"Compiling 100/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":288,"ts":"2026-01-01T00:00:35.821Z","text":"Compiling 269/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":143,"ts":"2026-01-01T00:00:35.901Z","text":"Compiling 101/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":289,"ts":"2026-01-01T00:00:35.933Z","text":"Compiling 270/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":144,"ts":"2026-01-01T00:00:36.025Z","text":"Compiling 102/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":290,"ts":"2026-01-01T00:00:36.046Z","text":"Compiling 271/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":145,"ts":"2026-01-01T00:00:36.146Z","text":"Compiling 103/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":291,"ts":"2026-01-01T00:00:36.149Z","text":"Compiling 272/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":146,"ts":"2026-01-01T00:00:36.261Z","text":"Compiling 104/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":292,"ts":"2026-01-01T00:00:36.276Z","text":"Compiling 273/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":147,"ts":"2026-01-01T00:00:36.391Z","text":"Compiling 105/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":293,"ts":"2026-01-01T00:00:36.396Z","text":"Compiling 274/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":294,"ts":"2026-01-01T00:00:36.485Z","text":"Rewriting widget 9/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":295,"ts":"2026-01-01T00:00:36.497Z","text":"Compiling 275/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":148,"ts":"2026-01-01T00:00:36.526Z","text":"Compiling 106/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":296,"ts":"2026-01-01T00:00:36.598Z","text":"Compiling 276/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":149,"ts":"2026-01-01T00:00:36.666Z","text":"Compiling 107/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":297,"ts":"2026-01-01T00:00:36.715Z","text":"Compiling 277/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":150,"ts":"2026-01-01T00:00:36.782Z","text":"Compiling 108/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":298,"ts":"2026-01-01T00:00:36.815Z","text":"Compiling 278/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":151,"ts":"2026-01-01T00:00:36.914Z","text":"Compiling 109/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":299,"ts":"2026-01-01T00:00:36.931Z","text":"Compiling 279/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":152,"ts":"2026-01-01T00:00:37.023Z","text":"Compiling 110/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":300,"ts":"2026-01-01T00:00:37.047Z","text":"Compiling 280/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":153,"ts":"2026-01-01T00:00:37.133Z","text":"Compiling 111/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":301,"ts":"2026-01-01T00:00:37.165Z","text":"Compiling 281/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":302,"ts":"2026-01-01T00:00:37.256Z","text":"Rewriting widget 10/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":154,"ts":"2026-01-01T00:00:37.259Z","text":"Compiling 112/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":303,"ts":"2026-01-01T00:00:37.275Z","text":"Compiling 282/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":155,"ts":"2026-01-01T00:00:37.391Z","text":"Compiling 113/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":304,"ts":"2026-01-01T00:00:37.392Z","text":"Compiling 283/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":305,"ts":"2026-01-01T00:00:37.501Z","text":"Compiling 284/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":156,"ts":"2026-01-01T00:00:37.508Z","text":"Compiling 114/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":306,"ts":"2026-01-01T00:00:37.606Z","text":"Compiling 285/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":157,"ts":"2026-01-01T00:00:37.626Z","text":"Compiling 115/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":307,"ts":"2026-01-01T00:00:37.712Z","text":"Compiling 286/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":158,"ts":"2026-01-01T00:00:37.737Z","text":"Compiling 116/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":308,"ts":"2026-01-01T00:00:37.815Z","text":"Compiling 287/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":159,"ts":"2026-01-01T00:00:37.862Z","text":"Compiling 117/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":309,"ts":"2026-01-01T00:00:37.916Z","text":"Compiling 288/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":160,"ts":"2026-01-01T00:00:37.973Z","text":"Compiling 118/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":310,"ts":"2026-01-01T00:00:38.044Z","text":"Compiling 289/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":161,"ts":"2026-01-01T00:00:38.079Z","text":"Compiling 119/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":311,"ts":"2026-01-01T00:00:38.096Z","text":"Rewriting widget 11/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":312,"ts":"2026-01-01T00:00:38.174Z","text":"Compiling 290/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":162,"ts":"2026-01-01T00:00:38.210Z","text":"Compiling 120/120"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":313,"ts":"2026-01-01T00:00:38.280Z","text":"Compiling 291/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":163,"ts":"2026-01-01T00:00:38.332Z","text":"lib/auth_service.dart:42:18: Error: Undefined name 'token'."}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":164,"ts":"2026-01-01T00:00:38.332Z","text":"      return token.isValid;"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":165,"ts":"2026-01-01T00:00:38.332Z","text":"             ^^^^^"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":166,"ts":"2026-01-01T00:00:38.332Z","text":"Error: Compilation failed."}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":314,"ts":"2026-01-01T00:00:38.393Z","text":"Compiling 292/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":315,"ts":"2026-01-01T00:00:38.497Z","text":"Compiling 293/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":316,"ts":"2026-01-01T00:00:38.599Z","text":"Compiling 294/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":317,"ts":"2026-01-01T00:00:38.727Z","text":"Compiling 295/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":318,"ts":"2026-01-01T00:00:38.815Z","text":"Rewriting widget 12/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":319,"ts":"2026-01-01T00:00:38.844Z","text":"Compiling 296/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":320,"ts":"2026-01-01T00:00:38.949Z","text":"Compiling 297/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":321,"ts":"2026-01-01T00:00:39.066Z","text":"Compiling 298/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":322,"ts":"2026-01-01T00:00:39.179Z","text":"Compiling 299/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":323,"ts":"2026-01-01T00:00:39.291Z","text":"Compiling 300/300"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":324,"ts":"2026-01-01T00:00:39.535Z","text":"Rewriting widget 13/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":325,"ts":"2026-01-01T00:00:40.259Z","text":"Rewriting widget 14/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":326,"ts":"2026-01-01T00:00:41.022Z","text":"Rewriting widget 15/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":327,"ts":"2026-01-01T00:00:41.803Z","text":"Rewriting widget 16/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":328,"ts":"2026-01-01T00:00:42.694Z","text":"Rewriting widget 17/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":329,"ts":"2026-01-01T00:00:43.540Z","text":"Rewriting widget 18/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":330,"ts":"2026-01-01T00:00:44.257Z","text":"Rewriting widget 19/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":331,"ts":"2026-01-01T00:00:44.977Z","text":"Rewriting widget 20/20"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":167,"ts":"2026-01-01T00:01:00Z","text":"Generating migration step 1/5"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":168,"ts":"2026-01-01T00:01:00.800Z","text":"Generating migration step 2/5"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":169,"ts":"2026-01-01T00:01:01.600Z","text":"Generating migration step 3/5"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":170,"ts":"2026-01-01T00:01:02.400Z","text":"Generating migration step 4/5"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":171,"ts":"2026-01-01T00:01:03.200Z","text":"Generating migration step 5/5"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":172,"ts":"2026-01-01T00:01:09Z","text":"Applying migration 1/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":173,"ts":"2026-01-01T00:01:09.300Z","text":"Applying migration 2/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":174,"ts":"2026-01-01T00:01:09.600Z","text":"Applying migration 3/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":175,"ts":"2026-01-01T00:01:09.900Z","text":"Applying migration 4/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":176,"ts":"2026-01-01T00:01:10.200Z","text":"Applying migration 5/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":177,"ts":"2026-01-01T00:01:10.500Z","text":"Applying migration 6/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":178,"ts":"2026-01-01T00:01:10.800Z","text":"Applying migration 7/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":179,"ts":"2026-01-01T00:01:11.100Z","text":"Applying migration 8/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":180,"ts":"2026-01-01T00:01:11.400Z","text":"Applying migration 9/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":181,"ts":"2026-01-01T00:01:11.700Z","text":"Applying migration 10/10"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":332,"ts":"2026-01-01T00:01:30Z","text":"Running test 1/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":333,"ts":"2026-01-01T00:01:30.321Z","text":"Running test 2/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":334,"ts":"2026-01-01T00:01:30.708Z","text":"Running test 3/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":335,"ts":"2026-01-01T00:01:31.048Z","text":"Running test 4/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":336,"ts":"2026-01-01T00:01:31.440Z","text":"Running test 5/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":337,"ts":"2026-01-01T00:01:31.839Z","text":"Running test 6/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":338,"ts":"2026-01-01T00:01:32.219Z","text":"Running test 7/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":339,"ts":"2026-01-01T00:01:32.524Z","text":"Running test 8/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":340,"ts":"2026-01-01T00:01:32.854Z","text":"Running test 9/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":341,"ts":"2026-01-01T00:01:33.233Z","text":"Running test 10/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":342,"ts":"2026-01-01T00:01:33.566Z","text":"Running test 11/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":343,"ts":"2026-01-01T00:01:33.918Z","text":"Running test 12/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":344,"ts":"2026-01-01T00:01:34.277Z","text":"Running test 13/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":345,"ts":"2026-01-01T00:01:34.657Z","text":"Running test 14/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":346,"ts":"2026-01-01T00:01:35.038Z","text":"Running test 15/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":347,"ts":"2026-01-01T00:01:35.387Z","text":"Running test 16/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":348,"ts":"2026-01-01T00:01:35.736Z","text":"Running test 17/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":349,"ts":"2026-01-01T00:01:36.075Z","text":"Running test 18/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":350,"ts":"2026-01-01T00:01:36.420Z","text":"Running test 19/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":351,"ts":"2026-01-01T00:01:36.738Z","text":"Running test 20/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":352,"ts":"2026-01-01T00:01:37.083Z","text":"Running test 21/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":353,"ts":"2026-01-01T00:01:37.468Z","text":"Running test 22/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":354,"ts":"2026-01-01T00:01:37.777Z","text":"Running test 23/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":355,"ts":"2026-01-01T00:01:38.078Z","text":"Running test 24/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":356,"ts":"2026-01-01T00:01:38.416Z","text":"Running test 25/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":357,"ts":"2026-01-01T00:01:38.767Z","text":"Running test 26/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":358,"ts":"2026-01-01T00:01:39.111Z","text":"Running test 27/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":359,"ts":"2026-01-01T00:01:39.502Z","text":"Running test 28/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":360,"ts":"2026-01-01T00:01:39.852Z","text":"Running test 29/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":361,"ts":"2026-01-01T00:01:40.160Z","text":"Running test 30/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":362,"ts":"2026-01-01T00:01:40.530Z","text":"Running test 31/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":363,"ts":"2026-01-01T00:01:40.913Z","text":"Running test 32/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":364,"ts":"2026-01-01T00:01:41.292Z","text":"Running test 33/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":365,"ts":"2026-01-01T00:01:41.633Z","text":"Running test 34/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":366,"ts":"2026-01-01T00:01:42.014Z","text":"Running test 35/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":367,"ts":"2026-01-01T00:01:42.346Z","text":"Running test 36/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":368,"ts":"2026-01-01T00:01:42.654Z","text":"Running test 37/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":369,"ts":"2026-01-01T00:01:43.026Z","text":"Running test 38/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":370,"ts":"2026-01-01T00:01:43.410Z","text":"Running test 39/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":371,"ts":"2026-01-01T00:01:43.744Z","text":"Running test 40/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":372,"ts":"2026-01-01T00:01:44.082Z","text":"Running test 41/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":373,"ts":"2026-01-01T00:01:44.458Z","text":"Running test 42/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":374,"ts":"2026-01-01T00:01:44.801Z","text":"Running test 43/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":375,"ts":"2026-01-01T00:01:45.177Z","text":"Running test 44/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":376,"ts":"2026-01-01T00:01:45.481Z","text":"Running test 45/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":377,"ts":"2026-01-01T00:01:45.860Z","text":"Running test 46/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":378,"ts":"2026-01-01T00:01:46.213Z","text":"Running test 47/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":379,"ts":"2026-01-01T00:01:46.570Z","text":"Running test 48/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":380,"ts":"2026-01-01T00:01:46.872Z","text":"Running test 49/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":381,"ts":"2026-01-01T00:01:47.226Z","text":"Running test 50/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":382,"ts":"2026-01-01T00:01:47.559Z","text":"Running test 51/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":383,"ts":"2026-01-01T00:01:47.953Z","text":"Running test 52/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":384,"ts":"2026-01-01T00:01:48.298Z","text":"Running test 53/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":385,"ts":"2026-01-01T00:01:48.697Z","text":"Running test 54/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":386,"ts":"2026-01-01T00:01:49.062Z","text":"Running test 55/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":387,"ts":"2026-01-01T00:01:49.440Z","text":"Running test 56/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":388,"ts":"2026-01-01T00:01:49.803Z","text":"Running test 57/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":389,"ts":"2026-01-01T00:01:50.158Z","text":"Running test 58/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":390,"ts":"2026-01-01T00:01:50.527Z","text":"Running test 59/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":391,"ts":"2026-01-01T00:01:50.907Z","text":"Running test 60/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":392,"ts":"2026-01-01T00:01:51.260Z","text":"Running test 61/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":393,"ts":"2026-01-01T00:01:51.566Z","text":"Running test 62/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":394,"ts":"2026-01-01T00:01:51.895Z","text":"Running test 63/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":395,"ts":"2026-01-01T00:01:52.232Z","text":"Running test 64/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":396,"ts":"2026-01-01T00:01:52.584Z","text":"Running test 65/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":397,"ts":"2026-01-01T00:01:52.920Z","text":"Running test 66/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":398,"ts":"2026-01-01T00:01:53.250Z","text":"Running test 67/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":399,"ts":"2026-01-01T00:01:53.604Z","text":"Running test 68/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":400,"ts":"2026-01-01T00:01:53.906Z","text":"Running test 69/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":401,"ts":"2026-01-01T00:01:54.223Z","text":"Running test 70/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":402,"ts":"2026-01-01T00:01:54.591Z","text":"Running test 71/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":403,"ts":"2026-01-01T00:01:54.975Z","text":"Running test 72/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":404,"ts":"2026-01-01T00:01:55.302Z","text":"Running test 73/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":405,"ts":"2026-01-01T00:01:55.660Z","text":"Running test 74/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":406,"ts":"2026-01-01T00:01:56.020Z","text":"Running test 75/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":407,"ts":"2026-01-01T00:01:56.381Z","text":"Running test 76/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":408,"ts":"2026-01-01T00:01:56.698Z","text":"Running test 77/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":409,"ts":"2026-01-01T00:01:57.059Z","text":"Running test 78/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":410,"ts":"2026-01-01T00:01:57.370Z","text":"Running test 79/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":411,"ts":"2026-01-01T00:01:57.714Z","text":"Running test 80/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":412,"ts":"2026-01-01T00:01:58.100Z","text":"Running test 81/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":413,"ts":"2026-01-01T00:01:58.453Z","text":"Running test 82/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":414,"ts":"2026-01-01T00:01:58.800Z","text":"Running test 83/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":415,"ts":"2026-01-01T00:01:59.154Z","text":"Running test 84/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":416,"ts":"2026-01-01T00:01:59.533Z","text":"Running test 85/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":417,"ts":"2026-01-01T00:01:59.905Z","text":"Running test 86/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":182,"ts":"2026-01-01T00:02:00Z","text":"Compiling module 1/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":418,"ts":"2026-01-01T00:02:00.259Z","text":"Running test 87/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":419,"ts":"2026-01-01T00:02:00.598Z","text":"Running test 88/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":420,"ts":"2026-01-01T00:02:00.923Z","text":"Running test 89/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":183,"ts":"2026-01-01T00:02:01.039Z","text":"Compiling module 2/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":421,"ts":"2026-01-01T00:02:01.295Z","text":"Running test 90/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":422,"ts":"2026-01-01T00:02:01.637Z","text":"Running test 91/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":423,"ts":"2026-01-01T00:02:01.990Z","text":"Running test 92/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":184,"ts":"2026-01-01T00:02:02.088Z","text":"Compiling module 3/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":424,"ts":"2026-01-01T00:02:02.381Z","text":"Running test 93/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":425,"ts":"2026-01-01T00:02:02.735Z","text":"Running test 94/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":185,"ts":"2026-01-01T00:02:03.117Z","text":"Compiling module 4/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":426,"ts":"2026-01-01T00:02:03.128Z","text":"Running test 95/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":427,"ts":"2026-01-01T00:02:03.435Z","text":"Running test 96/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":428,"ts":"2026-01-01T00:02:03.759Z","text":"Running test 97/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":429,"ts":"2026-01-01T00:02:04.101Z","text":"Running test 98/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":186,"ts":"2026-01-01T00:02:04.123Z","text":"Compiling module 5/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":430,"ts":"2026-01-01T00:02:04.405Z","text":"Running test 99/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":431,"ts":"2026-01-01T00:02:04.712Z","text":"Running test 100/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":432,"ts":"2026-01-01T00:02:05.097Z","text":"Running test 101/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":187,"ts":"2026-01-01T00:02:05.136Z","text":"Compiling module 6/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":433,"ts":"2026-01-01T00:02:05.486Z","text":"Running test 102/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":434,"ts":"2026-01-01T00:02:05.871Z","text":"Running test 103/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":188,"ts":"2026-01-01T00:02:06.161Z","text":"Compiling module 7/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":435,"ts":"2026-01-01T00:02:06.224Z","text":"Running test 104/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":436,"ts":"2026-01-01T00:02:06.534Z","text":"Running test 105/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":437,"ts":"2026-01-01T00:02:06.931Z","text":"Running test 106/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":189,"ts":"2026-01-01T00:02:07.162Z","text":"Compiling module 8/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":438,"ts":"2026-01-01T00:02:07.320Z","text":"Running test 107/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":439,"ts":"2026-01-01T00:02:07.664Z","text":"Running test 108/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":440,"ts":"2026-01-01T00:02:07.976Z","text":"Running test 109/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":190,"ts":"2026-01-01T00:02:08.178Z","text":"Compiling module 9/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":441,"ts":"2026-01-01T00:02:08.337Z","text":"Running test 110/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":442,"ts":"2026-01-01T00:02:08.704Z","text":"Running test 111/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":443,"ts":"2026-01-01T00:02:09.064Z","text":"Running test 112/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":191,"ts":"2026-01-01T00:02:09.215Z","text":"Compiling module 10/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":444,"ts":"2026-01-01T00:02:09.441Z","text":"Running test 113/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":445,"ts":"2026-01-01T00:02:09.826Z","text":"Running test 114/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":446,"ts":"2026-01-01T00:02:10.206Z","text":"Running test 115/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":192,"ts":"2026-01-01T00:02:10.265Z","text":"Compiling module 11/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":447,"ts":"2026-01-01T00:02:10.530Z","text":"Running test 116/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":448,"ts":"2026-01-01T00:02:10.842Z","text":"Running test 117/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":449,"ts":"2026-01-01T00:02:11.177Z","text":"Running test 118/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":193,"ts":"2026-01-01T00:02:11.299Z","text":"Compiling module 12/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":450,"ts":"2026-01-01T00:02:11.499Z","text":"Running test 119/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":451,"ts":"2026-01-01T00:02:11.889Z","text":"Running test 120/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":452,"ts":"2026-01-01T00:02:12.269Z","text":"Running test 121/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":194,"ts":"2026-01-01T00:02:12.345Z","text":"Compiling module 13/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":453,"ts":"2026-01-01T00:02:12.640Z","text":"Running test 122/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":454,"ts":"2026-01-01T00:02:12.986Z","text":"Running test 123/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":455,"ts":"2026-01-01T00:02:13.321Z","text":"Running test 124/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":195,"ts":"2026-01-01T00:02:13.395Z","text":"Compiling module 14/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":456,"ts":"2026-01-01T00:02:13.674Z","text":"Running test 125/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":457,"ts":"2026-01-01T00:02:13.994Z","text":"Running test 126/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":458,"ts":"2026-01-01T00:02:14.301Z","text":"Running test 127/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":196,"ts":"2026-01-01T00:02:14.442Z","text":"Compiling module 15/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":459,"ts":"2026-01-01T00:02:14.655Z","text":"Running test 128/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":460,"ts":"2026-01-01T00:02:15.028Z","text":"Running test 129/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":461,"ts":"2026-01-01T00:02:15.347Z","text":"Running test 130/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":197,"ts":"2026-01-01T00:02:15.475Z","text":"Compiling module 16/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":462,"ts":"2026-01-01T00:02:15.714Z","text":"Running test 131/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":463,"ts":"2026-01-01T00:02:16.026Z","text":"Running test 132/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":464,"ts":"2026-01-01T00:02:16.372Z","text":"Running test 133/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":198,"ts":"2026-01-01T00:02:16.501Z","text":"Compiling module 17/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":465,"ts":"2026-01-01T00:02:16.707Z","text":"Running test 134/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":466,"ts":"2026-01-01T00:02:17.033Z","text":"Running test 135/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":467,"ts":"2026-01-01T00:02:17.411Z","text":"Running test 136/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":199,"ts":"2026-01-01T00:02:17.526Z","text":"Compiling module 18/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":468,"ts":"2026-01-01T00:02:17.744Z","text":"Running test 137/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":469,"ts":"2026-01-01T00:02:18.110Z","text":"Running test 138/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":470,"ts":"2026-01-01T00:02:18.436Z","text":"Running test 139/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":200,"ts":"2026-01-01T00:02:18.534Z","text":"Compiling module 19/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":471,"ts":"2026-01-01T00:02:18.821Z","text":"Running test 140/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":472,"ts":"2026-01-01T00:02:19.160Z","text":"Running test 141/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":473,"ts":"2026-01-01T00:02:19.513Z","text":"Running test 142/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":201,"ts":"2026-01-01T00:02:19.575Z","text":"Compiling module 20/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":474,"ts":"2026-01-01T00:02:19.851Z","text":"Running test 143/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":475,"ts":"2026-01-01T00:02:20.223Z","text":"Running test 144/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":476,"ts":"2026-01-01T00:02:20.570Z","text":"Running test 145/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":202,"ts":"2026-01-01T00:02:20.596Z","text":"Compiling module 21/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":477,"ts":"2026-01-01T00:02:20.955Z","text":"Running test 146/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":478,"ts":"2026-01-01T00:02:21.278Z","text":"Running test 147/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":203,"ts":"2026-01-01T00:02:21.597Z","text":"Compiling module 22/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":479,"ts":"2026-01-01T00:02:21.619Z","text":"Running test 148/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":480,"ts":"2026-01-01T00:02:21.999Z","text":"Running test 149/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":481,"ts":"2026-01-01T00:02:22.331Z","text":"Running test 150/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":204,"ts":"2026-01-01T00:02:22.637Z","text":"Compiling module 23/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":482,"ts":"2026-01-01T00:02:22.706Z","text":"Running test 151/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":483,"ts":"2026-01-01T00:02:23.082Z","text":"Running test 152/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":484,"ts":"2026-01-01T00:02:23.440Z","text":"Running test 153/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":205,"ts":"2026-01-01T00:02:23.676Z","text":"Compiling module 24/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":485,"ts":"2026-01-01T00:02:23.765Z","text":"Running test 154/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":486,"ts":"2026-01-01T00:02:24.084Z","text":"Running test 155/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":487,"ts":"2026-01-01T00:02:24.442Z","text":"Running test 156/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":206,"ts":"2026-01-01T00:02:24.702Z","text":"Compiling module 25/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":488,"ts":"2026-01-01T00:02:24.756Z","text":"Running test 157/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":489,"ts":"2026-01-01T00:02:25.102Z","text":"Running test 158/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":490,"ts":"2026-01-01T00:02:25.437Z","text":"Running test 159/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":207,"ts":"2026-01-01T00:02:25.718Z","text":"Compiling module 26/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":491,"ts":"2026-01-01T00:02:25.797Z","text":"Running test 160/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":492,"ts":"2026-01-01T00:02:26.165Z","text":"Running test 161/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":493,"ts":"2026-01-01T00:02:26.560Z","text":"Running test 162/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":208,"ts":"2026-01-01T00:02:26.746Z","text":"Compiling module 27/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":494,"ts":"2026-01-01T00:02:26.944Z","text":"Running test 163/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":495,"ts":"2026-01-01T00:02:27.285Z","text":"Running test 164/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":496,"ts":"2026-01-01T00:02:27.676Z","text":"Running test 165/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":209,"ts":"2026-01-01T00:02:27.749Z","text":"Compiling module 28/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":497,"ts":"2026-01-01T00:02:28.010Z","text":"Running test 166/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":498,"ts":"2026-01-01T00:02:28.310Z","text":"Running test 167/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":499,"ts":"2026-01-01T00:02:28.709Z","text":"Running test 168/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":210,"ts":"2026-01-01T00:02:28.775Z","text":"Compiling module 29/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":500,"ts":"2026-01-01T00:02:29.103Z","text":"Running test 169/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":501,"ts":"2026-01-01T00:02:29.405Z","text":"Running test 170/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":502,"ts":"2026-01-01T00:02:29.773Z","text":"Running test 171/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":211,"ts":"2026-01-01T00:02:29.803Z","text":"Compiling module 30/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":503,"ts":"2026-01-01T00:02:30.105Z","text":"Running test 172/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":504,"ts":"2026-01-01T00:02:30.453Z","text":"Running test 173/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":505,"ts":"2026-01-01T00:02:30.767Z","text":"Running test 174/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":212,"ts":"2026-01-01T00:02:30.822Z","text":"Compiling module 31/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":506,"ts":"2026-01-01T00:02:31.089Z","text":"Running test 175/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":507,"ts":"2026-01-01T00:02:31.389Z","text":"Running test 176/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":508,"ts":"2026-01-01T00:02:31.705Z","text":"Running test 177/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":213,"ts":"2026-01-01T00:02:31.862Z","text":"Compiling module 32/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":509,"ts":"2026-01-01T00:02:32.094Z","text":"Running test 178/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":510,"ts":"2026-01-01T00:02:32.486Z","text":"Running test 179/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":511,"ts":"2026-01-01T00:02:32.845Z","text":"Running test 180/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":214,"ts":"2026-01-01T00:02:32.909Z","text":"Compiling module 33/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":512,"ts":"2026-01-01T00:02:33.213Z","text":"Running test 181/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":513,"ts":"2026-01-01T00:02:33.611Z","text":"Running test 182/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":215,"ts":"2026-01-01T00:02:33.916Z","text":"Compiling module 34/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":514,"ts":"2026-01-01T00:02:33.983Z","text":"Running test 183/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":515,"ts":"2026-01-01T00:02:34.314Z","text":"Running test 184/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":516,"ts":"2026-01-01T00:02:34.691Z","text":"Running test 185/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":216,"ts":"2026-01-01T00:02:34.935Z","text":"Compiling module 35/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":517,"ts":"2026-01-01T00:02:35.004Z","text":"Running test 186/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":518,"ts":"2026-01-01T00:02:35.369Z","text":"Running test 187/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":519,"ts":"2026-01-01T00:02:35.733Z","text":"Running test 188/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":217,"ts":"2026-01-01T00:02:35.961Z","text":"Compiling module 36/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":520,"ts":"2026-01-01T00:02:36.082Z","text":"Running test 189/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":521,"ts":"2026-01-01T00:02:36.476Z","text":"Running test 190/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":522,"ts":"2026-01-01T00:02:36.795Z","text":"Running test 191/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":218,"ts":"2026-01-01T00:02:37.004Z","text":"Compiling module 37/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":523,"ts":"2026-01-01T00:02:37.180Z","text":"Running test 192/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":524,"ts":"2026-01-01T00:02:37.562Z","text":"Running test 193/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":525,"ts":"2026-01-01T00:02:37.914Z","text":"Running test 194/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":219,"ts":"2026-01-01T00:02:38.009Z","text":"Compiling module 38/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":526,"ts":"2026-01-01T00:02:38.266Z","text":"Running test 195/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":527,"ts":"2026-01-01T00:02:38.632Z","text":"Running test 196/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":528,"ts":"2026-01-01T00:02:38.942Z","text":"Running test 197/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":220,"ts":"2026-01-01T00:02:39.027Z","text":"Compiling module 39/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":529,"ts":"2026-01-01T00:02:39.336Z","text":"Running test 198/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":530,"ts":"2026-01-01T00:02:39.694Z","text":"Running test 199/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":221,"ts":"2026-01-01T00:02:40.061Z","text":"Compiling module 40/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":531,"ts":"2026-01-01T00:02:40.072Z","text":"Running test 200/200"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":532,"ts":"2026-01-01T00:02:40.391Z","text":"00:58 +199 -1: HomeScreen shows tiles [E]"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":533,"ts":"2026-01-01T00:02:40.391Z","text":"  Expected: <3>"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":534,"ts":"2026-01-01T00:02:40.391Z","text":"    Actual: <2>"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":535,"ts":"2026-01-01T00:02:40.391Z","text":"  package:agentdesk/test/widget_test.dart 17:5  main.<fn>"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":222,"ts":"2026-01-01T00:02:41.097Z","text":"Compiling module 41/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":223,"ts":"2026-01-01T00:02:42.107Z","text":"Compiling module 42/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":224,"ts":"2026-01-01T00:02:43.129Z","text":"Compiling module 43/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":225,"ts":"2026-01-01T00:02:44.143Z","text":"Compiling module 44/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":226,"ts":"2026-01-01T00:02:45.186Z","text":"Compiling module 45/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":227,"ts":"2026-01-01T00:02:46.210Z","text":"Compiling module 46/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":228,"ts":"2026-01-01T00:02:47.224Z","text":"Compiling module 47/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":229,"ts":"2026-01-01T00:02:48.273Z","text":"Compiling module 48/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":230,"ts":"2026-01-01T00:02:49.322Z","text":"Compiling module 49/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":231,"ts":"2026-01-01T00:02:50.364Z","text":"Compiling module 50/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":232,"ts":"2026-01-01T00:02:51.371Z","text":"Compiling module 51/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":233,"ts":"2026-01-01T00:02:52.417Z","text":"Compiling module 52/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":234,"ts":"2026-01-01T00:02:53.433Z","text":"Compiling module 53/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":235,"ts":"2026-01-01T00:02:54.483Z","text":"Compiling module 54/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":236,"ts":"2026-01-01T00:02:55.525Z","text":"Compiling module 55/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":237,"ts":"2026-01-01T00:02:56.566Z","text":"Compiling module 56/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":238,"ts":"2026-01-01T00:02:57.603Z","text":"Compiling module 57/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":239,"ts":"2026-01-01T00:02:58.608Z","text":"Compiling module 58/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":240,"ts":"2026-01-01T00:02:59.633Z","text":"Compiling module 59/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":241,"ts":"2026-01-01T00:03:00.655Z","text":"Compiling module 60/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":242,"ts":"2026-01-01T00:03:01.672Z","text":"Compiling module 61/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":243,"ts":"2026-01-01T00:03:02.681Z","text":"Compiling module 62/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":244,"ts":"2026-01-01T00:03:03.695Z","text":"Compiling module 63/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":245,"ts":"2026-01-01T00:03:04.708Z","text":"Compiling module 64/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":246,"ts":"2026-01-01T00:03:05.737Z","text":"Compiling module 65/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":247,"ts":"2026-01-01T00:03:06.754Z","text":"Compiling module 66/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":248,"ts":"2026-01-01T00:03:07.756Z","text":"Compiling module 67/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":249,"ts":"2026-01-01T00:03:08.805Z","text":"Compiling module 68/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":250,"ts":"2026-01-01T00:03:09.853Z","text":"Compiling module 69/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":251,"ts":"2026-01-01T00:03:10.894Z","text":"Compiling module 70/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":252,"ts":"2026-01-01T00:03:11.911Z","text":"Compiling module 71/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":253,"ts":"2026-01-01T00:03:12.954Z","text":"Compiling module 72/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":254,"ts":"2026-01-01T00:03:13.992Z","text":"Compiling module 73/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":255,"ts":"2026-01-01T00:03:15.014Z","text":"Compiling module 74/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":256,"ts":"2026-01-01T00:03:16.048Z","text":"Compiling module 75/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":257,"ts":"2026-01-01T00:03:17.075Z","text":"Compiling module 76/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":258,"ts":"2026-01-01T00:03:18.101Z","text":"Compiling module 77/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":259,"ts":"2026-01-01T00:03:19.115Z","text":"Compiling module 78/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":536,"ts":"2026-01-01T00:03:20Z","text":"Fixing warning 1/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":260,"ts":"2026-01-01T00:03:20.146Z","text":"Compiling module 79/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":537,"ts":"2026-01-01T00:03:20.626Z","text":"Fixing warning 2/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":261,"ts":"2026-01-01T00:03:21.189Z","text":"Compiling module 80/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":538,"ts":"2026-01-01T00:03:21.265Z","text":"Fixing warning 3/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":539,"ts":"2026-01-01T00:03:21.879Z","text":"Fixing warning 4/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":262,"ts":"2026-01-01T00:03:22.232Z","text":"Compiling module 81/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":540,"ts":"2026-01-01T00:03:22.564Z","text":"Fixing warning 5/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":541,"ts":"2026-01-01T00:03:23.173Z","text":"Fixing warning 6/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":263,"ts":"2026-01-01T00:03:23.235Z","text":"Compiling module 82/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":542,"ts":"2026-01-01T00:03:23.871Z","text":"Fixing warning 7/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":264,"ts":"2026-01-01T00:03:24.273Z","text":"Compiling module 83/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":543,"ts":"2026-01-01T00:03:24.543Z","text":"Fixing warning 8/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":544,"ts":"2026-01-01T00:03:25.227Z","text":"Fixing warning 9/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":265,"ts":"2026-01-01T00:03:25.306Z","text":"Compiling module 84/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":545,"ts":"2026-01-01T00:03:25.851Z","text":"Fixing warning 10/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":266,"ts":"2026-01-01T00:03:26.324Z","text":"Compiling module 85/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":546,"ts":"2026-01-01T00:03:26.515Z","text":"Fixing warning 11/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":547,"ts":"2026-01-01T00:03:27.191Z","text":"Fixing warning 12/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":267,"ts":"2026-01-01T00:03:27.359Z","text":"Compiling module 86/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":548,"ts":"2026-01-01T00:03:27.818Z","text":"Fixing warning 13/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":268,"ts":"2026-01-01T00:03:28.399Z","text":"Compiling module 87/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":549,"ts":"2026-01-01T00:03:28.512Z","text":"Fixing warning 14/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":550,"ts":"2026-01-01T00:03:29.124Z","text":"Fixing warning 15/15"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":269,"ts":"2026-01-01T00:03:29.405Z","text":"Compiling module 88/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":551,"ts":"2026-01-01T00:03:29.738Z","text":"warning: settings_screen.dart was modified by another task (task-refactor)"}}
+{"type":"raw_line","payload":{"agent_id":"sim-frontend","offset":552,"ts":"2026-01-01T00:03:29.738Z","text":"aborting to avoid clobbering concurrent edits"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":270,"ts":"2026-01-01T00:03:30.421Z","text":"Compiling module 89/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":271,"ts":"2026-01-01T00:03:31.445Z","text":"Compiling module 90/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":272,"ts":"2026-01-01T00:03:32.448Z","text":"Compiling module 91/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":273,"ts":"2026-01-01T00:03:33.489Z","text":"Compiling module 92/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":274,"ts":"2026-01-01T00:03:34.514Z","text":"Compiling module 93/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":275,"ts":"2026-01-01T00:03:35.517Z","text":"Compiling module 94/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":276,"ts":"2026-01-01T00:03:36.556Z","text":"Compiling module 95/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":277,"ts":"2026-01-01T00:03:37.574Z","text":"Compiling module 96/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":278,"ts":"2026-01-01T00:03:38.615Z","text":"Compiling module 97/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":279,"ts":"2026-01-01T00:03:39.644Z","text":"Compiling module 98/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":280,"ts":"2026-01-01T00:03:40.660Z","text":"Compiling module 99/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":281,"ts":"2026-01-01T00:03:41.673Z","text":"Compiling module 100/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":282,"ts":"2026-01-01T00:03:42.695Z","text":"Compiling module 101/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":283,"ts":"2026-01-01T00:03:43.711Z","text":"Compiling module 102/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":284,"ts":"2026-01-01T00:03:44.734Z","text":"Compiling module 103/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":285,"ts":"2026-01-01T00:03:45.784Z","text":"Compiling module 104/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":286,"ts":"2026-01-01T00:03:46.792Z","text":"Compiling module 105/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":287,"ts":"2026-01-01T00:03:47.802Z","text":"Compiling module 106/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":288,"ts":"2026-01-01T00:03:48.834Z","text":"Compiling module 107/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":289,"ts":"2026-01-01T00:03:49.853Z","text":"Compiling module 108/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":290,"ts":"2026-01-01T00:03:50.902Z","text":"Compiling module 109/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":291,"ts":"2026-01-01T00:03:51.925Z","text":"Compiling module 110/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":292,"ts":"2026-01-01T00:03:52.949Z","text":"Compiling module 111/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":293,"ts":"2026-01-01T00:03:53.964Z","text":"Compiling module 112/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":294,"ts":"2026-01-01T00:03:54.990Z","text":"Compiling module 113/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":295,"ts":"2026-01-01T00:03:56.012Z","text":"Compiling module 114/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":296,"ts":"2026-01-01T00:03:57.042Z","text":"Compiling module 115/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":297,"ts":"2026-01-01T00:03:58.046Z","text":"Compiling module 116/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":298,"ts":"2026-01-01T00:03:59.073Z","text":"Compiling module 117/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":299,"ts":"2026-01-01T00:04:00.105Z","text":"Compiling module 118/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":300,"ts":"2026-01-01T00:04:01.107Z","text":"Compiling module 119/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":301,"ts":"2026-01-01T00:04:02.123Z","text":"Compiling module 120/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":302,"ts":"2026-01-01T00:04:03.173Z","text":"Compiling module 121/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":303,"ts":"2026-01-01T00:04:04.223Z","text":"Compiling module 122/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":304,"ts":"2026-01-01T00:04:05.251Z","text":"Compiling module 123/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":305,"ts":"2026-01-01T00:04:06.286Z","text":"Compiling module 124/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":306,"ts":"2026-01-01T00:04:07.336Z","text":"Compiling module 125/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":307,"ts":"2026-01-01T00:04:08.372Z","text":"Compiling module 126/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":308,"ts":"2026-01-01T00:04:09.375Z","text":"Compiling module 127/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":309,"ts":"2026-01-01T00:04:10.379Z","text":"Compiling module 128/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":310,"ts":"2026-01-01T00:04:11.415Z","text":"Compiling module 129/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":311,"ts":"2026-01-01T00:04:12.445Z","text":"Compiling module 130/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":312,"ts":"2026-01-01T00:04:13.454Z","text":"Compiling module 131/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":313,"ts":"2026-01-01T00:04:14.477Z","text":"Compiling module 132/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":314,"ts":"2026-01-01T00:04:15.507Z","text":"Compiling module 133/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":315,"ts":"2026-01-01T00:04:16.520Z","text":"Compiling module 134/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":316,"ts":"2026-01-01T00:04:17.557Z","text":"Compiling module 135/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":317,"ts":"2026-01-01T00:04:18.574Z","text":"Compiling module 136/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":318,"ts":"2026-01-01T00:04:19.609Z","text":"Compiling module 137/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":319,"ts":"2026-01-01T00:04:20.642Z","text":"Compiling module 138/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":320,"ts":"2026-01-01T00:04:21.645Z","text":"Compiling module 139/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":321,"ts":"2026-01-01T00:04:22.659Z","text":"Compiling module 140/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":322,"ts":"2026-01-01T00:04:23.702Z","text":"Compiling module 141/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":323,"ts":"2026-01-01T00:04:24.726Z","text":"Compiling module 142/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":324,"ts":"2026-01-01T00:04:25.740Z","text":"Compiling module 143/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":325,"ts":"2026-01-01T00:04:26.741Z","text":"Compiling module 144/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":326,"ts":"2026-01-01T00:04:27.743Z","text":"Compiling module 145/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":327,"ts":"2026-01-01T00:04:28.749Z","text":"Compiling module 146/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":328,"ts":"2026-01-01T00:04:29.786Z","text":"Compiling module 147/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":329,"ts":"2026-01-01T00:04:30.797Z","text":"Compiling module 148/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":330,"ts":"2026-01-01T00:04:31.808Z","text":"Compiling module 149/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":331,"ts":"2026-01-01T00:04:32.837Z","text":"Compiling module 150/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":332,"ts":"2026-01-01T00:04:33.875Z","text":"Compiling module 151/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":333,"ts":"2026-01-01T00:04:34.883Z","text":"Compiling module 152/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":334,"ts":"2026-01-01T00:04:35.920Z","text":"Compiling module 153/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":335,"ts":"2026-01-01T00:04:36.956Z","text":"Compiling module 154/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":336,"ts":"2026-01-01T00:04:37.984Z","text":"Compiling module 155/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":337,"ts":"2026-01-01T00:04:38.990Z","text":"Compiling module 156/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":338,"ts":"2026-01-01T00:04:40.004Z","text":"Compiling module 157/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":339,"ts":"2026-01-01T00:04:41.036Z","text":"Compiling module 158/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":340,"ts":"2026-01-01T00:04:42.066Z","text":"Compiling module 159/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":341,"ts":"2026-01-01T00:04:43.081Z","text":"Compiling module 160/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":342,"ts":"2026-01-01T00:04:44.120Z","text":"Compiling module 161/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":343,"ts":"2026-01-01T00:04:45.143Z","text":"Compiling module 162/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":344,"ts":"2026-01-01T00:04:46.161Z","text":"Compiling module 163/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":345,"ts":"2026-01-01T00:04:47.211Z","text":"Compiling module 164/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":346,"ts":"2026-01-01T00:04:48.235Z","text":"Compiling module 165/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":347,"ts":"2026-01-01T00:04:49.265Z","text":"Compiling module 166/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":348,"ts":"2026-01-01T00:04:50.295Z","text":"Compiling module 167/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":349,"ts":"2026-01-01T00:04:51.331Z","text":"Compiling module 168/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":350,"ts":"2026-01-01T00:04:52.335Z","text":"Compiling module 169/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":351,"ts":"2026-01-01T00:04:53.369Z","text":"Compiling module 170/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":352,"ts":"2026-01-01T00:04:54.391Z","text":"Compiling module 171/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":353,"ts":"2026-01-01T00:04:55.405Z","text":"Compiling module 172/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":354,"ts":"2026-01-01T00:04:56.416Z","text":"Compiling module 173/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":355,"ts":"2026-01-01T00:04:57.459Z","text":"Compiling module 174/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":356,"ts":"2026-01-01T00:04:58.470Z","text":"Compiling module 175/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":357,"ts":"2026-01-01T00:04:59.517Z","text":"Compiling module 176/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":358,"ts":"2026-01-01T00:05:00.562Z","text":"Compiling module 177/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":359,"ts":"2026-01-01T00:05:01.568Z","text":"Compiling module 178/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":360,"ts":"2026-01-01T00:05:02.572Z","text":"Compiling module 179/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":361,"ts":"2026-01-01T00:05:03.597Z","text":"Compiling module 180/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":362,"ts":"2026-01-01T00:05:04.622Z","text":"Compiling module 181/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":363,"ts":"2026-01-01T00:05:05.670Z","text":"Compiling module 182/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":364,"ts":"2026-01-01T00:05:06.709Z","text":"Compiling module 183/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":365,"ts":"2026-01-01T00:05:07.725Z","text":"Compiling module 184/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":366,"ts":"2026-01-01T00:05:08.774Z","text":"Compiling module 185/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":367,"ts":"2026-01-01T00:05:09.779Z","text":"Compiling module 186/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":368,"ts":"2026-01-01T00:05:10.785Z","text":"Compiling module 187/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":369,"ts":"2026-01-01T00:05:11.806Z","text":"Compiling module 188/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":370,"ts":"2026-01-01T00:05:12.808Z","text":"Compiling module 189/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":371,"ts":"2026-01-01T00:05:13.833Z","text":"Compiling module 190/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":372,"ts":"2026-01-01T00:05:14.880Z","text":"Compiling module 191/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":373,"ts":"2026-01-01T00:05:15.925Z","text":"Compiling module 192/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":374,"ts":"2026-01-01T00:05:16.955Z","text":"Compiling module 193/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":375,"ts":"2026-01-01T00:05:17.980Z","text":"Compiling module 194/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":376,"ts":"2026-01-01T00:05:19.010Z","text":"Compiling module 195/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":377,"ts":"2026-01-01T00:05:20.054Z","text":"Compiling module 196/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":378,"ts":"2026-01-01T00:05:21.095Z","text":"Compiling module 197/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":379,"ts":"2026-01-01T00:05:22.141Z","text":"Compiling module 198/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":380,"ts":"2026-01-01T00:05:23.157Z","text":"Compiling module 199/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":381,"ts":"2026-01-01T00:05:24.164Z","text":"Compiling module 200/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":382,"ts":"2026-01-01T00:05:25.197Z","text":"Compiling module 201/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":383,"ts":"2026-01-01T00:05:26.230Z","text":"Compiling module 202/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":384,"ts":"2026-01-01T00:05:27.232Z","text":"Compiling module 203/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":385,"ts":"2026-01-01T00:05:28.279Z","text":"Compiling module 204/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":386,"ts":"2026-01-01T00:05:29.300Z","text":"Compiling module 205/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":387,"ts":"2026-01-01T00:05:30.305Z","text":"Compiling module 206/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":388,"ts":"2026-01-01T00:05:31.317Z","text":"Compiling module 207/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":389,"ts":"2026-01-01T00:05:32.363Z","text":"Compiling module 208/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":390,"ts":"2026-01-01T00:05:33.411Z","text":"Compiling module 209/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":391,"ts":"2026-01-01T00:05:34.444Z","text":"Compiling module 210/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":392,"ts":"2026-01-01T00:05:35.446Z","text":"Compiling module 211/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":393,"ts":"2026-01-01T00:05:36.473Z","text":"Compiling module 212/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":394,"ts":"2026-01-01T00:05:37.513Z","text":"Compiling module 213/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":395,"ts":"2026-01-01T00:05:38.557Z","text":"Compiling module 214/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":396,"ts":"2026-01-01T00:05:39.565Z","text":"Compiling module 215/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":397,"ts":"2026-01-01T00:05:40.569Z","text":"Compiling module 216/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":398,"ts":"2026-01-01T00:05:41.611Z","text":"Compiling module 217/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":399,"ts":"2026-01-01T00:05:42.660Z","text":"Compiling module 218/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":400,"ts":"2026-01-01T00:05:43.707Z","text":"Compiling module 219/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":401,"ts":"2026-01-01T00:05:44.748Z","text":"Compiling module 220/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":402,"ts":"2026-01-01T00:05:45.749Z","text":"Compiling module 221/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":403,"ts":"2026-01-01T00:05:46.763Z","text":"Compiling module 222/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":404,"ts":"2026-01-01T00:05:47.780Z","text":"Compiling module 223/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":405,"ts":"2026-01-01T00:05:48.792Z","text":"Compiling module 224/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":406,"ts":"2026-01-01T00:05:49.797Z","text":"Compiling module 225/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":407,"ts":"2026-01-01T00:05:50.827Z","text":"Compiling module 226/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":408,"ts":"2026-01-01T00:05:51.863Z","text":"Compiling module 227/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":409,"ts":"2026-01-01T00:05:52.877Z","text":"Compiling module 228/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":410,"ts":"2026-01-01T00:05:53.917Z","text":"Compiling module 229/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":411,"ts":"2026-01-01T00:05:54.963Z","text":"Compiling module 230/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":412,"ts":"2026-01-01T00:05:55.987Z","text":"Compiling module 231/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":413,"ts":"2026-01-01T00:05:57.012Z","text":"Compiling module 232/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":414,"ts":"2026-01-01T00:05:58.049Z","text":"Compiling module 233/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":415,"ts":"2026-01-01T00:05:59.062Z","text":"Compiling module 234/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":416,"ts":"2026-01-01T00:06:00.078Z","text":"Compiling module 235/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":417,"ts":"2026-01-01T00:06:01.095Z","text":"Compiling module 236/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":418,"ts":"2026-01-01T00:06:02.125Z","text":"Compiling module 237/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":419,"ts":"2026-01-01T00:06:03.154Z","text":"Compiling module 238/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":420,"ts":"2026-01-01T00:06:04.169Z","text":"Compiling module 239/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":421,"ts":"2026-01-01T00:06:05.170Z","text":"Compiling module 240/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":422,"ts":"2026-01-01T00:06:06.215Z","text":"Compiling module 241/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":423,"ts":"2026-01-01T00:06:07.262Z","text":"Compiling module 242/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":424,"ts":"2026-01-01T00:06:08.293Z","text":"Compiling module 243/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":425,"ts":"2026-01-01T00:06:09.297Z","text":"Compiling module 244/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":426,"ts":"2026-01-01T00:06:10.346Z","text":"Compiling module 245/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":427,"ts":"2026-01-01T00:06:11.377Z","text":"Compiling module 246/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":428,"ts":"2026-01-01T00:06:12.423Z","text":"Compiling module 247/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":429,"ts":"2026-01-01T00:06:13.430Z","text":"Compiling module 248/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":430,"ts":"2026-01-01T00:06:14.449Z","text":"Compiling module 249/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":431,"ts":"2026-01-01T00:06:15.489Z","text":"Compiling module 250/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":432,"ts":"2026-01-01T00:06:16.495Z","text":"Compiling module 251/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":433,"ts":"2026-01-01T00:06:17.526Z","text":"Compiling module 252/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":434,"ts":"2026-01-01T00:06:18.540Z","text":"Compiling module 253/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":435,"ts":"2026-01-01T00:06:19.581Z","text":"Compiling module 254/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":436,"ts":"2026-01-01T00:06:20.583Z","text":"Compiling module 255/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":437,"ts":"2026-01-01T00:06:21.602Z","text":"Compiling module 256/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":438,"ts":"2026-01-01T00:06:22.631Z","text":"Compiling module 257/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":439,"ts":"2026-01-01T00:06:23.635Z","text":"Compiling module 258/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":440,"ts":"2026-01-01T00:06:24.659Z","text":"Compiling module 259/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":441,"ts":"2026-01-01T00:06:25.703Z","text":"Compiling module 260/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":442,"ts":"2026-01-01T00:06:26.706Z","text":"Compiling module 261/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":443,"ts":"2026-01-01T00:06:27.748Z","text":"Compiling module 262/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":444,"ts":"2026-01-01T00:06:28.784Z","text":"Compiling module 263/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":445,"ts":"2026-01-01T00:06:29.795Z","text":"Compiling module 264/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":446,"ts":"2026-01-01T00:06:30.818Z","text":"Compiling module 265/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":447,"ts":"2026-01-01T00:06:31.855Z","text":"Compiling module 266/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":448,"ts":"2026-01-01T00:06:32.895Z","text":"Compiling module 267/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":449,"ts":"2026-01-01T00:06:33.942Z","text":"Compiling module 268/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":450,"ts":"2026-01-01T00:06:34.942Z","text":"Compiling module 269/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":451,"ts":"2026-01-01T00:06:35.992Z","text":"Compiling module 270/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":452,"ts":"2026-01-01T00:06:37.031Z","text":"Compiling module 271/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":453,"ts":"2026-01-01T00:06:38.046Z","text":"Compiling module 272/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":454,"ts":"2026-01-01T00:06:39.065Z","text":"Compiling module 273/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":455,"ts":"2026-01-01T00:06:40.096Z","text":"Compiling module 274/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":456,"ts":"2026-01-01T00:06:41.124Z","text":"Compiling module 275/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":457,"ts":"2026-01-01T00:06:42.146Z","text":"Compiling module 276/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":458,"ts":"2026-01-01T00:06:43.173Z","text":"Compiling module 277/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":459,"ts":"2026-01-01T00:06:44.182Z","text":"Compiling module 278/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":460,"ts":"2026-01-01T00:06:45.203Z","text":"Compiling module 279/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":461,"ts":"2026-01-01T00:06:46.246Z","text":"Compiling module 280/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":462,"ts":"2026-01-01T00:06:47.278Z","text":"Compiling module 281/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":463,"ts":"2026-01-01T00:06:48.313Z","text":"Compiling module 282/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":464,"ts":"2026-01-01T00:06:49.361Z","text":"Compiling module 283/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":465,"ts":"2026-01-01T00:06:50.371Z","text":"Compiling module 284/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":466,"ts":"2026-01-01T00:06:51.381Z","text":"Compiling module 285/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":467,"ts":"2026-01-01T00:06:52.429Z","text":"Compiling module 286/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":468,"ts":"2026-01-01T00:06:53.463Z","text":"Compiling module 287/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":469,"ts":"2026-01-01T00:06:54.465Z","text":"Compiling module 288/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":470,"ts":"2026-01-01T00:06:55.498Z","text":"Compiling module 289/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":471,"ts":"2026-01-01T00:06:56.525Z","text":"Compiling module 290/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":472,"ts":"2026-01-01T00:06:57.541Z","text":"Compiling module 291/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":473,"ts":"2026-01-01T00:06:58.565Z","text":"Compiling module 292/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":474,"ts":"2026-01-01T00:06:59.597Z","text":"Compiling module 293/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":475,"ts":"2026-01-01T00:07:00.621Z","text":"Compiling module 294/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":476,"ts":"2026-01-01T00:07:01.636Z","text":"Compiling module 295/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":477,"ts":"2026-01-01T00:07:02.656Z","text":"Compiling module 296/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":478,"ts":"2026-01-01T00:07:03.675Z","text":"Compiling module 297/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":479,"ts":"2026-01-01T00:07:04.704Z","text":"Compiling module 298/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":480,"ts":"2026-01-01T00:07:05.748Z","text":"Compiling module 299/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":481,"ts":"2026-01-01T00:07:06.752Z","text":"Compiling module 300/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":482,"ts":"2026-01-01T00:07:07.800Z","text":"Compiling module 301/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":483,"ts":"2026-01-01T00:07:08.835Z","text":"Compiling module 302/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":484,"ts":"2026-01-01T00:07:09.835Z","text":"Compiling module 303/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":485,"ts":"2026-01-01T00:07:10.866Z","text":"Compiling module 304/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":486,"ts":"2026-01-01T00:07:11.907Z","text":"Compiling module 305/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":487,"ts":"2026-01-01T00:07:12.916Z","text":"Compiling module 306/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":488,"ts":"2026-01-01T00:07:13.942Z","text":"Compiling module 307/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":489,"ts":"2026-01-01T00:07:14.959Z","text":"Compiling module 308/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":490,"ts":"2026-01-01T00:07:15.975Z","text":"Compiling module 309/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":491,"ts":"2026-01-01T00:07:16.994Z","text":"Compiling module 310/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":492,"ts":"2026-01-01T00:07:18.002Z","text":"Compiling module 311/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":493,"ts":"2026-01-01T00:07:19.030Z","text":"Compiling module 312/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":494,"ts":"2026-01-01T00:07:20.040Z","text":"Compiling module 313/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":495,"ts":"2026-01-01T00:07:21.049Z","text":"Compiling module 314/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":496,"ts":"2026-01-01T00:07:22.067Z","text":"Compiling module 315/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":497,"ts":"2026-01-01T00:07:23.070Z","text":"Compiling module 316/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":498,"ts":"2026-01-01T00:07:24.071Z","text":"Compiling module 317/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":499,"ts":"2026-01-01T00:07:25.096Z","text":"Compiling module 318/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":500,"ts":"2026-01-01T00:07:26.113Z","text":"Compiling module 319/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":501,"ts":"2026-01-01T00:07:27.126Z","text":"Compiling module 320/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":502,"ts":"2026-01-01T00:07:28.170Z","text":"Compiling module 321/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":503,"ts":"2026-01-01T00:07:29.191Z","text":"Compiling module 322/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":504,"ts":"2026-01-01T00:07:30.209Z","text":"Compiling module 323/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":505,"ts":"2026-01-01T00:07:31.255Z","text":"Compiling module 324/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":506,"ts":"2026-01-01T00:07:32.265Z","text":"Compiling module 325/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":507,"ts":"2026-01-01T00:07:33.307Z","text":"Compiling module 326/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":508,"ts":"2026-01-01T00:07:34.329Z","text":"Compiling module 327/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":509,"ts":"2026-01-01T00:07:35.375Z","text":"Compiling module 328/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":510,"ts":"2026-01-01T00:07:36.417Z","text":"Compiling module 329/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":511,"ts":"2026-01-01T00:07:37.431Z","text":"Compiling module 330/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":512,"ts":"2026-01-01T00:07:38.479Z","text":"Compiling module 331/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":513,"ts":"2026-01-01T00:07:39.511Z","text":"Compiling module 332/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":514,"ts":"2026-01-01T00:07:40.514Z","text":"Compiling module 333/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":515,"ts":"2026-01-01T00:07:41.563Z","text":"Compiling module 334/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":516,"ts":"2026-01-01T00:07:42.594Z","text":"Compiling module 335/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":517,"ts":"2026-01-01T00:07:43.638Z","text":"Compiling module 336/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":518,"ts":"2026-01-01T00:07:44.646Z","text":"Compiling module 337/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":519,"ts":"2026-01-01T00:07:45.685Z","text":"Compiling module 338/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":520,"ts":"2026-01-01T00:07:46.704Z","text":"Compiling module 339/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":521,"ts":"2026-01-01T00:07:47.749Z","text":"Compiling module 340/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":522,"ts":"2026-01-01T00:07:48.756Z","text":"Compiling module 341/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":523,"ts":"2026-01-01T00:07:49.788Z","text":"Compiling module 342/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":524,"ts":"2026-01-01T00:07:50.801Z","text":"Compiling module 343/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":525,"ts":"2026-01-01T00:07:51.834Z","text":"Compiling module 344/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":526,"ts":"2026-01-01T00:07:52.845Z","text":"Compiling module 345/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":527,"ts":"2026-01-01T00:07:53.852Z","text":"Compiling module 346/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":528,"ts":"2026-01-01T00:07:54.875Z","text":"Compiling module 347/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":529,"ts":"2026-01-01T00:07:55.905Z","text":"Compiling module 348/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":530,"ts":"2026-01-01T00:07:56.908Z","text":"Compiling module 349/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":531,"ts":"2026-01-01T00:07:57.915Z","text":"Compiling module 350/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":532,"ts":"2026-01-01T00:07:58.917Z","text":"Compiling module 351/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":533,"ts":"2026-01-01T00:07:59.936Z","text":"Compiling module 352/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":534,"ts":"2026-01-01T00:08:00.980Z","text":"Compiling module 353/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":535,"ts":"2026-01-01T00:08:02.004Z","text":"Compiling module 354/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":536,"ts":"2026-01-01T00:08:03.032Z","text":"Compiling module 355/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":537,"ts":"2026-01-01T00:08:04.035Z","text":"Compiling module 356/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":538,"ts":"2026-01-01T00:08:05.045Z","text":"Compiling module 357/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":539,"ts":"2026-01-01T00:08:06.059Z","text":"Compiling module 358/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":540,"ts":"2026-01-01T00:08:07.108Z","text":"Compiling module 359/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":541,"ts":"2026-01-01T00:08:08.124Z","text":"Compiling module 360/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":542,"ts":"2026-01-01T00:08:09.128Z","text":"Compiling module 361/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":543,"ts":"2026-01-01T00:08:10.148Z","text":"Compiling module 362/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":544,"ts":"2026-01-01T00:08:11.165Z","text":"Compiling module 363/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":545,"ts":"2026-01-01T00:08:12.171Z","text":"Compiling module 364/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":546,"ts":"2026-01-01T00:08:13.186Z","text":"Compiling module 365/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":547,"ts":"2026-01-01T00:08:14.223Z","text":"Compiling module 366/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":548,"ts":"2026-01-01T00:08:15.257Z","text":"Compiling module 367/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":549,"ts":"2026-01-01T00:08:16.306Z","text":"Compiling module 368/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":550,"ts":"2026-01-01T00:08:17.330Z","text":"Compiling module 369/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":551,"ts":"2026-01-01T00:08:18.339Z","text":"Compiling module 370/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":552,"ts":"2026-01-01T00:08:19.381Z","text":"Compiling module 371/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":553,"ts":"2026-01-01T00:08:20.418Z","text":"Compiling module 372/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":554,"ts":"2026-01-01T00:08:21.447Z","text":"Compiling module 373/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":555,"ts":"2026-01-01T00:08:22.471Z","text":"Compiling module 374/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":556,"ts":"2026-01-01T00:08:23.511Z","text":"Compiling module 375/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":557,"ts":"2026-01-01T00:08:24.544Z","text":"Compiling module 376/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":558,"ts":"2026-01-01T00:08:25.577Z","text":"Compiling module 377/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":559,"ts":"2026-01-01T00:08:26.611Z","text":"Compiling module 378/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":560,"ts":"2026-01-01T00:08:27.655Z","text":"Compiling module 379/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":561,"ts":"2026-01-01T00:08:28.666Z","text":"Compiling module 380/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":562,"ts":"2026-01-01T00:08:29.671Z","text":"Compiling module 381/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":563,"ts":"2026-01-01T00:08:30.702Z","text":"Compiling module 382/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":564,"ts":"2026-01-01T00:08:31.743Z","text":"Compiling module 383/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":565,"ts":"2026-01-01T00:08:32.775Z","text":"Compiling module 384/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":566,"ts":"2026-01-01T00:08:33.803Z","text":"Compiling module 385/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":567,"ts":"2026-01-01T00:08:34.809Z","text":"Compiling module 386/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":568,"ts":"2026-01-01T00:08:35.813Z","text":"Compiling module 387/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":569,"ts":"2026-01-01T00:08:36.817Z","text":"Compiling module 388/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":570,"ts":"2026-01-01T00:08:37.843Z","text":"Compiling module 389/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":571,"ts":"2026-01-01T00:08:38.873Z","text":"Compiling module 390/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":572,"ts":"2026-01-01T00:08:39.902Z","text":"Compiling module 391/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":573,"ts":"2026-01-01T00:08:40.929Z","text":"Compiling module 392/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":574,"ts":"2026-01-01T00:08:41.960Z","text":"Compiling module 393/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":575,"ts":"2026-01-01T00:08:43.005Z","text":"Compiling module 394/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":576,"ts":"2026-01-01T00:08:44.027Z","text":"Compiling module 395/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":577,"ts":"2026-01-01T00:08:45.041Z","text":"Compiling module 396/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":578,"ts":"2026-01-01T00:08:46.048Z","text":"Compiling module 397/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":579,"ts":"2026-01-01T00:08:47.048Z","text":"Compiling module 398/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":580,"ts":"2026-01-01T00:08:48.068Z","text":"Compiling module 399/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":581,"ts":"2026-01-01T00:08:49.110Z","text":"Compiling module 400/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":582,"ts":"2026-01-01T00:08:50.143Z","text":"Compiling module 401/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":583,"ts":"2026-01-01T00:08:51.167Z","text":"Compiling module 402/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":584,"ts":"2026-01-01T00:08:52.194Z","text":"Compiling module 403/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":585,"ts":"2026-01-01T00:08:53.205Z","text":"Compiling module 404/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":586,"ts":"2026-01-01T00:08:54.223Z","text":"Compiling module 405/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":587,"ts":"2026-01-01T00:08:55.242Z","text":"Compiling module 406/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":588,"ts":"2026-01-01T00:08:56.250Z","text":"Compiling module 407/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":589,"ts":"2026-01-01T00:08:57.292Z","text":"Compiling module 408/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":590,"ts":"2026-01-01T00:08:58.316Z","text":"Compiling module 409/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":591,"ts":"2026-01-01T00:08:59.324Z","text":"Compiling module 410/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":592,"ts":"2026-01-01T00:09:00.349Z","text":"Compiling module 411/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":593,"ts":"2026-01-01T00:09:01.365Z","text":"Compiling module 412/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":594,"ts":"2026-01-01T00:09:02.410Z","text":"Compiling module 413/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":595,"ts":"2026-01-01T00:09:03.441Z","text":"Compiling module 414/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":596,"ts":"2026-01-01T00:09:04.462Z","text":"Compiling module 415/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":597,"ts":"2026-01-01T00:09:05.480Z","text":"Compiling module 416/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":598,"ts":"2026-01-01T00:09:06.505Z","text":"Compiling module 417/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":599,"ts":"2026-01-01T00:09:07.534Z","text":"Compiling module 418/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":600,"ts":"2026-01-01T00:09:08.562Z","text":"Compiling module 419/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":601,"ts":"2026-01-01T00:09:09.572Z","text":"Compiling module 420/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":602,"ts":"2026-01-01T00:09:10.585Z","text":"Compiling module 421/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":603,"ts":"2026-01-01T00:09:11.620Z","text":"Compiling module 422/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":604,"ts":"2026-01-01T00:09:12.625Z","text":"Compiling module 423/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":605,"ts":"2026-01-01T00:09:13.653Z","text":"Compiling module 424/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":606,"ts":"2026-01-01T00:09:14.658Z","text":"Compiling module 425/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":607,"ts":"2026-01-01T00:09:15.689Z","text":"Compiling module 426/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":608,"ts":"2026-01-01T00:09:16.735Z","text":"Compiling module 427/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":609,"ts":"2026-01-01T00:09:17.752Z","text":"Compiling module 428/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":610,"ts":"2026-01-01T00:09:18.764Z","text":"Compiling module 429/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":611,"ts":"2026-01-01T00:09:19.772Z","text":"Compiling module 430/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":612,"ts":"2026-01-01T00:09:20.801Z","text":"Compiling module 431/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":613,"ts":"2026-01-01T00:09:21.811Z","text":"Compiling module 432/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":614,"ts":"2026-01-01T00:09:22.855Z","text":"Compiling module 433/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":615,"ts":"2026-01-01T00:09:23.881Z","text":"Compiling module 434/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":616,"ts":"2026-01-01T00:09:24.910Z","text":"Compiling module 435/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":617,"ts":"2026-01-01T00:09:25.945Z","text":"Compiling module 436/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":618,"ts":"2026-01-01T00:09:26.959Z","text":"Compiling module 437/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":619,"ts":"2026-01-01T00:09:27.976Z","text":"Compiling module 438/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":620,"ts":"2026-01-01T00:09:29.003Z","text":"Compiling module 439/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":621,"ts":"2026-01-01T00:09:30.046Z","text":"Compiling module 440/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":622,"ts":"2026-01-01T00:09:31.091Z","text":"Compiling module 441/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":623,"ts":"2026-01-01T00:09:32.120Z","text":"Compiling module 442/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":624,"ts":"2026-01-01T00:09:33.121Z","text":"Compiling module 443/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":625,"ts":"2026-01-01T00:09:34.138Z","text":"Compiling module 444/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":626,"ts":"2026-01-01T00:09:35.185Z","text":"Compiling module 445/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":627,"ts":"2026-01-01T00:09:36.192Z","text":"Compiling module 446/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":628,"ts":"2026-01-01T00:09:37.214Z","text":"Compiling module 447/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":629,"ts":"2026-01-01T00:09:38.223Z","text":"Compiling module 448/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":630,"ts":"2026-01-01T00:09:39.249Z","text":"Compiling module 449/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":631,"ts":"2026-01-01T00:09:40.290Z","text":"Compiling module 450/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":632,"ts":"2026-01-01T00:09:41.300Z","text":"Compiling module 451/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":633,"ts":"2026-01-01T00:09:42.345Z","text":"Compiling module 452/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":634,"ts":"2026-01-01T00:09:43.370Z","text":"Compiling module 453/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":635,"ts":"2026-01-01T00:09:44.388Z","text":"Compiling module 454/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":636,"ts":"2026-01-01T00:09:45.394Z","text":"Compiling module 455/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":637,"ts":"2026-01-01T00:09:46.435Z","text":"Compiling module 456/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":638,"ts":"2026-01-01T00:09:47.484Z","text":"Compiling module 457/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":639,"ts":"2026-01-01T00:09:48.525Z","text":"Compiling module 458/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":640,"ts":"2026-01-01T00:09:49.565Z","text":"Compiling module 459/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":641,"ts":"2026-01-01T00:09:50.569Z","text":"Compiling module 460/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":642,"ts":"2026-01-01T00:09:51.604Z","text":"Compiling module 461/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":643,"ts":"2026-01-01T00:09:52.629Z","text":"Compiling module 462/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":644,"ts":"2026-01-01T00:09:53.661Z","text":"Compiling module 463/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":645,"ts":"2026-01-01T00:09:54.701Z","text":"Compiling module 464/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":646,"ts":"2026-01-01T00:09:55.716Z","text":"Compiling module 465/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":647,"ts":"2026-01-01T00:09:56.765Z","text":"Compiling module 466/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":648,"ts":"2026-01-01T00:09:57.771Z","text":"Compiling module 467/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":649,"ts":"2026-01-01T00:09:58.800Z","text":"Compiling module 468/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":650,"ts":"2026-01-01T00:09:59.816Z","text":"Compiling module 469/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":651,"ts":"2026-01-01T00:10:00.830Z","text":"Compiling module 470/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":652,"ts":"2026-01-01T00:10:01.838Z","text":"Compiling module 471/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":653,"ts":"2026-01-01T00:10:02.852Z","text":"Compiling module 472/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":654,"ts":"2026-01-01T00:10:03.900Z","text":"Compiling module 473/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":655,"ts":"2026-01-01T00:10:04.925Z","text":"Compiling module 474/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":656,"ts":"2026-01-01T00:10:05.975Z","text":"Compiling module 475/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":657,"ts":"2026-01-01T00:10:07.002Z","text":"Compiling module 476/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":658,"ts":"2026-01-01T00:10:08.033Z","text":"Compiling module 477/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":659,"ts":"2026-01-01T00:10:09.044Z","text":"Compiling module 478/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":660,"ts":"2026-01-01T00:10:10.070Z","text":"Compiling module 479/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":661,"ts":"2026-01-01T00:10:11.088Z","text":"Compiling module 480/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":662,"ts":"2026-01-01T00:10:12.091Z","text":"Compiling module 481/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":663,"ts":"2026-01-01T00:10:13.101Z","text":"Compiling module 482/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":664,"ts":"2026-01-01T00:10:14.112Z","text":"Compiling module 483/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":665,"ts":"2026-01-01T00:10:15.129Z","text":"Compiling module 484/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":666,"ts":"2026-01-01T00:10:16.130Z","text":"Compiling module 485/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":667,"ts":"2026-01-01T00:10:17.136Z","text":"Compiling module 486/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":668,"ts":"2026-01-01T00:10:18.179Z","text":"Compiling module 487/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":669,"ts":"2026-01-01T00:10:19.184Z","text":"Compiling module 488/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":670,"ts":"2026-01-01T00:10:20.227Z","text":"Compiling module 489/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":671,"ts":"2026-01-01T00:10:21.246Z","text":"Compiling module 490/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":672,"ts":"2026-01-01T00:10:22.264Z","text":"Compiling module 491/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":673,"ts":"2026-01-01T00:10:23.293Z","text":"Compiling module 492/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":674,"ts":"2026-01-01T00:10:24.343Z","text":"Compiling module 493/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":675,"ts":"2026-01-01T00:10:25.356Z","text":"Compiling module 494/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":676,"ts":"2026-01-01T00:10:26.399Z","text":"Compiling module 495/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":677,"ts":"2026-01-01T00:10:27.447Z","text":"Compiling module 496/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":678,"ts":"2026-01-01T00:10:28.473Z","text":"Compiling module 497/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":679,"ts":"2026-01-01T00:10:29.482Z","text":"Compiling module 498/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":680,"ts":"2026-01-01T00:10:30.532Z","text":"Compiling module 499/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":681,"ts":"2026-01-01T00:10:31.533Z","text":"Compiling module 500/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":682,"ts":"2026-01-01T00:10:32.558Z","text":"Compiling module 501/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":683,"ts":"2026-01-01T00:10:33.562Z","text":"Compiling module 502/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":684,"ts":"2026-01-01T00:10:34.584Z","text":"Compiling module 503/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":685,"ts":"2026-01-01T00:10:35.585Z","text":"Compiling module 504/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":686,"ts":"2026-01-01T00:10:36.594Z","text":"Compiling module 505/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":687,"ts":"2026-01-01T00:10:37.623Z","text":"Compiling module 506/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":688,"ts":"2026-01-01T00:10:38.659Z","text":"Compiling module 507/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":689,"ts":"2026-01-01T00:10:39.676Z","text":"Compiling module 508/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":690,"ts":"2026-01-01T00:10:40.680Z","text":"Compiling module 509/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":691,"ts":"2026-01-01T00:10:41.730Z","text":"Compiling module 510/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":692,"ts":"2026-01-01T00:10:42.769Z","text":"Compiling module 511/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":693,"ts":"2026-01-01T00:10:43.793Z","text":"Compiling module 512/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":694,"ts":"2026-01-01T00:10:44.820Z","text":"Compiling module 513/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":695,"ts":"2026-01-01T00:10:45.854Z","text":"Compiling module 514/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":696,"ts":"2026-01-01T00:10:46.860Z","text":"Compiling module 515/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":697,"ts":"2026-01-01T00:10:47.866Z","text":"Compiling module 516/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":698,"ts":"2026-01-01T00:10:48.911Z","text":"Compiling module 517/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":699,"ts":"2026-01-01T00:10:49.912Z","text":"Compiling module 518/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":700,"ts":"2026-01-01T00:10:50.922Z","text":"Compiling module 519/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":701,"ts":"2026-01-01T00:10:51.924Z","text":"Compiling module 520/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":702,"ts":"2026-01-01T00:10:52.939Z","text":"Compiling module 521/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":703,"ts":"2026-01-01T00:10:53.984Z","text":"Compiling module 522/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":704,"ts":"2026-01-01T00:10:55.018Z","text":"Compiling module 523/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":705,"ts":"2026-01-01T00:10:56.052Z","text":"Compiling module 524/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":706,"ts":"2026-01-01T00:10:57.063Z","text":"Compiling module 525/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":707,"ts":"2026-01-01T00:10:58.101Z","text":"Compiling module 526/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":708,"ts":"2026-01-01T00:10:59.118Z","text":"Compiling module 527/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":709,"ts":"2026-01-01T00:11:00.133Z","text":"Compiling module 528/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":710,"ts":"2026-01-01T00:11:01.133Z","text":"Compiling module 529/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":711,"ts":"2026-01-01T00:11:02.142Z","text":"Compiling module 530/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":712,"ts":"2026-01-01T00:11:03.178Z","text":"Compiling module 531/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":713,"ts":"2026-01-01T00:11:04.196Z","text":"Compiling module 532/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":714,"ts":"2026-01-01T00:11:05.202Z","text":"Compiling module 533/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":715,"ts":"2026-01-01T00:11:06.246Z","text":"Compiling module 534/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":716,"ts":"2026-01-01T00:11:07.255Z","text":"Compiling module 535/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":717,"ts":"2026-01-01T00:11:08.304Z","text":"Compiling module 536/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":718,"ts":"2026-01-01T00:11:09.338Z","text":"Compiling module 537/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":719,"ts":"2026-01-01T00:11:10.380Z","text":"Compiling module 538/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":720,"ts":"2026-01-01T00:11:11.408Z","text":"Compiling module 539/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":721,"ts":"2026-01-01T00:11:12.424Z","text":"Compiling module 540/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":722,"ts":"2026-01-01T00:11:13.438Z","text":"Compiling module 541/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":723,"ts":"2026-01-01T00:11:14.466Z","text":"Compiling module 542/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":724,"ts":"2026-01-01T00:11:15.513Z","text":"Compiling module 543/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":725,"ts":"2026-01-01T00:11:16.538Z","text":"Compiling module 544/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":726,"ts":"2026-01-01T00:11:17.565Z","text":"Compiling module 545/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":727,"ts":"2026-01-01T00:11:18.580Z","text":"Compiling module 546/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":728,"ts":"2026-01-01T00:11:19.587Z","text":"Compiling module 547/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":729,"ts":"2026-01-01T00:11:20.637Z","text":"Compiling module 548/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":730,"ts":"2026-01-01T00:11:21.664Z","text":"Compiling module 549/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":731,"ts":"2026-01-01T00:11:22.701Z","text":"Compiling module 550/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":732,"ts":"2026-01-01T00:11:23.715Z","text":"Compiling module 551/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":733,"ts":"2026-01-01T00:11:24.746Z","text":"Compiling module 552/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":734,"ts":"2026-01-01T00:11:25.769Z","text":"Compiling module 553/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":735,"ts":"2026-01-01T00:11:26.810Z","text":"Compiling module 554/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":736,"ts":"2026-01-01T00:11:27.839Z","text":"Compiling module 555/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":737,"ts":"2026-01-01T00:11:28.874Z","text":"Compiling module 556/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":738,"ts":"2026-01-01T00:11:29.905Z","text":"Compiling module 557/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":739,"ts":"2026-01-01T00:11:30.905Z","text":"Compiling module 558/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":740,"ts":"2026-01-01T00:11:31.905Z","text":"Compiling module 559/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":741,"ts":"2026-01-01T00:11:32.919Z","text":"Compiling module 560/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":742,"ts":"2026-01-01T00:11:33.937Z","text":"Compiling module 561/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":743,"ts":"2026-01-01T00:11:34.981Z","text":"Compiling module 562/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":744,"ts":"2026-01-01T00:11:36.003Z","text":"Compiling module 563/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":745,"ts":"2026-01-01T00:11:37.016Z","text":"Compiling module 564/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":746,"ts":"2026-01-01T00:11:38.041Z","text":"Compiling module 565/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":747,"ts":"2026-01-01T00:11:39.086Z","text":"Compiling module 566/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":748,"ts":"2026-01-01T00:11:40.115Z","text":"Compiling module 567/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":749,"ts":"2026-01-01T00:11:41.151Z","text":"Compiling module 568/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":750,"ts":"2026-01-01T00:11:42.188Z","text":"Compiling module 569/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":751,"ts":"2026-01-01T00:11:43.192Z","text":"Compiling module 570/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":752,"ts":"2026-01-01T00:11:44.222Z","text":"Compiling module 571/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":753,"ts":"2026-01-01T00:11:45.271Z","text":"Compiling module 572/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":754,"ts":"2026-01-01T00:11:46.319Z","text":"Compiling module 573/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":755,"ts":"2026-01-01T00:11:47.359Z","text":"Compiling module 574/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":756,"ts":"2026-01-01T00:11:48.373Z","text":"Compiling module 575/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":757,"ts":"2026-01-01T00:11:49.400Z","text":"Compiling module 576/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":758,"ts":"2026-01-01T00:11:50.409Z","text":"Compiling module 577/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":759,"ts":"2026-01-01T00:11:51.409Z","text":"Compiling module 578/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":760,"ts":"2026-01-01T00:11:52.454Z","text":"Compiling module 579/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":761,"ts":"2026-01-01T00:11:53.494Z","text":"Compiling module 580/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":762,"ts":"2026-01-01T00:11:54.499Z","text":"Compiling module 581/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":763,"ts":"2026-01-01T00:11:55.537Z","text":"Compiling module 582/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":764,"ts":"2026-01-01T00:11:56.568Z","text":"Compiling module 583/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":765,"ts":"2026-01-01T00:11:57.596Z","text":"Compiling module 584/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":766,"ts":"2026-01-01T00:11:58.606Z","text":"Compiling module 585/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":767,"ts":"2026-01-01T00:11:59.619Z","text":"Compiling module 586/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":768,"ts":"2026-01-01T00:12:00.661Z","text":"Compiling module 587/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":769,"ts":"2026-01-01T00:12:01.670Z","text":"Compiling module 588/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":770,"ts":"2026-01-01T00:12:02.676Z","text":"Compiling module 589/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":771,"ts":"2026-01-01T00:12:03.725Z","text":"Compiling module 590/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":772,"ts":"2026-01-01T00:12:04.729Z","text":"Compiling module 591/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":773,"ts":"2026-01-01T00:12:05.753Z","text":"Compiling module 592/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":774,"ts":"2026-01-01T00:12:06.775Z","text":"Compiling module 593/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":775,"ts":"2026-01-01T00:12:07.790Z","text":"Compiling module 594/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":776,"ts":"2026-01-01T00:12:08.829Z","text":"Compiling module 595/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":777,"ts":"2026-01-01T00:12:09.873Z","text":"Compiling module 596/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":778,"ts":"2026-01-01T00:12:10.874Z","text":"Compiling module 597/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":779,"ts":"2026-01-01T00:12:11.901Z","text":"Compiling module 598/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":780,"ts":"2026-01-01T00:12:12.931Z","text":"Compiling module 599/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":781,"ts":"2026-01-01T00:12:13.972Z","text":"Compiling module 600/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":782,"ts":"2026-01-01T00:12:14.985Z","text":"Compiling module 601/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":783,"ts":"2026-01-01T00:12:16.023Z","text":"Compiling module 602/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":784,"ts":"2026-01-01T00:12:17.029Z","text":"Compiling module 603/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":785,"ts":"2026-01-01T00:12:18.074Z","text":"Compiling module 604/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":786,"ts":"2026-01-01T00:12:19.079Z","text":"Compiling module 605/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":787,"ts":"2026-01-01T00:12:20.097Z","text":"Compiling module 606/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":788,"ts":"2026-01-01T00:12:21.124Z","text":"Compiling module 607/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":789,"ts":"2026-01-01T00:12:22.168Z","text":"Compiling module 608/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":790,"ts":"2026-01-01T00:12:23.196Z","text":"Compiling module 609/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":791,"ts":"2026-01-01T00:12:24.243Z","text":"Compiling module 610/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":792,"ts":"2026-01-01T00:12:25.267Z","text":"Compiling module 611/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":793,"ts":"2026-01-01T00:12:26.302Z","text":"Compiling module 612/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":794,"ts":"2026-01-01T00:12:27.330Z","text":"Compiling module 613/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":795,"ts":"2026-01-01T00:12:28.355Z","text":"Compiling module 614/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":796,"ts":"2026-01-01T00:12:29.399Z","text":"Compiling module 615/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":797,"ts":"2026-01-01T00:12:30.411Z","text":"Compiling module 616/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":798,"ts":"2026-01-01T00:12:31.459Z","text":"Compiling module 617/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":799,"ts":"2026-01-01T00:12:32.482Z","text":"Compiling module 618/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":800,"ts":"2026-01-01T00:12:33.487Z","text":"Compiling module 619/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":801,"ts":"2026-01-01T00:12:34.516Z","text":"Compiling module 620/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":802,"ts":"2026-01-01T00:12:35.519Z","text":"Compiling module 621/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":803,"ts":"2026-01-01T00:12:36.525Z","text":"Compiling module 622/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":804,"ts":"2026-01-01T00:12:37.528Z","text":"Compiling module 623/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":805,"ts":"2026-01-01T00:12:38.533Z","text":"Compiling module 624/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":806,"ts":"2026-01-01T00:12:39.583Z","text":"Compiling module 625/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":807,"ts":"2026-01-01T00:12:40.608Z","text":"Compiling module 626/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":808,"ts":"2026-01-01T00:12:41.650Z","text":"Compiling module 627/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":809,"ts":"2026-01-01T00:12:42.698Z","text":"Compiling module 628/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":810,"ts":"2026-01-01T00:12:43.736Z","text":"Compiling module 629/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":811,"ts":"2026-01-01T00:12:44.772Z","text":"Compiling module 630/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":812,"ts":"2026-01-01T00:12:45.780Z","text":"Compiling module 631/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":813,"ts":"2026-01-01T00:12:46.804Z","text":"Compiling module 632/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":814,"ts":"2026-01-01T00:12:47.840Z","text":"Compiling module 633/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":815,"ts":"2026-01-01T00:12:48.866Z","text":"Compiling module 634/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":816,"ts":"2026-01-01T00:12:49.916Z","text":"Compiling module 635/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":817,"ts":"2026-01-01T00:12:50.950Z","text":"Compiling module 636/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":818,"ts":"2026-01-01T00:12:51.951Z","text":"Compiling module 637/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":819,"ts":"2026-01-01T00:12:52.981Z","text":"Compiling module 638/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":820,"ts":"2026-01-01T00:12:54.014Z","text":"Compiling module 639/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":821,"ts":"2026-01-01T00:12:55.040Z","text":"Compiling module 640/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":822,"ts":"2026-01-01T00:12:56.045Z","text":"Compiling module 641/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":823,"ts":"2026-01-01T00:12:57.075Z","text":"Compiling module 642/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":824,"ts":"2026-01-01T00:12:58.110Z","text":"Compiling module 643/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":825,"ts":"2026-01-01T00:12:59.140Z","text":"Compiling module 644/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":826,"ts":"2026-01-01T00:13:00.180Z","text":"Compiling module 645/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":827,"ts":"2026-01-01T00:13:01.218Z","text":"Compiling module 646/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":828,"ts":"2026-01-01T00:13:02.266Z","text":"Compiling module 647/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":829,"ts":"2026-01-01T00:13:03.297Z","text":"Compiling module 648/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":830,"ts":"2026-01-01T00:13:04.345Z","text":"Compiling module 649/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":831,"ts":"2026-01-01T00:13:05.395Z","text":"Compiling module 650/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":832,"ts":"2026-01-01T00:13:06.438Z","text":"Compiling module 651/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":833,"ts":"2026-01-01T00:13:07.458Z","text":"Compiling module 652/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":834,"ts":"2026-01-01T00:13:08.493Z","text":"Compiling module 653/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":835,"ts":"2026-01-01T00:13:09.536Z","text":"Compiling module 654/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":836,"ts":"2026-01-01T00:13:10.548Z","text":"Compiling module 655/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":837,"ts":"2026-01-01T00:13:11.549Z","text":"Compiling module 656/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":838,"ts":"2026-01-01T00:13:12.559Z","text":"Compiling module 657/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":839,"ts":"2026-01-01T00:13:13.567Z","text":"Compiling module 658/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":840,"ts":"2026-01-01T00:13:14.589Z","text":"Compiling module 659/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":841,"ts":"2026-01-01T00:13:15.622Z","text":"Compiling module 660/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":842,"ts":"2026-01-01T00:13:16.623Z","text":"Compiling module 661/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":843,"ts":"2026-01-01T00:13:17.669Z","text":"Compiling module 662/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":844,"ts":"2026-01-01T00:13:18.681Z","text":"Compiling module 663/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":845,"ts":"2026-01-01T00:13:19.720Z","text":"Compiling module 664/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":846,"ts":"2026-01-01T00:13:20.728Z","text":"Compiling module 665/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":847,"ts":"2026-01-01T00:13:21.750Z","text":"Compiling module 666/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":848,"ts":"2026-01-01T00:13:22.756Z","text":"Compiling module 667/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":849,"ts":"2026-01-01T00:13:23.803Z","text":"Compiling module 668/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":850,"ts":"2026-01-01T00:13:24.824Z","text":"Compiling module 669/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":851,"ts":"2026-01-01T00:13:25.848Z","text":"Compiling module 670/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":852,"ts":"2026-01-01T00:13:26.868Z","text":"Compiling module 671/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":853,"ts":"2026-01-01T00:13:27.916Z","text":"Compiling module 672/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":854,"ts":"2026-01-01T00:13:28.916Z","text":"Compiling module 673/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":855,"ts":"2026-01-01T00:13:29.961Z","text":"Compiling module 674/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":856,"ts":"2026-01-01T00:13:30.987Z","text":"Compiling module 675/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":857,"ts":"2026-01-01T00:13:32.004Z","text":"Compiling module 676/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":858,"ts":"2026-01-01T00:13:33.043Z","text":"Compiling module 677/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":859,"ts":"2026-01-01T00:13:34.044Z","text":"Compiling module 678/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":860,"ts":"2026-01-01T00:13:35.078Z","text":"Compiling module 679/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":861,"ts":"2026-01-01T00:13:36.127Z","text":"Compiling module 680/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":862,"ts":"2026-01-01T00:13:37.142Z","text":"Compiling module 681/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":863,"ts":"2026-01-01T00:13:38.191Z","text":"Compiling module 682/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":864,"ts":"2026-01-01T00:13:39.229Z","text":"Compiling module 683/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":865,"ts":"2026-01-01T00:13:40.251Z","text":"Compiling module 684/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":866,"ts":"2026-01-01T00:13:41.266Z","text":"Compiling module 685/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":867,"ts":"2026-01-01T00:13:42.298Z","text":"Compiling module 686/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":868,"ts":"2026-01-01T00:13:43.302Z","text":"Compiling module 687/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":869,"ts":"2026-01-01T00:13:44.311Z","text":"Compiling module 688/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":870,"ts":"2026-01-01T00:13:45.353Z","text":"Compiling module 689/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":871,"ts":"2026-01-01T00:13:46.381Z","text":"Compiling module 690/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":872,"ts":"2026-01-01T00:13:47.414Z","text":"Compiling module 691/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":873,"ts":"2026-01-01T00:13:48.440Z","text":"Compiling module 692/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":874,"ts":"2026-01-01T00:13:49.483Z","text":"Compiling module 693/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":875,"ts":"2026-01-01T00:13:50.524Z","text":"Compiling module 694/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":876,"ts":"2026-01-01T00:13:51.559Z","text":"Compiling module 695/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":877,"ts":"2026-01-01T00:13:52.607Z","text":"Compiling module 696/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":878,"ts":"2026-01-01T00:13:53.630Z","text":"Compiling module 697/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":879,"ts":"2026-01-01T00:13:54.659Z","text":"Compiling module 698/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":880,"ts":"2026-01-01T00:13:55.697Z","text":"Compiling module 699/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":881,"ts":"2026-01-01T00:13:56.722Z","text":"Compiling module 700/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":882,"ts":"2026-01-01T00:13:57.771Z","text":"Compiling module 701/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":883,"ts":"2026-01-01T00:13:58.807Z","text":"Compiling module 702/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":884,"ts":"2026-01-01T00:13:59.823Z","text":"Compiling module 703/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":885,"ts":"2026-01-01T00:14:00.837Z","text":"Compiling module 704/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":886,"ts":"2026-01-01T00:14:01.877Z","text":"Compiling module 705/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":887,"ts":"2026-01-01T00:14:02.924Z","text":"Compiling module 706/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":888,"ts":"2026-01-01T00:14:03.936Z","text":"Compiling module 707/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":889,"ts":"2026-01-01T00:14:04.953Z","text":"Compiling module 708/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":890,"ts":"2026-01-01T00:14:05.961Z","text":"Compiling module 709/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":891,"ts":"2026-01-01T00:14:06.966Z","text":"Compiling module 710/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":892,"ts":"2026-01-01T00:14:08.011Z","text":"Compiling module 711/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":893,"ts":"2026-01-01T00:14:09.055Z","text":"Compiling module 712/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":894,"ts":"2026-01-01T00:14:10.076Z","text":"Compiling module 713/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":895,"ts":"2026-01-01T00:14:11.116Z","text":"Compiling module 714/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":896,"ts":"2026-01-01T00:14:12.166Z","text":"Compiling module 715/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":897,"ts":"2026-01-01T00:14:13.167Z","text":"Compiling module 716/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":898,"ts":"2026-01-01T00:14:14.168Z","text":"Compiling module 717/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":899,"ts":"2026-01-01T00:14:15.190Z","text":"Compiling module 718/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":900,"ts":"2026-01-01T00:14:16.206Z","text":"Compiling module 719/720"}}
+{"type":"raw_line","payload":{"agent_id":"sim-backend","offset":901,"ts":"2026-01-01T00:14:17.219Z","text":"Compiling module 720/720"}}

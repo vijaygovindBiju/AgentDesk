@@ -4,6 +4,14 @@
 
 ### Added
 
+- Phase 4 complete: Runtime (core task, clock, task tracker/escalation, transport sinks, pipeline modes) in `agentdesk-core`:
+  - `TaskTracker`: open/close tasks by `task_id`, per-operation duration thresholds table (`ThresholdTable`), watchdog escalation 0→1→2 on tick, task closing on `Completed`/`Error` superseding prior working entries.
+  - `TransportSink`: trait with `send(&Message) -> Result<usize, SinkError>`, `as_any()`, `as_any_mut()`, implemented by `VecSink`, `CountingSink`, and `ChannelSink`. All outbound frames pass through sinks, updating `Metrics.transmitted_events` and `Metrics.transmitted_bytes`.
+  - `CoreTask` & `CoreHandle`: single-threaded actor owning event store, queue, log store, tracker, and metrics. Receives `CoreCommand` via `tokio::sync::mpsc` without mutexes on core state. Handles adapter ingestion, client protocol requests (`respond_request`, `ack_event`, `dismiss_event`, `get_event_details`, `get_log_page`, `get_metrics`), ticks, snapshot dispatch, and sink registry.
+  - Pipeline Modes: `PipelineMode::RawLines`, `PipelineMode::RawEvents`, and `PipelineMode::Agentdesk` selected at core initialization. `raw_*` modes bypass processor/queue and forward directly to sinks while updating metrics.
+  - Interactive Request Resolution: `respond_request` communicates decisions back to adapters (`AdapterCommand::Respond`) unblocking simulator/agent tasks.
+  - Concurrency model in `docs/SYSTEM_DESIGN.md` updated to match implemented channel layout.
+  - Headless Integration & Golden Tests: deterministic execution across all three modes verified with virtual clock, simulator scenario, and committed golden files.
 - Phase 3 complete: synchronous event pipeline in `agentdesk-core`:
   - `LogStore`: bounded per-agent ring buffer with monotonic line offsets, tailing, paging, pin windows (`[start-200, end+50]`) surviving ring eviction, and eviction detection.
   - `EventStore`: immutable in-memory storage for classified events.
