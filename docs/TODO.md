@@ -14,9 +14,10 @@ After every meaningful completed task or task group:
 
 1. Run the relevant tests and validation.
 2. Confirm the implementation is in a known-good state.
-3. Update `TODO.md` with the current status and next action.
+3. Update `TODO.md` with the current status, checklist, and next action.
 4. Update relevant documentation if the change affects documented behaviour or architecture.
 5. Create a Git commit with a meaningful message.
+6. Record the Git commit (hash and summary) in `TODO.md` under the Status section and completed phase.
 
 Commit messages must describe the actual change, using `type(scope): summary`:
 
@@ -27,7 +28,7 @@ Do not commit broken or knowingly incomplete states unless there is a specific r
 
 Prefer small, logical commits that represent one coherent change and leave the repository easy to understand and revert.
 
-**Milestone sequence**: `TODO.md` status → tests/validation → documentation → Git commit → update `Next Action`.
+**Milestone sequence**: tests/validation → documentation → `TODO.md` status/checklist → Git commit → record Git commit in `TODO.md`.
 
 The Git history should read as a readable development history of AgentDesk.
 
@@ -40,12 +41,13 @@ The Git history should read as a readable development history of AgentDesk.
 | **Current Phase** | Phase 4 — Runtime: core task, time, escalation, modes (awaiting approval to start) |
 | **Current Task** | — |
 | **Next Action** | On approval, start Phase 4 with P4.1: `Clock` trait with real and virtual implementations; `tokio` runtime added to `agentdesk-core`. |
+| **Last Commit** | `df1bd03` `docs(todo): add git commit recording to checkpoint rule and track commits` |
 | **Overall MVP progress** | Phases 0–3 complete · 3 / 9 implementation phases · 38 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
 
-## Phase 0 — Design (complete)
+## Phase 0 — Design (complete · commit efbf19e)
 
 Goal: agree problem, stack, architecture, and decisions before writing code.
 
@@ -58,7 +60,7 @@ Exit criteria met: developer approved architecture with amendments; all decision
 
 ---
 
-## Phase 1 — Foundation: workspace and shared model (complete)
+## Phase 1 — Foundation: workspace and shared model (complete · commit ec18dfc)
 
 **Goal**: a buildable monorepo and the shared data contract (`agentdesk-model`) that every other component depends on.
 
@@ -88,7 +90,7 @@ Exit criteria met: developer approved architecture with amendments; all decision
 
 ---
 
-## Phase 2 — Classification and simulated agent (complete)
+## Phase 2 — Classification and simulated agent (complete · commit 818e320)
 
 **Goal**: the first hypothesis-bearing logic (classifier) and a realistic, reproducible input source (simulator).
 
@@ -120,7 +122,7 @@ Classifier and simulator fully tested; default scenario committed; EVENT_MODEL.m
 
 ---
 
-## Phase 3 — Event pipeline (synchronous core) (complete)
+## Phase 3 — Event pipeline (synchronous core) (complete · commit 8f4cd89)
 
 **Goal**: turn `RawAgentEvent`s into stored, classified, queued, scored events with log references — the heart of the hypothesis.
 
