@@ -38,11 +38,11 @@ The Git history should read as a readable development history of AgentDesk.
 
 | | |
 |---|---|
-| **Current Phase** | Phase 5 — Measurement bench (awaiting approval to start) |
+| **Current Phase** | Phase 6 — Transport server (token, development mode) (awaiting approval to start) |
 | **Current Task** | — |
-| **Next Action** | On approval, start Phase 5 with P5.1: `agentdesk-bench` binary: args `--scenario --seed --mode --tap-policy`, runs the core task with a fake client sink. |
-| **Last Commit** | `c6d7dde` `feat(core): implement core task runtime, watchdog escalation, transport sinks, and pipeline modes` |
-| **Overall MVP progress** | Phases 0–4 complete · 4 / 9 implementation phases · 50 % of checklist items |
+| **Next Action** | On approval, start Phase 6 with P6.1: `agentdesk-server`: `tokio-tungstenite` listener; per-connection task with a bounded outbound channel implementing `TransportSink`; registers with the core task. |
+| **Last Commit** | `048222d` `docs(todo): record commit c6d7dde for phase 4 completion` |
+| **Overall MVP progress** | Phases 0–5 complete · 5 / 9 implementation phases · 60 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -190,7 +190,7 @@ Core runs headless from a simulator to a sink, deterministically, in all three m
 
 ---
 
-## Phase 5 — Measurement bench
+## Phase 5 — Measurement bench (complete)
 
 **Goal**: answer the core question numerically before building any UI: does `agentdesk` mode transmit and surface materially less than `raw_events` and `raw_lines` on the same seeded run?
 
@@ -200,25 +200,25 @@ Core runs headless from a simulator to a sink, deterministically, in all three m
 
 ### Tasks
 
-- [ ] P5.1 `agentdesk-bench` binary: args `--scenario --seed --mode --tap-policy`, runs the core task with a fake client sink.
-- [ ] P5.2 Fake client with scripted tap policy (default: open every Request and Error, request one tail log page per Error, approve every Request after N virtual seconds). Counts `summaries_rendered`, `taps`, `log_pages_requested`.
-- [ ] P5.3 JSON report combining laptop Metrics and client counters; `--all-modes` runs all three and emits one comparison document with two sections: **reduction** (raw lines, raw events, AgentDesk surfaced events, reduction ratio vs each baseline, bytes per mode) and **coverage** (per-category counts expected vs surfaced, duplicates, escalations expected vs observed).
-- [ ] P5.4 Scenario ground truth: the simulator exports the expected set of important events (every Request, every Error, every Completed with severity ≥ 2, every task expected to escalate) so coverage is checked against the scenario, not against AgentDesk's own output.
-- [ ] P5.5 Commit the first comparison to `docs/measurements/<date>-<scenario>-<seed>.json` with a short human summary in `docs/measurements/README.md` (what was measured, how to reproduce, caveats about simulator density).
-- [ ] P5.6 Update PROJECT.md success criteria status with the measured numbers (no claims beyond the numbers).
+- [x] P5.1 `agentdesk-bench` binary: args `--scenario --seed --mode --tap-policy`, runs the core task with a fake client sink.
+- [x] P5.2 Fake client with scripted tap policy (default: open every Request and Error, request one tail log page per Error, approve every Request after N virtual seconds). Counts `summaries_rendered`, `taps`, `log_pages_requested`.
+- [x] P5.3 JSON report combining laptop Metrics and client counters; `--all-modes` runs all three and emits one comparison document with two sections: **reduction** (raw lines, raw events, AgentDesk surfaced events, reduction ratio vs each baseline, bytes per mode) and **coverage** (per-category counts expected vs surfaced, duplicates, escalations expected vs observed).
+- [x] P5.4 Scenario ground truth: the simulator exports the expected set of important events (every Request, every Error, every Completed with severity ≥ 2, every task expected to escalate) so coverage is checked against the scenario, not against AgentDesk's own output.
+- [x] P5.5 Commit the first comparison to `docs/measurements/<date>-<scenario>-<seed>.json` with a short human summary in `docs/measurements/README.md` (what was measured, how to reproduce, caveats about simulator density).
+- [x] P5.6 Update PROJECT.md success criteria status with the measured numbers (no claims beyond the numbers).
 
 ### Validation
 
 Success is **reduction AND preservation**; a run that reduces volume by losing important events fails.
 
-- [ ] P5.T1 Reduction: `agentdesk.surfaced_events < raw_events.transmitted_events < raw_lines.transmitted_events` for the default scenario; reduction ratios reported.
-- [ ] P5.T2 Coverage — Requests: every scenario Request surfaced exactly once.
-- [ ] P5.T3 Coverage — Errors: every scenario Error surfaced exactly once.
-- [ ] P5.T4 Coverage — Completed: every scenario Completed with severity ≥ 2 surfaced; lower-severity completions reported but not required.
-- [ ] P5.T5 Escalation: every task the scenario marks as over-long reaches `escalation_level` 1 and then 2 at the designed times, stays in the Working tier, and never outranks any Request/Error/Completed entry; no task escalates a third time.
-- [ ] P5.T6 No silent loss: every raw event that the classifier maps to `request` or `error` has a corresponding surfaced entry (checked from the raw stream, independent of the scenario ground truth).
-- [ ] P5.T7 Duplicate control: no `event_id` is pushed as `event` more than once per connection; `score_update`/`state_update` counts are reported and bounded (≤ ticks × live entries).
-- [ ] P5.T8 Bench run is reproducible: same args ⇒ identical report (excluding wall-clock fields).
+- [x] P5.T1 Reduction: `agentdesk.surfaced_events < raw_events.transmitted_events < raw_lines.transmitted_events` for the default scenario; reduction ratios reported.
+- [x] P5.T2 Coverage — Requests: every scenario Request surfaced exactly once.
+- [x] P5.T3 Coverage — Errors: every scenario Error surfaced exactly once.
+- [x] P5.T4 Coverage — Completed: every scenario Completed with severity ≥ 2 surfaced; lower-severity completions reported but not required.
+- [x] P5.T5 Escalation: every task the scenario marks as over-long reaches `escalation_level` 1 and then 2 at the designed times, stays in the Working tier, and never outranks any Request/Error/Completed entry; no task escalates a third time.
+- [x] P5.T6 No silent loss: every raw event that the classifier maps to `request` or `error` has a corresponding surfaced entry (checked from the raw stream, independent of the scenario ground truth).
+- [x] P5.T7 Duplicate control: no `event_id` is pushed as `event` more than once per connection; `score_update`/`state_update` counts are reported and bounded (≤ ticks × live entries).
+- [x] P5.T8 Bench run is reproducible: same args ⇒ identical report (excluding wall-clock fields).
 
 ### Exit criteria
 

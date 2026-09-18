@@ -35,7 +35,7 @@ Post-MVP  Claude Code adapter · persistence/offline sync · pairing/multi-devic
 | 2 ✅ | Classifier, `Adapter` trait, seeded simulator + default scenario | Table-driven classifier tests; deterministic simulator |
 | 3 ✅ | Log store, event store, queue/scoring/state machine, processor, metrics | All pipeline unit + property tests; bounded memory |
 | 4 ✅ | Core task, clock, task tracker/escalation, `TransportSink`, modes | Golden-file headless run in all three modes |
-| 5 | Bench binary, fake client, JSON comparison report | Committed reproducible measurement; go/no-go on design |
+| 5 ✅ | Bench binary, fake client, JSON comparison report | Committed reproducible measurement; go/no-go on design |
 | 6 | WebSocket server, token handshake, request/reply, dev mode | Loopback client completes the full flow |
 | 7 | Flutter app: home, event, logs, debug | Summary → details → logs → approve on emulator |
 | 8 | Self-signed TLS + SHA-256 pinning | `wss://` is the normal path on a real LAN |

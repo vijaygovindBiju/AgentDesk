@@ -9,6 +9,10 @@ dependencies = [
  "agentdesk-core",
  "agentdesk-model",
  "agentdesk-sim",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

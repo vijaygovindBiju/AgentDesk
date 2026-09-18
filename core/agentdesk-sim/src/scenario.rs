@@ -10,7 +10,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use agentdesk_core::classify;
+use agentdesk_core::{classify, ThresholdTable};
 use agentdesk_model::{AgentId, Category, Details, Operation, TaskId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -194,4 +194,124 @@ impl Scenario {
         }
         Ok(())
     }
+
+    /// Computes the ground truth set of important events and expected escalations
+    /// from the scenario specification (P5.4).
+    pub fn ground_truth(&self, thresholds: &ThresholdTable) -> ScenarioGroundTruth {
+        let mut requests = Vec::new();
+        let mut errors = Vec::new();
+        let mut completed_important = Vec::new();
+        let mut completed_routine = Vec::new();
+        let mut escalations = Vec::new();
+
+        for task in &self.tasks {
+            let mut total_duration_ms: u64 = 0;
+
+            for step in &task.steps {
+                match step {
+                    Step::Started { .. } => {}
+                    Step::Progress {
+                        count, interval_ms, ..
+                    } => {
+                        total_duration_ms += (*count as u64) * interval_ms;
+                    }
+                    Step::Log { lines, interval_ms } => {
+                        total_duration_ms += (lines.len() as u64) * interval_ms;
+                    }
+                    Step::Wait { ms } => {
+                        total_duration_ms += ms;
+                    }
+                    Step::Request { kind, .. } => {
+                        let c = classify(kind);
+                        requests.push(GroundTruthEvent {
+                            task_id: task.task_id.clone(),
+                            agent_id: task.agent_id.clone(),
+                            kind: kind.clone(),
+                            category: Category::Request,
+                            severity: c.severity.as_u8(),
+                        });
+                    }
+                    Step::Event {
+                        kind, delay_ms, ..
+                    } => {
+                        total_duration_ms += delay_ms;
+                        let c = classify(kind);
+                        let ev = GroundTruthEvent {
+                            task_id: task.task_id.clone(),
+                            agent_id: task.agent_id.clone(),
+                            kind: kind.clone(),
+                            category: c.category,
+                            severity: c.severity.as_u8(),
+                        };
+                        match c.category {
+                            Category::Error => errors.push(ev),
+                            Category::Completed => {
+                                if c.severity.as_u8() >= 2 {
+                                    completed_important.push(ev);
+                                } else {
+                                    completed_routine.push(ev);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            let expected_ms = thresholds.expected(task.operation).num_milliseconds() as u64;
+            if expected_ms > 0 {
+                if total_duration_ms >= expected_ms * 2 {
+                    escalations.push(GroundTruthEscalation {
+                        task_id: task.task_id.clone(),
+                        level: 1,
+                    });
+                    escalations.push(GroundTruthEscalation {
+                        task_id: task.task_id.clone(),
+                        level: 2,
+                    });
+                } else if total_duration_ms >= expected_ms {
+                    escalations.push(GroundTruthEscalation {
+                        task_id: task.task_id.clone(),
+                        level: 1,
+                    });
+                }
+            }
+        }
+
+        ScenarioGroundTruth {
+            requests,
+            errors,
+            completed_important,
+            completed_routine,
+            escalations,
+        }
+    }
 }
+
+/// An expected important event exported directly from the scenario (P5.4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GroundTruthEvent {
+    pub task_id: TaskId,
+    pub agent_id: AgentId,
+    pub kind: String,
+    pub category: Category,
+    pub severity: u8,
+}
+
+/// An expected task watchdog escalation exported from the scenario (P5.4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GroundTruthEscalation {
+    pub task_id: TaskId,
+    pub level: u8,
+}
+
+/// Ground truth expected events and escalations for coverage verification (P5.4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScenarioGroundTruth {
+    pub requests: Vec<GroundTruthEvent>,
+    pub errors: Vec<GroundTruthEvent>,
+    pub completed_important: Vec<GroundTruthEvent>,
+    pub completed_routine: Vec<GroundTruthEvent>,
+    pub escalations: Vec<GroundTruthEscalation>,
+}
+

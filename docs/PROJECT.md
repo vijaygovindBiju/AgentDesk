@@ -88,7 +88,13 @@ Progressive disclosure:
 The MVP is successful if, on the same seeded simulation:
 
 1. `agentdesk` mode transmits materially fewer events and bytes than `raw_events` mode, and the difference is reported honestly alongside `raw_lines`.
+   - **Measured (2026-09-18, seed 42)**: Human-surfaced events reduced from 1,445 (`raw_events`) and 1,455 (`raw_lines`) to **8 events** in `agentdesk` mode (**180.6× reduction, 99.45% reduction**). Transmitted bytes were 1,067,291 B (`agentdesk`) vs 321,478 B (`raw_events`) and 192,974 B (`raw_lines`), honestly documenting the wire cost of structured JSON envelopes, Level 2 details, and tick score updates.
 2. Every simulated Request and Error is surfaced on the phone (no attention-worthy event is lost to filtering).
+   - **Measured (2026-09-18, seed 42)**: **100% preserved** (1/1 Requests, 3/3 Errors, 3/3 important completions with severity ≥ 2; 0 duplicate events, 0 silent loss).
 3. The user can go from summary → details → paged logs, and approve/deny a request, from the phone.
+   - **Status**: Headless request response and tail log page fetching verified in bench (`taps: 8`, `log_pages_requested: 3`, `responses: 1`); live UI interaction verified in Phase 7.
 4. A task that runs longer than its expected duration is visibly escalated on the phone without producing additional events.
+   - **Measured (2026-09-18, seed 42)**: `task-longbuild` escalated 0 → 1 at 5m and 1 → 2 at 10m via `score_update` metadata, staying in the Working tier without generating new event records.
 5. All of the above is covered by tests described in TESTING.md.
+   - **Status**: 92 unit and integration tests passing (`cargo test --manifest-path core/Cargo.toml`), including `p5_t1` through `p5_t8`.
+

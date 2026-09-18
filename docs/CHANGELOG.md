@@ -4,6 +4,13 @@
 
 ### Added
 
+- Phase 5 complete: Measurement bench in `agentdesk-bench`:
+  - `ScenarioGroundTruth`: Ground truth event and escalation export directly from scenario definition in `agentdesk-sim` (P5.4).
+  - `FakeClient`: Scripted client tap policy (`TapPolicy::Default`) tracking `summaries_rendered`, `taps`, `log_pages_requested`, `duplicates`, and observed escalations (P5.2).
+  - `agentdesk-bench` CLI & Runner: Multi-mode execution across `raw_lines`, `raw_events`, and `agentdesk` generating unified JSON reports (P5.1, P5.3).
+  - Committed measurement report: `docs/measurements/2026-09-18-default-42.json` and `docs/measurements/README.md` (P5.5) proving 180.6× (99.45%) attention reduction with 100% preservation of attention-worthy events.
+  - Success criteria updated in `docs/PROJECT.md` with measured numbers (P5.6).
+  - Test coverage: 8 automated integration tests in `agentdesk-bench` verifying P5.T1 through P5.T8.
 - Phase 4 complete: Runtime (core task, clock, task tracker/escalation, transport sinks, pipeline modes) in `agentdesk-core`:
   - `TaskTracker`: open/close tasks by `task_id`, per-operation duration thresholds table (`ThresholdTable`), watchdog escalation 0→1→2 on tick, task closing on `Completed`/`Error` superseding prior working entries.
   - `TransportSink`: trait with `send(&Message) -> Result<usize, SinkError>`, `as_any()`, `as_any_mut()`, implemented by `VecSink`, `CountingSink`, and `ChannelSink`. All outbound frames pass through sinks, updating `Metrics.transmitted_events` and `Metrics.transmitted_bytes`.

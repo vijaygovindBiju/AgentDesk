@@ -268,3 +268,43 @@ fn agents_are_exposed_with_names_and_project() {
     assert_eq!(a[0].name, "Backend Agent");
     assert_eq!(a[0].project, "Hybrid");
 }
+
+#[test]
+fn scenario_ground_truth_matches_default_scenario_expectations() {
+    let scenario = Scenario::default_scenario();
+    let thresholds = agentdesk_core::ThresholdTable::default();
+    let gt = scenario.ground_truth(&thresholds);
+
+    // 1 request: task-db (approval_required)
+    assert_eq!(gt.requests.len(), 1);
+    assert_eq!(gt.requests[0].task_id, "task-db");
+    assert_eq!(gt.requests[0].kind, "approval_required");
+    assert_eq!(gt.requests[0].category, Category::Request);
+    assert_eq!(gt.requests[0].severity, 3);
+
+    // 3 errors: task-auth (build_failed), task-tests (test_failed), task-lint (cancelled_by_agent)
+    assert_eq!(gt.errors.len(), 3);
+    let error_tasks: Vec<_> = gt.errors.iter().map(|e| e.task_id.as_str()).collect();
+    assert_eq!(error_tasks, vec!["task-auth", "task-tests", "task-lint"]);
+    assert!(gt.errors.iter().all(|e| e.category == Category::Error));
+
+    // 3 important completions (severity >= 2): task-deps, task-db, task-longbuild
+    assert_eq!(gt.completed_important.len(), 3);
+    let completed_tasks: Vec<_> = gt.completed_important.iter().map(|e| e.task_id.as_str()).collect();
+    assert_eq!(completed_tasks, vec!["task-deps", "task-db", "task-longbuild"]);
+    assert!(gt.completed_important.iter().all(|e| e.category == Category::Completed && e.severity >= 2));
+
+    // 1 routine completion (severity < 2): task-refactor (cancelled_by_user, severity 1)
+    assert_eq!(gt.completed_routine.len(), 1);
+    assert_eq!(gt.completed_routine[0].task_id, "task-refactor");
+    assert_eq!(gt.completed_routine[0].kind, "cancelled_by_user");
+    assert_eq!(gt.completed_routine[0].severity, 1);
+
+    // Escalations: task-longbuild (12m > 5m expected) reaches level 1 and level 2
+    assert_eq!(gt.escalations.len(), 2);
+    assert_eq!(gt.escalations[0].task_id, "task-longbuild");
+    assert_eq!(gt.escalations[0].level, 1);
+    assert_eq!(gt.escalations[1].task_id, "task-longbuild");
+    assert_eq!(gt.escalations[1].level, 2);
+}
+
