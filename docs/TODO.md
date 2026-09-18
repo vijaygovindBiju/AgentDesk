@@ -41,7 +41,7 @@ The Git history should read as a readable development history of AgentDesk.
 | **Current Phase** | Phase 5 — Measurement bench (awaiting approval to start) |
 | **Current Task** | — |
 | **Next Action** | On approval, start Phase 5 with P5.1: `agentdesk-bench` binary: args `--scenario --seed --mode --tap-policy`, runs the core task with a fake client sink. |
-| **Last Commit** | `ed17501` `docs(todo): add git commit recording to checkpoint rule and track commits` |
+| **Last Commit** | `c6d7dde` `feat(core): implement core task runtime, watchdog escalation, transport sinks, and pipeline modes` |
 | **Overall MVP progress** | Phases 0–4 complete · 4 / 9 implementation phases · 50 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
@@ -157,7 +157,7 @@ All Phase 3 tests green; memory bounded by configuration (asserted by a test tha
 
 ---
 
-## Phase 4 — Runtime: core task, time, escalation, modes (complete)
+## Phase 4 — Runtime: core task, time, escalation, modes (complete · commit c6d7dde)
 
 **Goal**: run the pipeline as a single async core task with a clock, tick-driven re-scoring and escalation, a transport-sink abstraction, and the three pipeline modes.
 
