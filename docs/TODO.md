@@ -41,7 +41,7 @@ The Git history should read as a readable development history of AgentDesk.
 | **Current Phase** | Phase 9 — Live validation and write-up (complete · MVP complete) |
 | **Current Task** | MVP complete |
 | **Next Action** | Post-MVP exploration (Claude Code adapter / SQLite persistence). |
-| **Last Commit** | `99475c0` `feat(security): implement self-signed TLS, rustls acceptor, and SHA-256 fingerprint pinning in server and Flutter client` |
+| **Last Commit** | `e8b33be` `feat(validation): complete live validation checklist, bench update, and MVP documentation` |
 | **Overall MVP progress** | Phases 0–9 complete · 9 / 9 implementation phases · 100 % of MVP checklist items |
 | **Blocked / Needs Decision** | None |
 
@@ -343,7 +343,7 @@ Normal operation is `wss://` + token + pinning on a real LAN; `--insecure-dev` i
 
 ### Exit criteria
 
-Success criteria 1–5 in PROJECT.md evaluated with evidence; MVP tagged.
+Success criteria 1–5 in PROJECT.md evaluated with evidence; MVP complete. (Committed in `e8b33be`).
 
 ---
 
