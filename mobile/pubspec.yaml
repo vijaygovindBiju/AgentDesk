@@ -10,6 +10,8 @@ dependencies:
   crypto: ^3.0.7
   flutter:
     sdk: flutter
+  flutter_secure_storage: ^10.0.0
+  shared_preferences: ^2.5.4
   web_socket_channel: ^3.0.3
 
 dev_dependencies:

@@ -293,3 +293,18 @@ Trade-offs: A user with many undismissed Completed items must glance past them t
 
 Consequences: Strict tier ordering `(tier asc, score desc, seq desc)` remains the protocol and UI invariant. Optional promotion or folding of completed tasks is documented for post-MVP UI refinements.
 
+---
+
+## Decision: Persist mobile connection settings with OS-backed token storage
+
+Date: 2026-09-19
+
+Problem: A usable phone client must retain its connection setup across restarts, but the shared authentication token authorizes approval and denial commands and must not be stored in ordinary preferences.
+
+Options: keep all setup in memory; store every field in ordinary preferences; store every field in a platform keystore; store non-secret setup in preferences and the token in OS-backed secure storage.
+
+Decision: Persist the server URL, device ID, and pinned certificate fingerprint as ordinary non-secret app preferences. Persist the authentication token only through an abstract `SecureTokenStore` backed by the platform secure-storage facility. The connection service owns both abstractions; screens and the rest of the app do not access platform storage APIs directly.
+
+Reason: It preserves a secure, restart-safe connection setup without treating a certificate fingerprint as secret or coupling app logic/tests to Android/iOS keystore APIs. The token remains protected by the device OS and is never written to ordinary preferences, files, or logs.
+
+Consequences: Startup restores configuration before any connection attempt; incomplete configuration is explicit. `wss://` is the default and requires a fingerprint. Plain `ws://` is accepted only for loopback insecure-development endpoints; there is no downgrade path.

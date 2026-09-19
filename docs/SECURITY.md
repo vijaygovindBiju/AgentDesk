@@ -34,6 +34,7 @@ This provides confidentiality and integrity on the wire and prevents daemon impe
 
 - A random 256-bit token is generated at first run and stored with `0600` permissions in the config directory; it can be regenerated with `agentdesk token rotate`.
 - The phone sends it in the first frame (`hello`), never in the URL, so it does not appear in access logs or proxies.
+- The phone persists it only through OS-backed secure storage (Android Keystore-backed storage on Android and the platform equivalent elsewhere). It is never written to ordinary preferences, plaintext app files, logs, or debug output.
 - Mismatch → immediate close (`4001`). Compared in constant time.
 - The daemon refuses to bind to a non-loopback address unless a token is configured (fail closed).
 
@@ -66,6 +67,10 @@ Intended for `adb reverse` / emulator testing without certificates. It is not a 
   - Private key: `<config_dir>/key.pem` (0600 permissions, PKCS#8 DER)
   - Rotation: deleting `<config_dir>/cert.pem` and `<config_dir>/key.pem` triggers automatic re-generation on daemon restart with updated SHA-256 fingerprint printed for pinning.
 - **Fingerprint format**: SHA-256 digest over DER certificate bytes. Displayed as `AA:BB:CC:...` colon-separated uppercase hex; client accepts both colon-separated and continuous hex strings, case-insensitively.
+- **Phone configuration**:
+  - Server URL, device ID, and certificate fingerprint are persisted as non-secret app preferences.
+  - The authentication token is persisted separately through the phone OS secure-storage facility. The app uses a storage abstraction so application code never handles a platform-specific keystore API directly.
+  - `wss://` is the default and requires a fingerprint. Plain `ws://` is accepted by the phone only for loopback hosts (`127.0.0.1`, `::1`, or `localhost`) to match the daemon's explicit `--insecure-dev` boundary.
 
 ## Implementation rules
 
@@ -73,6 +78,7 @@ Intended for `adb reverse` / emulator testing without certificates. It is not a 
 - Never log the token or full log content at info level. Debug logging of payloads must be opt-in and documented.
 - Token and certificate files are never committed; `.gitignore` covers the config directory if it ever lands in the repo.
 - Constant-time comparison for the token.
+- Configuration validation occurs before connecting. Missing URL, token, device ID, or a required TLS fingerprint produces a configuration-required state and does not initiate a reconnect loop.
 
 ## Known limitations of the MVP
 

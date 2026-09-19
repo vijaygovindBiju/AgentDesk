@@ -145,7 +145,7 @@ Metrics are collected in all three so the bench can compare them on the same see
 
 ### Connection
 
-`wss://` client with certificate-fingerprint pinning and token hello. Reconnects with backoff; on reconnect it receives a fresh `snapshot` and replaces local queue state.
+`wss://` client with certificate-fingerprint pinning and token hello. At startup it restores URL, device ID, and fingerprint from ordinary app preferences and restores the token through an OS-backed secure-storage abstraction before attempting a connection. It refuses incomplete configuration, remote `ws://`, and any TLS connection without a fingerprint; it never downgrades `wss://` to `ws://`. Reconnects with backoff; on reconnect it receives a fresh `snapshot` and replaces local queue state.
 
 ### State
 
@@ -158,7 +158,7 @@ Metrics are collected in all three so the bench can compare them on the same see
 - **Event screen**: Level 2 details; `Approve` / `Deny` for requests; `Dismiss`; `View logs`. Opening this screen sends `get_event_details`, which marks the event `seen` on the laptop.
 - **Log viewer**: tail-first paged log view driven by `get_event_logs { offset, limit }`.
 - **Debug screen**: client-side metrics (`summaries_rendered`, `taps`, `log_pages_requested`), insecure-dev warning banner, and laptop daemon metrics.
-- **Settings screen**: connection URL, auth token, device ID, and certificate fingerprint.
+- **Settings screen**: connection URL, auth token, device ID, and certificate fingerprint. URL/device ID/fingerprint persist in ordinary preferences; the token is stored only through the secure-storage abstraction. Incomplete configuration is shown as `configurationRequired`, rather than as a failed network connection.
 
 ## Things deliberately not built in the MVP
 

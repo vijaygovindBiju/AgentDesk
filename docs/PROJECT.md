@@ -96,6 +96,5 @@ The MVP is successful if, on the same seeded simulation:
 4. A task that runs longer than its expected duration is visibly escalated on the phone without producing additional events.
    - **Measured & Verified**: `task-longbuild` escalated 0 → 1 at 5m and 1 → 2 at 10m via `score_update` metadata, moving to top of Working tier with visible badge without generating new event records. Verified in bench, unit tests, and UI widget tests.
 5. All of the above is covered by tests described in TESTING.md.
-   - **Verified**: 102 Rust tests in `core/` (`cargo test`) and 33 Flutter tests in `mobile/` (`flutter test`) passing with 100% success across the repository.
-
+   - **Verified**: 112 Rust tests in `core/` (`cargo test`) and 42 Flutter tests in `mobile/` (`flutter test`) passing with 100% success across the repository.
 

@@ -109,7 +109,9 @@ class HomeScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8.0, vertical: 4.0),
+                    horizontal: 8.0,
+                    vertical: 4.0,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -121,16 +123,15 @@ class HomeScreen extends StatelessWidget {
                           shape: BoxShape.circle,
                           color: isConnected
                               ? Colors.greenAccent.shade700
+                              : status == ConnectionStatus.configurationRequired
+                              ? Colors.orange
                               : status == ConnectionStatus.reconnecting
-                                  ? Colors.orange
-                                  : Colors.red,
+                              ? Colors.orange
+                              : Colors.red,
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        status.name,
-                        style: const TextStyle(fontSize: 12),
-                      ),
+                      Text(status.name, style: const TextStyle(fontSize: 12)),
                     ],
                   ),
                 ),
@@ -203,14 +204,13 @@ class HomeScreen extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: accentColor.shade100,
                   borderRadius: BorderRadius.circular(12),
@@ -246,15 +246,15 @@ class HomeScreen extends StatelessWidget {
             ),
           )
         else
-          for (final entry in tierEntries)
-            _buildEntryCard(context, entry),
+          for (final entry in tierEntries) _buildEntryCard(context, entry),
       ],
     );
   }
 
   Widget _buildEntryCard(BuildContext context, QueueEntry entry) {
     final event = state.eventFor(entry.eventId);
-    final isStillBlocking = entry.tier == 0 &&
+    final isStillBlocking =
+        entry.tier == 0 &&
         entry.state == EntryState.dismissed &&
         entry.resolution == Resolution.unresolved;
     final isEscalated = entry.escalationLevel >= 1;
@@ -272,8 +272,8 @@ class HomeScreen extends StatelessWidget {
           color: isStillBlocking
               ? Colors.amber.shade900
               : isEscalated
-                  ? Colors.red.shade400
-                  : Colors.grey.shade200,
+              ? Colors.red.shade400
+              : Colors.grey.shade200,
           width: (isStillBlocking || isEscalated) ? 2.0 : 1.0,
         ),
       ),
@@ -313,7 +313,9 @@ class HomeScreen extends StatelessWidget {
                       key: Key('still_blocking_badge_${entry.eventId}'),
                       margin: const EdgeInsets.only(right: 6),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.amber.shade100,
                         borderRadius: BorderRadius.circular(4),
@@ -333,7 +335,9 @@ class HomeScreen extends StatelessWidget {
                       key: Key('escalation_badge_${entry.eventId}'),
                       margin: const EdgeInsets.only(right: 6),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red.shade100,
                         borderRadius: BorderRadius.circular(4),
@@ -350,10 +354,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                   Text(
                     'Score: ${entry.score}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -370,10 +371,7 @@ class HomeScreen extends StatelessWidget {
                 event?.message ?? '',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade800,
-                ),
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
               ),
             ],
           ),

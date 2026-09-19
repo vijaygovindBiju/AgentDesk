@@ -84,6 +84,7 @@ Future (when offline queues exist): replay ordering, individual command failure 
 - `QueueView` ordering matches the laptop's `(tier, score desc, seq desc)`.
 - Reducer tests: `event`, `score_update`, `state_update`, `snapshot` produce the expected view.
 - Widget tests: Request that is `dismissed` but `unresolved` renders the "still blocking" indicator; escalated Working renders the badge.
+- Persistent configuration tests use in-memory implementations of the configuration-preferences and secure-token-store interfaces. They cover save/load and startup restoration, missing URL/token/fingerprint states, secure `wss://` validation, loopback-only `ws://`, configuration replacement, and secure-token read/write/delete without requiring a physical keystore.
 
 ## Edge cases to keep in the suite
 

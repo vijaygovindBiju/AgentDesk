@@ -29,18 +29,18 @@ The Rust laptop-side workspace provides:
 - a headless benchmark that compares `raw_lines`, `raw_events`, and `agentdesk` modes;
 - a WebSocket daemon supporting event snapshots, updates, details, paged logs, acknowledgement, dismissal, and approval/denial commands.
 
-The Flutter client provides a foreground-only four-tier ranked event list, event details, backward-paged logs, approve/deny and dismiss actions, connection/debug status, and reconnect handling.
+The Flutter client provides a foreground-only four-tier ranked event list, event details, backward-paged logs, approve/deny and dismiss actions, connection/debug status, reconnect handling, and persistent connection setup.
 
 ### Security model
 
-The normal transport is `wss://`. Each connection uses a shared token during the handshake, TLS with a self-signed certificate, and SHA-256 certificate fingerprint pinning in the Flutter client. The development-only `--insecure-dev` mode uses plain `ws://` and is restricted to loopback.
+The normal transport is `wss://`. Each connection uses a shared token during the handshake, TLS with a self-signed certificate, and SHA-256 certificate fingerprint pinning in the Flutter client. The phone stores its token only through OS-backed secure storage; URL, device ID, and fingerprint are non-secret preferences. The development-only `--insecure-dev` mode uses plain `ws://` and is restricted to loopback on both the daemon and client.
 
 ### Validation status
 
 The repository currently has:
 
 - **112 passing Rust tests** covering the model, core pipeline, simulator, benchmark, server, TLS, and integration flows;
-- **33 passing Flutter tests** covering models, state, UI, TLS pinning, and end-to-end flows;
+- **42 passing Flutter tests** covering models, state, UI, TLS pinning, persistent secure configuration, and end-to-end flows;
 - a clean `flutter analyze` result.
 
 Run the checks with:

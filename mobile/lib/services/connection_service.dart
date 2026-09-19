@@ -8,9 +8,12 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/models.dart';
 import '../state/agentdesk_state.dart';
+import 'connection_configuration_store.dart';
 import 'fingerprint.dart';
+import 'secure_token_store.dart';
 
 enum ConnectionStatus {
+  configurationRequired,
   disconnected,
   connecting,
   authenticating,
@@ -20,20 +23,24 @@ enum ConnectionStatus {
 }
 
 class ConnectionService extends ChangeNotifier {
+  static const defaultSecureUrl = 'wss://127.0.0.1:8765';
+
   final AgentDeskState state;
+  final ConnectionConfigurationStore _configurationStore;
+  final SecureTokenStore _tokenStore;
   final Random _random = Random();
 
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
   Timer? _reconnectTimer;
 
-  ConnectionStatus _status = ConnectionStatus.disconnected;
+  ConnectionStatus _status = ConnectionStatus.configurationRequired;
   ConnectionStatus get status => _status;
 
   String? _lastError;
   String? get lastError => _lastError;
 
-  String _url = 'ws://127.0.0.1:8765';
+  String _url = defaultSecureUrl;
   String _token = '';
   String _deviceId = 'flutter-client-1';
   String? _fingerprint;
@@ -43,12 +50,23 @@ class ConnectionService extends ChangeNotifier {
   String get deviceId => _deviceId;
   String? get fingerprint => _fingerprint;
 
+  /// A user-facing explanation when the app cannot safely connect yet.
+  String? get configurationError => _configurationError();
+  bool get isConfigurationComplete => configurationError == null;
+
   bool _isActive = false;
   double _backoffSeconds = 1.0;
   int _reqCounter = 0;
   final Map<String, Completer<Message>> _pendingRequests = {};
 
-  ConnectionService({required this.state});
+  ConnectionService({
+    required this.state,
+    ConnectionConfigurationStore? configurationStore,
+    SecureTokenStore? tokenStore,
+  }) : _configurationStore =
+           configurationStore ??
+           SharedPreferencesConnectionConfigurationStore(),
+       _tokenStore = tokenStore ?? const FlutterSecureTokenStore();
 
   void configure({
     String? url,
@@ -65,7 +83,69 @@ class ConnectionService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Loads non-secret settings from ordinary preferences and the token from
+  /// OS-backed secure storage. This must complete before a startup connection.
+  Future<void> restoreConfiguration() async {
+    try {
+      final stored = await _configurationStore.load();
+      final token = await _tokenStore.readToken();
+      _url = stored.url?.trim() ?? defaultSecureUrl;
+      _deviceId = stored.deviceId?.trim().isEmpty ?? true
+          ? 'flutter-client-1'
+          : stored.deviceId!.trim();
+      _fingerprint = _blankToNull(stored.fingerprint);
+      _token = token?.trim() ?? '';
+      _setConfigurationStatus();
+    } catch (_) {
+      _isActive = false;
+      _setStatus(
+        ConnectionStatus.configurationRequired,
+        'Unable to read saved connection configuration. Open Settings and save it again.',
+      );
+    }
+  }
+
+  /// Persists non-secret settings separately from the authentication token.
+  /// An empty token removes it from secure storage and leaves the app in a
+  /// configuration-required state rather than attempting an unauthenticated connection.
+  Future<void> saveConfiguration({
+    required String url,
+    required String token,
+    required String deviceId,
+    required String fingerprint,
+  }) async {
+    final normalizedUrl = url.trim();
+    final normalizedToken = token.trim();
+    final normalizedDeviceId = deviceId.trim();
+    final normalizedFingerprint = _blankToNull(fingerprint);
+
+    await _configurationStore.save(
+      ConnectionConfiguration(
+        url: normalizedUrl.isEmpty ? null : normalizedUrl,
+        deviceId: normalizedDeviceId.isEmpty ? null : normalizedDeviceId,
+        fingerprint: normalizedFingerprint,
+      ),
+    );
+    if (normalizedToken.isEmpty) {
+      await _tokenStore.deleteToken();
+    } else {
+      await _tokenStore.writeToken(normalizedToken);
+    }
+
+    _url = normalizedUrl;
+    _token = normalizedToken;
+    _deviceId = normalizedDeviceId;
+    _fingerprint = normalizedFingerprint;
+    _setConfigurationStatus();
+  }
+
   void connect() {
+    final problem = _configurationError();
+    if (problem != null) {
+      _isActive = false;
+      _setStatus(ConnectionStatus.configurationRequired, problem);
+      return;
+    }
     _isActive = true;
     _reconnectTimer?.cancel();
     _backoffSeconds = 1.0;
@@ -77,13 +157,63 @@ class ConnectionService extends ChangeNotifier {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _cleanupChannel();
-    _setStatus(ConnectionStatus.disconnected);
+    _setStatus(
+      isConfigurationComplete
+          ? ConnectionStatus.disconnected
+          : ConnectionStatus.configurationRequired,
+      configurationError,
+    );
   }
 
   void _setStatus(ConnectionStatus newStatus, [String? error]) {
     _status = newStatus;
     _lastError = error;
     notifyListeners();
+  }
+
+  void _setConfigurationStatus() {
+    final problem = _configurationError();
+    if (problem != null) {
+      _isActive = false;
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
+      _cleanupChannel();
+      _setStatus(ConnectionStatus.configurationRequired, problem);
+    } else if (_status == ConnectionStatus.configurationRequired) {
+      _setStatus(ConnectionStatus.disconnected);
+    } else {
+      notifyListeners();
+    }
+  }
+
+  String? _configurationError() {
+    final url = _url.trim();
+    if (url.isEmpty) return 'Server WebSocket URL is required.';
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return 'Enter a valid server WebSocket URL.';
+    }
+    if (uri.scheme != 'wss' && uri.scheme != 'ws') {
+      return 'Server URL must use wss://, or loopback ws:// for insecure development.';
+    }
+    if (uri.scheme == 'ws' && !_isLoopbackHost(uri.host)) {
+      return 'Plain ws:// is allowed only for loopback insecure-development servers.';
+    }
+    if (_token.trim().isEmpty) return 'Authentication token is required.';
+    if (_deviceId.trim().isEmpty) return 'Device identifier is required.';
+    if (uri.scheme == 'wss' &&
+        (_fingerprint == null || _fingerprint!.isEmpty)) {
+      return 'TLS connection requires a pinned SHA-256 certificate fingerprint in Settings.';
+    }
+    return null;
+  }
+
+  static bool _isLoopbackHost(String host) =>
+      host == '127.0.0.1' || host == '::1' || host.toLowerCase() == 'localhost';
+
+  static String? _blankToNull(String? value) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   Future<void> _doConnect() async {
@@ -96,7 +226,9 @@ class ConnectionService extends ChangeNotifier {
       WebSocket ws;
       if (uri.scheme == 'wss') {
         if (_fingerprint == null || _fingerprint!.trim().isEmpty) {
-          _onFailure('TLS connection requires a pinned SHA-256 certificate fingerprint in Settings');
+          _onFailure(
+            'TLS connection requires a pinned SHA-256 certificate fingerprint in Settings',
+          );
           return;
         }
 
@@ -105,13 +237,20 @@ class ConnectionService extends ChangeNotifier {
           final valid = verifyCertificateFingerprint(cert.der, _fingerprint!);
           if (!valid) {
             final presented = formatFingerprint(cert.der);
-            debugPrint('Rejecting certificate: fingerprint mismatch. Presented: $presented, Pinned: $_fingerprint');
+            debugPrint(
+              'Rejecting certificate: fingerprint mismatch. Presented: $presented, Pinned: $_fingerprint',
+            );
           }
           return valid;
         };
         ws = await WebSocket.connect(uri.toString(), customClient: client);
-      } else {
+      } else if (uri.scheme == 'ws' && _isLoopbackHost(uri.host)) {
         ws = await WebSocket.connect(uri.toString());
+      } else {
+        _onFailure(
+          'Plain ws:// is only permitted for loopback insecure-development servers',
+        );
+        return;
       }
 
       _channel = IOWebSocketChannel(ws);
@@ -287,7 +426,9 @@ class ConnectionService extends ChangeNotifier {
       timeout,
       onTimeout: () {
         _pendingRequests.remove(reqId);
-        throw TimeoutException('Request $type ($reqId) timed out after $timeout');
+        throw TimeoutException(
+          'Request $type ($reqId) timed out after $timeout',
+        );
       },
     );
   }
@@ -332,7 +473,10 @@ class ConnectionService extends ChangeNotifier {
     return res.payload as CommandResult;
   }
 
-  Future<CommandResult> respondRequest(String eventId, Decision decision) async {
+  Future<CommandResult> respondRequest(
+    String eventId,
+    Decision decision,
+  ) async {
     final res = await sendRequest(
       'respond_request',
       RespondRequest(eventId: eventId, decision: decision),
