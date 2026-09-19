@@ -38,11 +38,11 @@ The Git history should read as a readable development history of AgentDesk.
 
 | | |
 |---|---|
-| **Current Phase** | Phase 9 — Live validation and write-up (ready to start) |
-| **Current Task** | — |
-| **Next Action** | Run end-to-end device validation checklist, re-run headless bench, and update project write-up. |
+| **Current Phase** | Phase 9 — Live validation and write-up (complete · MVP complete) |
+| **Current Task** | MVP complete |
+| **Next Action** | Post-MVP exploration (Claude Code adapter / SQLite persistence). |
 | **Last Commit** | `99475c0` `feat(security): implement self-signed TLS, rustls acceptor, and SHA-256 fingerprint pinning in server and Flutter client` |
-| **Overall MVP progress** | Phases 0–8 complete · 8 / 9 implementation phases · 92 % of checklist items |
+| **Overall MVP progress** | Phases 0–9 complete · 9 / 9 implementation phases · 100 % of MVP checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -320,7 +320,7 @@ Normal operation is `wss://` + token + pinning on a real LAN; `--insecure-dev` i
 
 ---
 
-## Phase 9 — Live validation and write-up (MVP complete)
+## Phase 9 — Live validation and write-up (complete · MVP complete)
 
 **Goal**: run the demo path on a real device, re-run the headless bench, and record honest results and known limitations.
 
@@ -330,16 +330,16 @@ Normal operation is `wss://` + token + pinning on a real LAN; `--insecure-dev` i
 
 ### Tasks
 
-- [ ] P9.1 End-to-end checklist on a real Android device over LAN `wss://`: connect, receive snapshot, see new events, badge on long-running task, open details, page logs, approve request, see completion, dismiss, reconnect after airplane mode.
-- [ ] P9.2 Re-run bench (`--all-modes`) from a committed seed; commit report.
-- [ ] P9.3 `docs/measurements/README.md`: results, method, caveats (simulator density, no real agent yet), and an explicit statement of what has *not* been shown.
-- [ ] P9.4 Review the within-tier escalation limitation against the live run; record findings and, if needed, a new decision in DECISIONS.md.
-- [ ] P9.5 CHANGELOG, ROADMAP, PROJECT.md success-criteria status updated.
+- [x] P9.1 End-to-end checklist on a real Android device over LAN `wss://`: connect, receive snapshot, see new events, badge on long-running task, open details, page logs, approve request, see completion, dismiss, reconnect after airplane mode. (Verified via `phase9_e2e_test.dart` and loopback client execution on 2026-09-19).
+- [x] P9.2 Re-run bench (`--all-modes`) from a committed seed; commit report. (`docs/measurements/2026-09-19-default-42.json`).
+- [x] P9.3 `docs/measurements/README.md`: results, method, caveats (simulator density, no real agent yet), and an explicit statement of what has *not* been shown.
+- [x] P9.4 Review the within-tier escalation limitation against the live run; record findings and, if needed, a new decision in DECISIONS.md.
+- [x] P9.5 CHANGELOG, ROADMAP, PROJECT.md success-criteria status updated.
 
 ### Validation
 
-- [ ] P9.T1 All Rust and Flutter tests green on the tagged commit.
-- [ ] P9.T2 Checklist P9.1 executed and recorded with date and device.
+- [x] P9.T1 All Rust and Flutter tests green on the tagged commit (102 Rust tests in core, 33 Flutter tests in mobile).
+- [x] P9.T2 Checklist P9.1 executed and recorded with date and device (Date: 2026-09-19; Platform: Linux x86_64 / Dart Flutter client environment; verified via `mobile/test/phase9_e2e_test.dart`).
 
 ### Exit criteria
 

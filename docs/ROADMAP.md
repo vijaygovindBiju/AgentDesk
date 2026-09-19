@@ -39,7 +39,7 @@ Post-MVP  Claude Code adapter · persistence/offline sync · pairing/multi-devic
 | 6 ✅ | WebSocket server, token handshake, request/reply, dev mode | Loopback client completes the full flow |
 | 7 ✅ | Flutter app: home, event, logs, debug | Summary → details → logs → approve on emulator |
 | 8 ✅ | Self-signed TLS + SHA-256 pinning | `wss://` is the normal path on a real LAN |
-| 9 | Live device run, final bench, write-up | PROJECT.md success criteria evaluated with evidence |
+| 9 ✅ | Live device run, final bench, write-up | PROJECT.md success criteria evaluated with evidence |
 
 ## Why this order
 

@@ -271,3 +271,25 @@ Decision: In the simulator, each `progress` tick is a `progress` event carrying 
 Reason: A naive notification app forwarding structured agent output would see progress ticks as events; treating them as events is the conservative (less flattering to AgentDesk) choice for the `raw_events` baseline.
 
 Trade-offs: Default scenario is 99.4 % Working events, which is realistic for compile/test loops but should be revisited once a Claude Code adapter shows its actual event density. Recorded as a bench caveat.
+
+---
+
+## Decision: Retain strict within-tier escalation for MVP; promote-to-attention scheduled for post-MVP
+
+Date: 2026-09-19
+
+Problem: In Phase 9 live validation, watchdog escalation raises `escalation_level` on long-running tasks in Tier 3 (Working). The UI marks the card with high-visibility badges ("LONG" / orange at level 1, red at level 2) and moves the task to the top of Tier 3. However, because AgentDesk enforces strict tier grouping `(tier asc, score desc, seq desc)`, an escalated working task remains below Tier 2 (Completed) items unless completed items are dismissed.
+
+Options:
+1. Promote escalated working tasks into Tier 0 or Tier 1 (effective tier promotion).
+2. Render an "Escalated" virtual section above Completed.
+3. Retain strict four-tier grouping for the MVP with badges; evaluate promotion in post-MVP.
+
+Decision: Retain strict within-tier escalation with visible badges for MVP (Option 3).
+
+Reason: Preserves the fundamental four-category architectural invariant (`request`, `error`, `completed`, `working`) and guarantees predictable, non-jittery UI sections. In practice, Completed entries are low-friction and quickly dismissed or scrolled past, while the bright escalation badge and score boost to the top of Working clearly signals stall conditions. Promoting tasks across categories creates confusion around whether the task has failed or requires approval.
+
+Trade-offs: A user with many undismissed Completed items must glance past them to see escalated Working tasks.
+
+Consequences: Strict tier ordering `(tier asc, score desc, seq desc)` remains the protocol and UI invariant. Optional promotion or folding of completed tasks is documented for post-MVP UI refinements.
+

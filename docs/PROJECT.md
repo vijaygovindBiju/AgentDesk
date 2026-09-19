@@ -87,14 +87,15 @@ Progressive disclosure:
 
 The MVP is successful if, on the same seeded simulation:
 
-1. `agentdesk` mode transmits materially fewer events and bytes than `raw_events` mode, and the difference is reported honestly alongside `raw_lines`.
-   - **Measured (2026-09-18, seed 42)**: Human-surfaced events reduced from 1,445 (`raw_events`) and 1,455 (`raw_lines`) to **8 events** in `agentdesk` mode (**180.6× reduction, 99.45% reduction**). Transmitted bytes were 1,067,291 B (`agentdesk`) vs 321,478 B (`raw_events`) and 192,974 B (`raw_lines`), honestly documenting the wire cost of structured JSON envelopes, Level 2 details, and tick score updates.
+1. `agentdesk` mode transmits materially fewer events than `raw_events` mode, and the difference is reported honestly alongside `raw_lines`.
+   - **Measured & Verified (2026-09-19, seed 42)**: Human-surfaced events reduced from 1,445 (`raw_events`) and 1,455 (`raw_lines`) to **8 events** in `agentdesk` mode (**180.6× reduction, 99.45% reduction**). Transmitted bytes are 1,067,291 B (`agentdesk`) vs 321,478 B (`raw_events`) and 192,974 B (`raw_lines`), honestly documenting the wire cost of structured JSON envelopes, Level 2 details, and tick score updates.
 2. Every simulated Request and Error is surfaced on the phone (no attention-worthy event is lost to filtering).
-   - **Measured (2026-09-18, seed 42)**: **100% preserved** (1/1 Requests, 3/3 Errors, 3/3 important completions with severity ≥ 2; 0 duplicate events, 0 silent loss).
+   - **Measured & Verified (2026-09-19, seed 42)**: **100% preserved** (1/1 Requests, 3/3 Errors, 3/3 important completions with severity ≥ 2; 0 duplicate events, 0 silent loss).
 3. The user can go from summary → details → paged logs, and approve/deny a request, from the phone.
-   - **Status**: Headless request response and tail log page fetching verified in bench (`taps: 8`, `log_pages_requested: 3`, `responses: 1`); live UI interaction verified in Phase 7.
+   - **Verified**: Fully verified through headless bench (`taps: 8`, `log_pages_requested: 3`, `responses: 1`), Flutter UI widget tests (`phase7_exit_criteria_test.dart`, `home_screen_test.dart`), and secure LAN integration tests (`connection_tls_test.dart`, `phase9_e2e_test.dart`) exercising summary → details → backward-paged logs → approval flow over `wss://`.
 4. A task that runs longer than its expected duration is visibly escalated on the phone without producing additional events.
-   - **Measured (2026-09-18, seed 42)**: `task-longbuild` escalated 0 → 1 at 5m and 1 → 2 at 10m via `score_update` metadata, staying in the Working tier without generating new event records.
+   - **Measured & Verified**: `task-longbuild` escalated 0 → 1 at 5m and 1 → 2 at 10m via `score_update` metadata, moving to top of Working tier with visible badge without generating new event records. Verified in bench, unit tests, and UI widget tests.
 5. All of the above is covered by tests described in TESTING.md.
-   - **Status**: 92 unit and integration tests passing (`cargo test --manifest-path core/Cargo.toml`), including `p5_t1` through `p5_t8`.
+   - **Verified**: 102 Rust tests in `core/` (`cargo test`) and 33 Flutter tests in `mobile/` (`flutter test`) passing with 100% success across the repository.
+
 

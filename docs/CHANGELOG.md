@@ -1,5 +1,34 @@
 # AgentDesk — Changelog
 
+## 2026-09-19
+
+### Added
+
+- Phase 9 complete: Live validation and write-up (MVP Complete):
+  - Headless benchmark re-run & verification: Identical results confirmed across all modes for seed 42, proving 180.6× reduction in human-surfaced events with 100% preservation of Requests and Errors.
+  - End-to-end integration test suite (`phase9_e2e_test.dart`): Verified full live checklist over `wss://` with pinned SHA-256 fingerprint (connection, snapshot, push events, watchdog badge, Level 2 details, paged tail logs, request approval, task completion supersession, dismissal, and simulated airplane mode reconnection).
+  - Decision record on escalation: Documented findings on within-tier escalation vs cross-tier promotion in `docs/DECISIONS.md`.
+  - Honest limitations write-up: Added explicit section to `docs/measurements/README.md` documenting what has not yet been shown (real agent PTY dynamics, offline command queuing, binary wire compression, mobile battery impact).
+  - Success criteria evaluation: All 5 success criteria in `docs/PROJECT.md` evaluated with concrete evidence; MVP marked complete.
+- Phase 8 complete: TLS and certificate pinning in server and Flutter client:
+  - Rustls acceptor & certificate management: Self-signed certificate and private key generated on first run via `rcgen` and saved with `0600` permissions (`0700` dir); SHA-256 DER fingerprint printed on daemon startup.
+  - WSS by default: Daemon defaults to `wss://`; `--insecure-dev` restricted strictly to loopback (`127.0.0.1`).
+  - SHA-256 fingerprint pinning: Client enforces fingerprint validation via `HttpClient.badCertificateCallback` rejecting unpinned or mismatched server certificates.
+  - Security documentation: Config directory paths, rotation commands, and pinning specifications updated in `docs/SECURITY.md`.
+  - Test coverage: Rust TLS integration tests (`tls_tests.rs`), Dart unit tests (`fingerprint_test.dart`), and Flutter network tests (`connection_tls_test.dart`).
+- Phase 7 complete: Flutter mobile client (`mobile/`):
+  - Model definitions: Hand-written Dart models mirroring `agentdesk-model` (`Event`, `QueueEntry`, `LogRange`, `RequestInfo`, messages).
+  - Connection service: `ConnectionService` managing WebSocket lifecycle, `hello`/`welcome`/`snapshot` handshake, request/reply correlation with timeouts, and jittered exponential backoff (1s → 30s).
+  - Reactive state store: `AgentDeskState` implementing pure reducers for snapshot, push events, score deltas, state updates, and deterministic queue ordering `(tier, score desc, seq desc)`.
+  - UI screens:
+    - `HomeScreen`: Four-tier ranked list, category indicators, escalation badges, dismissed-but-unresolved ("still blocking") warning badges, and pull-to-reconnect.
+    - `EventScreen`: Progressive disclosure displaying Level 2 details, interactive Approve/Deny buttons for requests, Dismiss action, and link to logs.
+    - `LogViewerScreen`: Tail-first paging (`offset: -1`), backward pagination ("load earlier"), and eviction notification banners.
+    - `DebugScreen`: Connection metrics, daemon telemetry fetcher, client interaction counters, and insecure-dev warning banners.
+    - `SettingsScreen`: Daemon address, authentication token, device ID, and SHA-256 fingerprint fields.
+  - Metrics tracking: `ClientMetrics` tracking `summaries_rendered`, `taps`, and `log_pages_requested`.
+  - Test coverage: 33 Flutter unit, widget, and integration tests across models, state reducers, screen rendering, and end-to-end user flows.
+
 ## 2026-09-18
 
 ### Added

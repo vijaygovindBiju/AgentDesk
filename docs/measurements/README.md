@@ -55,3 +55,14 @@ cargo test --manifest-path core/Cargo.toml -p agentdesk-bench
 
 1. **Simulator Event Density**: In the default scenario, 99.4% of events are routine `progress` events from compile and test loops. This simulates realistic compiler noise where tasks generate hundreds of incremental progress lines. Real agents like Claude Code may have different density profiles, which will be measured once real adapters are built.
 2. **Byte Accounting**: In `agentdesk` mode, wire bytes are higher than raw lines because AgentDesk transmits structured JSON messages containing full `QueueEntry` metadata, Level 2 `details` attached to events, periodic `score_update` deltas, and state transition updates. The primary optimization goal of AgentDesk is **human attention reduction (surfaced events)**, not minimal wire compression.
+
+## What Has NOT Been Shown (Honest Limitations & Scope)
+
+To maintain rigorous engineering honesty, the following hypotheses and capabilities have **not** yet been shown or measured in the MVP:
+
+1. **Real-world Agent Stream Dynamics**: No live AI agent process (e.g., Claude Code PTY or OpenAI Codex runner) has been attached yet. Measurements reflect the deterministic simulator scenario (`default.json`). Real agent runs will involve unpredictable token streaming, unformatted stack traces, and variable turn latencies that require adapter normalization.
+2. **Offline Durability & Conflict Reconciliation**: The current system relies on in-memory storage. All daemon state is ephemeral across restarts. Reconnecting clients receive a clean snapshot, but offline command queuing and multi-client command conflict resolution (e.g. concurrent approvals) have not been tested or implemented.
+3. **Wire Bandwidth Optimization**: Wire bytes are higher in `agentdesk` mode (~1.06 MB) than raw lines (~193 KB) due to structured JSON metadata and Level 2 payloads. Binary framing, protobuf serialization, or WebSocket per-message deflate have not been benchmarked.
+4. **Mobile Battery & Background Lifecycle**: Because the MVP client is scoped to foreground-only operation on local Wi-Fi, background service wake locks, FCM/APNS push notifications, and long-term OS battery impact have not been measured.
+5. **Cross-tier Stuck Task Promotion**: In-flight tasks with long-running watchdog escalations stay within Tier 3 (Working) and do not jump above Tier 2 (Completed) entries, relying on visual badges for operator triage.
+

@@ -1,0 +1,162 @@
+{
+  "scenario": "default",
+  "seed": 42,
+  "timestamp": "2026-09-19T08:47:26.484362375+00:00",
+  "tap_policy": "default",
+  "modes": {
+    "raw_lines": {
+      "mode": "raw_lines",
+      "laptop_metrics": {
+        "raw_lines": 1455,
+        "raw_events": 1445,
+        "processed_events": 0,
+        "dropped_events": 0,
+        "unclassified_events": 0,
+        "transmitted_events": 0,
+        "transmitted_bytes": 192974,
+        "surfaced_summaries": 0,
+        "escalations": 0,
+        "log_page_requests": 0,
+        "detail_refetches": 0,
+        "acks": 0,
+        "dismissals": 0,
+        "responses": 0,
+        "slow_client_disconnects": 0
+      },
+      "client_counters": {
+        "summaries_rendered": 1455,
+        "taps": 0,
+        "log_pages_requested": 0,
+        "duplicates": 0,
+        "score_updates": 0,
+        "state_updates": 0
+      },
+      "transmitted_events": 0,
+      "transmitted_bytes": 192974,
+      "surfaced_events": 1455
+    },
+    "raw_events": {
+      "mode": "raw_events",
+      "laptop_metrics": {
+        "raw_lines": 15,
+        "raw_events": 1445,
+        "processed_events": 0,
+        "dropped_events": 0,
+        "unclassified_events": 0,
+        "transmitted_events": 1445,
+        "transmitted_bytes": 321478,
+        "surfaced_summaries": 0,
+        "escalations": 0,
+        "log_page_requests": 0,
+        "detail_refetches": 0,
+        "acks": 0,
+        "dismissals": 0,
+        "responses": 0,
+        "slow_client_disconnects": 0
+      },
+      "client_counters": {
+        "summaries_rendered": 1445,
+        "taps": 0,
+        "log_pages_requested": 0,
+        "duplicates": 0,
+        "score_updates": 0,
+        "state_updates": 0
+      },
+      "transmitted_events": 1445,
+      "transmitted_bytes": 321478,
+      "surfaced_events": 1445
+    },
+    "agentdesk": {
+      "mode": "agentdesk",
+      "laptop_metrics": {
+        "raw_lines": 1455,
+        "raw_events": 1445,
+        "processed_events": 1445,
+        "dropped_events": 0,
+        "unclassified_events": 0,
+        "transmitted_events": 1445,
+        "transmitted_bytes": 1067291,
+        "surfaced_summaries": 1445,
+        "escalations": 2,
+        "log_page_requests": 3,
+        "detail_refetches": 3,
+        "acks": 0,
+        "dismissals": 0,
+        "responses": 1,
+        "slow_client_disconnects": 0
+      },
+      "client_counters": {
+        "summaries_rendered": 8,
+        "taps": 8,
+        "log_pages_requested": 3,
+        "duplicates": 0,
+        "score_updates": 66,
+        "state_updates": 1441
+      },
+      "transmitted_events": 1445,
+      "transmitted_bytes": 1067291,
+      "surfaced_events": 8
+    }
+  },
+  "reduction": {
+    "raw_lines_events": 1455,
+    "raw_lines_bytes": 192974,
+    "raw_events_events": 1445,
+    "raw_events_bytes": 321478,
+    "agentdesk_surfaced_events": 8,
+    "agentdesk_transmitted_events": 1445,
+    "agentdesk_transmitted_bytes": 1067291,
+    "event_reduction_vs_raw_events_ratio": 180.625,
+    "event_reduction_vs_raw_events_pct": 99.44636678200692,
+    "event_reduction_vs_raw_lines_ratio": 181.875,
+    "event_reduction_vs_raw_lines_pct": 99.45017182130584,
+    "byte_reduction_vs_raw_events_ratio": 0.301209323417887,
+    "byte_reduction_vs_raw_events_pct": -231.9950354301072,
+    "byte_reduction_vs_raw_lines_ratio": 0.1808072962294257,
+    "byte_reduction_vs_raw_lines_pct": -453.075025651124
+  },
+  "coverage": {
+    "requests": {
+      "expected": 1,
+      "surfaced": 1,
+      "preserved": true
+    },
+    "errors": {
+      "expected": 3,
+      "surfaced": 3,
+      "preserved": true
+    },
+    "completed_important": {
+      "expected": 3,
+      "surfaced": 3,
+      "preserved": true
+    },
+    "completed_routine": {
+      "expected": 1,
+      "surfaced": 1,
+      "preserved": true
+    },
+    "escalations": {
+      "expected": [
+        {
+          "task_id": "task-longbuild",
+          "level": 1
+        },
+        {
+          "task_id": "task-longbuild",
+          "level": 2
+        }
+      ],
+      "observed": [
+        {
+          "task_id": "task-longbuild",
+          "highest_level": 2
+        }
+      ],
+      "preserved": true
+    },
+    "duplicates": 0,
+    "silent_loss_detected": false,
+    "all_passed": true
+  }
+}
