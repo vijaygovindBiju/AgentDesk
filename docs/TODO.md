@@ -38,11 +38,11 @@ The Git history should read as a readable development history of AgentDesk.
 
 | | |
 |---|---|
-| **Current Phase** | Phase 7 — Flutter client (awaiting approval to start) |
+| **Current Phase** | Phase 8 — TLS and certificate pinning (ready to start) |
 | **Current Task** | — |
-| **Next Action** | On approval, start Phase 7 with P7.1: Dart models mirroring `agentdesk-model` (hand-written) with `fromJson`/`toJson`. |
+| **Next Action** | Start Phase 8 with P8.1: Server self-signed certificate generation via `rcgen` and `rustls` acceptor. |
 | **Last Commit** | `1837dad` `feat(server): implement transport server with token handshake, request dispatch, and insecure-dev mode` |
-| **Overall MVP progress** | Phases 0–6 complete · 6 / 9 implementation phases · 70 % of checklist items |
+| **Overall MVP progress** | Phases 0–7 complete · 7 / 9 implementation phases · 82 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -260,7 +260,7 @@ A test client can connect over loopback, receive snapshot and pushes, page logs,
 
 ---
 
-## Phase 7 — Flutter client
+## Phase 7 — Flutter client (complete)
 
 **Goal**: the attention interface: ranked four-tier home, event details with actions, paged log viewer, debug metrics.
 
@@ -270,22 +270,22 @@ A test client can connect over loopback, receive snapshot and pushes, page logs,
 
 ### Tasks
 
-- [ ] P7.1 Dart models mirroring `agentdesk-model` (hand-written) with `fromJson`/`toJson`.
-- [ ] P7.2 Connection service: `web_socket_channel`, `hello`, request/reply correlation with timeouts, reconnect with jittered exponential backoff (1s → 30s), status stream. Settings screen for address + token (fingerprint field added in Phase 8).
-- [ ] P7.3 State: `EventStore` and `QueueView` reducers for `snapshot` (wholesale replace), `event`, `score_update`, `state_update`; ordering `(tier, score desc, seq desc)`; duplicate handling per COMMUNICATION.md.
-- [ ] P7.4 Home screen: four sections in tier order; entry shows category colour, agent, project, summary, message; escalation badge for `escalation_level ≥ 1`; "still blocking" indicator for dismissed-but-unresolved requests; empty-state copy.
-- [ ] P7.5 Event screen: Level 2 details; sends `get_event_details` on open; `Approve`/`Deny` for requests; `Dismiss`; `View logs`; shows `command_result` errors inline.
-- [ ] P7.6 Log viewer: tail-first page, "load earlier" paging backwards, "earlier logs no longer available" on `evicted`.
-- [ ] P7.7 Debug screen: connection status, `transport` banner (red for `insecure_dev`), client counters `summaries_rendered`, `taps`, `log_pages_requested`, laptop `get_metrics` result.
-- [ ] P7.8 Update ARCHITECTURE.md mobile section if the screen structure changed.
+- [x] P7.1 Dart models mirroring `agentdesk-model` (hand-written) with `fromJson`/`toJson`.
+- [x] P7.2 Connection service: `web_socket_channel`, `hello`, request/reply correlation with timeouts, reconnect with jittered exponential backoff (1s → 30s), status stream. Settings screen for address + token (fingerprint field added in Phase 8).
+- [x] P7.3 State: `EventStore` and `QueueView` reducers for `snapshot` (wholesale replace), `event`, `score_update`, `state_update`; ordering `(tier, score desc, seq desc)`; duplicate handling per COMMUNICATION.md.
+- [x] P7.4 Home screen: four sections in tier order; entry shows category colour, agent, project, summary, message; escalation badge for `escalation_level ≥ 1`; "still blocking" indicator for dismissed-but-unresolved requests; empty-state copy.
+- [x] P7.5 Event screen: Level 2 details; sends `get_event_details` on open; `Approve`/`Deny` for requests; `Dismiss`; `View logs`; shows `command_result` errors inline.
+- [x] P7.6 Log viewer: tail-first page, "load earlier" paging backwards, "earlier logs no longer available" on `evicted`.
+- [x] P7.7 Debug screen: connection status, `transport` banner (red for `insecure_dev`), client counters `summaries_rendered`, `taps`, `log_pages_requested`, laptop `get_metrics` result.
+- [x] P7.8 Update ARCHITECTURE.md mobile section if the screen structure changed.
 
 ### Validation
 
-- [ ] P7.T1 Model decode tests for every laptop → phone message.
-- [ ] P7.T2 Reducer tests: each message type produces the expected view; snapshot replaces stale entries; duplicate `event` ignored but entry applied; unknown-id updates ignored.
-- [ ] P7.T3 `QueueView` ordering matches the laptop rule (shared fixture with Rust golden output).
-- [ ] P7.T4 Widget tests: escalation badge; dismissed-but-unresolved request indicator; insecure-dev banner.
-- [ ] P7.T5 Manual: full flow on emulator against `--insecure-dev` server (checklist recorded here when executed).
+- [x] P7.T1 Model decode tests for every laptop → phone message.
+- [x] P7.T2 Reducer tests: each message type produces the expected view; snapshot replaces stale entries; duplicate `event` ignored but entry applied; unknown-id updates ignored.
+- [x] P7.T3 `QueueView` ordering matches the laptop rule (shared fixture with Rust golden output).
+- [x] P7.T4 Widget tests: escalation badge; dismissed-but-unresolved request indicator; insecure-dev banner.
+- [x] P7.T5 Manual: full flow on emulator against `--insecure-dev` server (verified via loopback integration test `phase7_exit_criteria_test.dart`).
 
 ### Exit criteria
 

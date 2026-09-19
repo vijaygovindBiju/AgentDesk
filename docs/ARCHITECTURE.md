@@ -157,7 +157,8 @@ Metrics are collected in all three so the bench can compare them on the same see
 - **Home**: four sections in tier order; within a section, entries sorted by score. Escalated Working entries show an "unusually long" badge. Requests that are `dismissed` but not `resolved` remain visually marked as still blocking the agent.
 - **Event screen**: Level 2 details; `Approve` / `Deny` for requests; `Dismiss`; `View logs`. Opening this screen sends `get_event_details`, which marks the event `seen` on the laptop.
 - **Log viewer**: tail-first paged log view driven by `get_event_logs { offset, limit }`.
-- **Debug screen**: client-side metrics (`summaries_rendered`, `taps`, `log_pages_requested`) and connection status.
+- **Debug screen**: client-side metrics (`summaries_rendered`, `taps`, `log_pages_requested`), insecure-dev warning banner, and laptop daemon metrics.
+- **Settings screen**: connection URL, auth token, device ID, and certificate fingerprint.
 
 ## Things deliberately not built in the MVP
 
