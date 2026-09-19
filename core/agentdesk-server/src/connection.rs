@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use futures_util::{SinkExt, StreamExt};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::protocol::frame::CloseFrame;
@@ -83,12 +83,10 @@ pub struct ConnectionParams {
 }
 
 /// Accept and manage a single client WebSocket connection lifecycle.
-pub async fn handle_connection(stream: TcpStream, params: ConnectionParams) {
-    let peer_addr = stream
-        .peer_addr()
-        .map(|a| a.to_string())
-        .unwrap_or_else(|_| "unknown".into());
-
+pub async fn handle_connection<S>(stream: S, peer_addr: String, params: ConnectionParams)
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     logging::info(format!(
         "Accepted connection from {} (client_id: {})",
         peer_addr, params.client_id

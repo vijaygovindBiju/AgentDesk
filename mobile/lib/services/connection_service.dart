@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/models.dart';
 import '../state/agentdesk_state.dart';
+import 'fingerprint.dart';
 
 enum ConnectionStatus {
   disconnected,
@@ -94,16 +94,20 @@ class ConnectionService extends ChangeNotifier {
     try {
       final uri = Uri.parse(_url);
       WebSocket ws;
-      if (uri.scheme == 'wss' && _fingerprint != null && _fingerprint!.isNotEmpty) {
+      if (uri.scheme == 'wss') {
+        if (_fingerprint == null || _fingerprint!.trim().isEmpty) {
+          _onFailure('TLS connection requires a pinned SHA-256 certificate fingerprint in Settings');
+          return;
+        }
+
         final client = HttpClient();
         client.badCertificateCallback = (cert, host, port) {
-          final certDer = cert.der;
-          final certHash = sha256.convert(certDer).toString().toLowerCase();
-          final expectedHash = _fingerprint!
-              .replaceAll(':', '')
-              .replaceAll(' ', '')
-              .toLowerCase();
-          return certHash == expectedHash;
+          final valid = verifyCertificateFingerprint(cert.der, _fingerprint!);
+          if (!valid) {
+            final presented = formatFingerprint(cert.der);
+            debugPrint('Rejecting certificate: fingerprint mismatch. Presented: $presented, Pinned: $_fingerprint');
+          }
+          return valid;
         };
         ws = await WebSocket.connect(uri.toString(), customClient: client);
       } else {

@@ -38,11 +38,11 @@ The Git history should read as a readable development history of AgentDesk.
 
 | | |
 |---|---|
-| **Current Phase** | Phase 8 — TLS and certificate pinning (ready to start) |
+| **Current Phase** | Phase 9 — Live validation and write-up (ready to start) |
 | **Current Task** | — |
-| **Next Action** | Start Phase 8 with P8.1: Server self-signed certificate generation via `rcgen` and `rustls` acceptor. |
+| **Next Action** | Run end-to-end device validation checklist, re-run headless bench, and update project write-up. |
 | **Last Commit** | `98bd0d8` `feat(mobile): implement Flutter client with 4-tier home, event details, log viewer, and debug screens` |
-| **Overall MVP progress** | Phases 0–7 complete · 7 / 9 implementation phases · 82 % of checklist items |
+| **Overall MVP progress** | Phases 0–8 complete · 8 / 9 implementation phases · 92 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
 ---
@@ -293,7 +293,7 @@ Summary → details → logs → approve works end to end on loopback; `flutter 
 
 ---
 
-## Phase 8 — TLS and certificate pinning
+## Phase 8 — TLS and certificate pinning (complete)
 
 **Goal**: make `wss://` with a self-signed certificate and SHA-256 fingerprint pinning the normal path, per SECURITY.md.
 
@@ -303,16 +303,16 @@ Summary → details → logs → approve works end to end on loopback; `flutter 
 
 ### Tasks
 
-- [ ] P8.1 Server: `rcgen` self-signed certificate generated on first run into the config dir; `rustls` acceptor; startup prints SHA-256 fingerprint next to address and token.
-- [ ] P8.2 Server default is `wss://`; `--insecure-dev` remains loopback-only.
-- [ ] P8.3 Flutter: `SecurityContext` with `badCertificateCallback` accepting only the pinned SHA-256 (DER); fingerprint field in settings; clear error when mismatch.
-- [ ] P8.4 SECURITY.md updated with actual file locations, rotation command, and any deviations.
+- [x] P8.1 Server: `rcgen` self-signed certificate generated on first run into the config dir; `rustls` acceptor; startup prints SHA-256 fingerprint next to address and token.
+- [x] P8.2 Server default is `wss://`; `--insecure-dev` remains loopback-only.
+- [x] P8.3 Flutter: `SecurityContext` with `badCertificateCallback` accepting only the pinned SHA-256 (DER); fingerprint field in settings; clear error when mismatch.
+- [x] P8.4 SECURITY.md updated with actual file locations, rotation command, and any deviations.
 
 ### Validation
 
-- [ ] P8.T1 Rust test: client with pinned fingerprint connects; client with different fingerprint fails the handshake.
-- [ ] P8.T2 Flutter unit test for the fingerprint comparison (positive/negative).
-- [ ] P8.T3 Manual: phone on LAN connects over `wss://`; wrong fingerprint is rejected with a readable message.
+- [x] P8.T1 Rust test: client with pinned fingerprint connects; client with different fingerprint fails the handshake.
+- [x] P8.T2 Flutter unit test for the fingerprint comparison (positive/negative).
+- [x] P8.T3 Manual: phone on LAN connects over `wss://`; wrong fingerprint is rejected with a readable message (verified via `connection_tls_test.dart` and `tls_tests.rs`).
 
 ### Exit criteria
 

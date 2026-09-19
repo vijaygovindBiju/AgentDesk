@@ -56,6 +56,7 @@ async fn setup_test_server(
         pipeline_mode: mode,
         outbound_capacity,
         debug_logging: false,
+        config_dir: None,
     };
 
     let server = Server::bind(config, tx_core.clone(), clock.clone())
@@ -623,6 +624,7 @@ async fn phase6_exit_criteria_end_to_end() {
         pipeline_mode: PipelineMode::Agentdesk,
         outbound_capacity: 1024,
         debug_logging: false,
+        config_dir: None,
     };
 
     let server = Server::bind(config, tx_core.clone(), clock.clone())

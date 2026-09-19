@@ -7,9 +7,13 @@ pub mod config;
 pub mod connection;
 pub mod logging;
 pub mod server;
+pub mod tls;
 pub mod token;
 
 pub use config::{parse_args, print_help, CliCommand, RunOptions, TokenOptions};
+pub use tls::{
+    cert_path, compute_sha256_fingerprint, format_fingerprint_hex, key_path, TlsIdentity,
+};
 pub use connection::{
     handle_connection, ConnectionParams, ServerConnectionSink, DEFAULT_OUTBOUND_CAPACITY,
 };

@@ -1,20 +1,23 @@
 //! WebSocket server listener and connection acceptance.
-//! See docs/SECURITY.md and P6.1, P6.6.
+//! See docs/SECURITY.md and P6.1, P6.6, P8.1, P8.2.
 
 use std::io;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
+use tokio_rustls::TlsAcceptor;
 
 use agentdesk_core::{Clock, CoreCommand};
 use agentdesk_model::{PipelineMode, TransportMode};
 
 use crate::connection::{handle_connection, ConnectionParams, DEFAULT_OUTBOUND_CAPACITY};
 use crate::logging;
-use crate::token::validate_bind_security;
+use crate::tls::TlsIdentity;
+use crate::token::{default_config_dir, validate_bind_security};
 
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -25,6 +28,7 @@ pub struct ServerConfig {
     pub pipeline_mode: PipelineMode,
     pub outbound_capacity: usize,
     pub debug_logging: bool,
+    pub config_dir: Option<PathBuf>,
 }
 
 impl Default for ServerConfig {
@@ -37,6 +41,7 @@ impl Default for ServerConfig {
             pipeline_mode: PipelineMode::Agentdesk,
             outbound_capacity: DEFAULT_OUTBOUND_CAPACITY,
             debug_logging: false,
+            config_dir: None,
         }
     }
 }
@@ -63,6 +68,8 @@ pub struct Server {
     clock: Arc<dyn Clock>,
     next_client_id: AtomicU64,
     shutdown_notify: Arc<tokio::sync::Notify>,
+    tls_identity: Option<Arc<TlsIdentity>>,
+    tls_acceptor: Option<TlsAcceptor>,
 }
 
 impl Server {
@@ -76,7 +83,7 @@ impl Server {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, e));
         }
 
-        if config.insecure_dev {
+        let (tls_identity, tls_acceptor) = if config.insecure_dev {
             eprintln!(
                 "===================================================================\n\
                  * WARNING: --insecure-dev IS ENABLED!                             *\n\
@@ -85,14 +92,32 @@ impl Server {
                  * Intended only for emulator / adb reverse development testing.   *\n\
                  ==================================================================="
             );
-        }
+            (None, None)
+        } else {
+            let config_dir = config.config_dir.clone().unwrap_or_else(default_config_dir);
+            let identity = TlsIdentity::load_or_generate(&config_dir).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Failed loading/generating TLS identity: {e}"),
+                )
+            })?;
+            let acceptor = identity.build_tls_acceptor().map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Failed building TLS acceptor: {e}"),
+                )
+            })?;
+            (Some(Arc::new(identity)), Some(acceptor))
+        };
 
         let bind_target = format!("{}:{}", config.bind_addr, config.port);
         let listener = TcpListener::bind(&bind_target).await?;
         let local_addr = listener.local_addr()?;
 
+        let scheme = if config.insecure_dev { "ws" } else { "wss" };
         logging::info(format!(
-            "AgentDesk server listening on ws://{} ({:?})",
+            "AgentDesk server listening on {}://{} ({:?})",
+            scheme,
             local_addr,
             config.transport_mode()
         ));
@@ -105,11 +130,21 @@ impl Server {
             clock,
             next_client_id: AtomicU64::new(1),
             shutdown_notify: Arc::new(tokio::sync::Notify::new()),
+            tls_identity,
+            tls_acceptor,
         })
     }
 
     pub fn local_addr(&self) -> SocketAddr {
         self.local_addr
+    }
+
+    pub fn tls_identity(&self) -> Option<&TlsIdentity> {
+        self.tls_identity.as_deref()
+    }
+
+    pub fn fingerprint(&self) -> Option<&str> {
+        self.tls_identity.as_ref().map(|id| id.fingerprint.as_str())
     }
 
     pub fn shutdown(&self) {
@@ -129,7 +164,8 @@ impl Server {
                 }
                 accept_result = self.listener.accept() => {
                     match accept_result {
-                        Ok((stream, _peer_addr)) => {
+                        Ok((stream, peer_addr)) => {
+                            let peer_str = peer_addr.to_string();
                             let client_id = self.next_client_id.fetch_add(1, Ordering::SeqCst);
                             let params = ConnectionParams {
                                 client_id,
@@ -141,7 +177,21 @@ impl Server {
                                 outbound_capacity: self.config.outbound_capacity,
                                 debug_logging: self.config.debug_logging,
                             };
-                            tokio::spawn(handle_connection(stream, params));
+                            if let Some(acceptor) = &self.tls_acceptor {
+                                let acceptor = acceptor.clone();
+                                tokio::spawn(async move {
+                                    match acceptor.accept(stream).await {
+                                        Ok(tls_stream) => {
+                                            handle_connection(tls_stream, peer_str, params).await;
+                                        }
+                                        Err(e) => {
+                                            logging::info(format!("TLS handshake failed from {}: {}", peer_str, e));
+                                        }
+                                    }
+                                });
+                            } else {
+                                tokio::spawn(handle_connection(stream, peer_str, params));
+                            }
                         }
                         Err(e) => {
                             logging::info(format!("Error accepting socket connection: {}", e));

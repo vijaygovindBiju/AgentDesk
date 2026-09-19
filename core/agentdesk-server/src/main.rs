@@ -87,6 +87,7 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         pipeline_mode: opts.mode,
         outbound_capacity: agentdesk_server::DEFAULT_OUTBOUND_CAPACITY,
         debug_logging: opts.debug,
+        config_dir: opts.config_dir.clone(),
     };
 
     if let Err(e) = server_config.validate() {
@@ -127,11 +128,15 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
     let server = Server::bind(server_config, core_sender.clone(), clock.clone()).await?;
     let local_addr = server.local_addr();
 
-    // P6.7: Startup prints address and token
+    // P6.7 / P8.1: Startup prints address, fingerprint, and token
+    let scheme = if opts.insecure_dev { "ws" } else { "wss" };
     println!("============================================================");
     println!(" AgentDesk Daemon started");
-    println!(" Address: ws://{}", local_addr);
+    println!(" Address: {}://{}", scheme, local_addr);
     println!(" Mode:    {:?}", opts.mode);
+    if let Some(fp) = server.fingerprint() {
+        println!(" Fingerprint (SHA-256): {}", fp);
+    }
     println!(" Token:   {}", token);
     if opts.insecure_dev {
         println!(" Note:    --insecure-dev mode active (loopback plain ws://)");

@@ -51,6 +51,22 @@ Single trust level in the MVP: a holder of the token can do everything. Per-devi
 
 Intended for `adb reverse` / emulator testing without certificates. It is not a supported deployment mode and must never be the default.
 
+## File locations and credential lifecycle
+
+- **Configuration directory**:
+  1. `AGENTDESK_CONFIG_DIR` environment variable (if set)
+  2. `$XDG_CONFIG_HOME/agentdesk` (if set)
+  3. `$HOME/.config/agentdesk` (default on Unix)
+  4. `.agentdesk` (fallback)
+- **Token file**: `<config_dir>/token` (0600 file permissions, 0700 parent directory). Contains 64-character hex 256-bit token.
+  - Inspection: `agentdesk token show [--config-dir <path>]`
+  - Rotation: `agentdesk token rotate [--config-dir <path>]`
+- **TLS Certificate & Key**:
+  - Certificate: `<config_dir>/cert.pem` (0600 permissions, DER/X.509)
+  - Private key: `<config_dir>/key.pem` (0600 permissions, PKCS#8 DER)
+  - Rotation: deleting `<config_dir>/cert.pem` and `<config_dir>/key.pem` triggers automatic re-generation on daemon restart with updated SHA-256 fingerprint printed for pinning.
+- **Fingerprint format**: SHA-256 digest over DER certificate bytes. Displayed as `AA:BB:CC:...` colon-separated uppercase hex; client accepts both colon-separated and continuous hex strings, case-insensitively.
+
 ## Implementation rules
 
 - Use established libraries (`rustls`, `rcgen`, `tokio-tungstenite`; Dart `SecurityContext` / `badCertificateCallback` for pinning). Do not implement cryptographic primitives or protocols by hand.
