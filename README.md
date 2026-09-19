@@ -1,45 +1,81 @@
 # AgentDesk
 
-A mobile attention and control system for coding agents.
-
-Coding agents produce large volumes of terminal output and can run unattended for long periods. AgentDesk processes that activity on the laptop, classifies and prioritizes it, and sends only concise, human-relevant summaries to a phone. Detailed information stays on the laptop and is retrieved on demand.
+AgentDesk is a mobile attention and control system for coding agents. It processes agent activity on a laptop, ranks the events that need a person, and presents concise summaries on a phone. Detailed information remains on the laptop and is fetched only when needed.
 
 > Optimize for human attention, not information volume.
 
-The phone is **not** a second terminal. It is an attention and control interface.
+The phone is an attention and control interface, not a second terminal.
 
 ## Status
 
-Early implementation. Current phase, next action, and progress live in `docs/TODO.md`.
+**The AgentDesk MVP is complete.** Phases 0–9 of the MVP roadmap are complete, including simulator-based validation, a secure LAN transport, and the Flutter client. The next major milestone is AgentDesk v1: a real Claude Code adapter and validation against real coding-agent behaviour.
 
-## Building and testing
+## Implemented MVP
 
-Laptop side (Rust, from `core/`):
+### Architecture
 
-```sh
-cd core
-cargo build
-cargo test
-cargo clippy --all-targets
+```text
+Simulated coding agent → Adapter → Raw events → Processor → Classifier
+    → Priority queue / scoring / watchdog → secure WebSocket → Flutter client
+                                              ↓
+                              details, paged logs, and control commands
 ```
 
-Mobile side (Flutter, from `mobile/`):
+The Rust laptop-side workspace provides:
+
+- a shared event and WebSocket message model;
+- a deterministic seeded simulator and scenario format;
+- classification, immutable event storage, bounded per-agent log storage, priority queueing, scoring, and duration-based escalation;
+- a headless benchmark that compares `raw_lines`, `raw_events`, and `agentdesk` modes;
+- a WebSocket daemon supporting event snapshots, updates, details, paged logs, acknowledgement, dismissal, and approval/denial commands.
+
+The Flutter client provides a foreground-only four-tier ranked event list, event details, backward-paged logs, approve/deny and dismiss actions, connection/debug status, and reconnect handling.
+
+### Security model
+
+The normal transport is `wss://`. Each connection uses a shared token during the handshake, TLS with a self-signed certificate, and SHA-256 certificate fingerprint pinning in the Flutter client. The development-only `--insecure-dev` mode uses plain `ws://` and is restricted to loopback.
+
+### Validation status
+
+The repository currently has:
+
+- **112 passing Rust tests** covering the model, core pipeline, simulator, benchmark, server, TLS, and integration flows;
+- **33 passing Flutter tests** covering models, state, UI, TLS pinning, and end-to-end flows;
+- a clean `flutter analyze` result.
+
+Run the checks with:
 
 ```sh
-cd mobile
-flutter pub get
-flutter analyze
-flutter test
+cd core && cargo test --workspace
+cd ../mobile && flutter test && flutter analyze
 ```
 
-Nothing runs end to end yet; the daemon and bench binaries are placeholders until their phases land.
+### Simulator benchmark result
+
+On the committed seeded simulator scenario (seed 42), `agentdesk` surfaced **8** human-facing events, compared with **1,445** in `raw_events` and **1,455** in `raw_lines`: a **99.45% reduction** versus raw events (180.6× fewer surfaced events). The scenario retained every simulated request and error, and the benchmark exercises escalation, log retrieval, and a request response.
+
+This is **simulator validation**, not evidence from a real coding agent. The scenario is deterministic and useful for repeatable regression measurement, but it does not yet establish performance, event coverage, or usability with Claude Code or any other real agent. See [the measurement notes](docs/measurements/README.md) for methodology and caveats.
+
+### Current limitations
+
+- No real Claude Code or other coding-agent adapter is implemented yet.
+- State is in memory only; it does not survive daemon restarts and has no offline command/event sync.
+- Pairing, multiple devices, device revocation, NAT traversal, cloud components, and background mobile notifications are out of scope.
+- The Flutter client is foreground-only.
+- The benchmark is simulator-based; real coding-agent, real-device battery, and real-world network validation remain to be done.
+
+## Next: AgentDesk v1
+
+The first v1 milestone is a **real Claude Code adapter**. It should map Claude Code's supported hooks or structured output into the existing adapter/event model, preserve the existing security and control boundaries, and be validated with representative real coding-agent sessions.
+
+v1 work should keep simulator validation as a fast, deterministic regression suite while adding a separate real-agent validation plan. That plan should measure event coverage, false positives/negatives, task correlation, approval/control behaviour, long-running-task escalation, and the attention-filtering reduction on real sessions before claiming real-agent support.
 
 ## Layout
 
 ```text
 AgentDesk/
-├── docs/      Project documentation (start with PROJECT.md and ARCHITECTURE.md)
-├── core/      Rust workspace: laptop daemon, event processing, simulator, bench
+├── docs/      Project documentation and validation evidence
+├── core/      Rust workspace: model, pipeline, simulator, server, and bench
 └── mobile/    Flutter client
 ```
 
@@ -47,16 +83,12 @@ AgentDesk/
 
 | Document | Purpose |
 |----------|---------|
-| [docs/PROJECT.md](docs/PROJECT.md) | Problem, goals, MVP, success criteria |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components and their responsibilities |
-| [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md) | Data flow, lifecycle, state transitions, failure behaviour |
-| [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Entities |
-| [docs/EVENT_MODEL.md](docs/EVENT_MODEL.md) | Event schema, categories, scoring |
+| [docs/PROJECT.md](docs/PROJECT.md) | Problem, goals, MVP, and success criteria |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components and responsibilities |
+| [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md) | Data flow, lifecycle, and failure behaviour |
 | [docs/COMMUNICATION.md](docs/COMMUNICATION.md) | WebSocket protocol |
-| [docs/SIMULATOR.md](docs/SIMULATOR.md) | Simulated agent: guarantees and scenario format |
-| [docs/SECURITY.md](docs/SECURITY.md) | Threat model and MVP security |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | Engineering decision records |
+| [docs/SECURITY.md](docs/SECURITY.md) | Threat model and security design |
 | [docs/TESTING.md](docs/TESTING.md) | Test strategy |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Phases |
-| [docs/TODO.md](docs/TODO.md) | Live status |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md) | Meaningful changes |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Phase overview |
+| [docs/TODO.md](docs/TODO.md) | Authoritative implementation status |
+| [docs/measurements/README.md](docs/measurements/README.md) | Benchmark method and limitations |
