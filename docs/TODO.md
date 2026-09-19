@@ -41,7 +41,7 @@ The Git history should read as a readable development history of AgentDesk.
 | **Current Phase** | Phase 9 — Live validation and write-up (ready to start) |
 | **Current Task** | — |
 | **Next Action** | Run end-to-end device validation checklist, re-run headless bench, and update project write-up. |
-| **Last Commit** | `98bd0d8` `feat(mobile): implement Flutter client with 4-tier home, event details, log viewer, and debug screens` |
+| **Last Commit** | `99475c0` `feat(security): implement self-signed TLS, rustls acceptor, and SHA-256 fingerprint pinning in server and Flutter client` |
 | **Overall MVP progress** | Phases 0–8 complete · 8 / 9 implementation phases · 92 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
@@ -316,7 +316,7 @@ Summary → details → logs → approve works end to end on loopback; `flutter 
 
 ### Exit criteria
 
-Normal operation is `wss://` + token + pinning on a real LAN; `--insecure-dev` is only used for emulator work.
+Normal operation is `wss://` + token + pinning on a real LAN; `--insecure-dev` is only used for emulator work. (Committed in `99475c0`).
 
 ---
 
