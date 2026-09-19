@@ -41,7 +41,7 @@ The Git history should read as a readable development history of AgentDesk.
 | **Current Phase** | Phase 8 — TLS and certificate pinning (ready to start) |
 | **Current Task** | — |
 | **Next Action** | Start Phase 8 with P8.1: Server self-signed certificate generation via `rcgen` and `rustls` acceptor. |
-| **Last Commit** | `1837dad` `feat(server): implement transport server with token handshake, request dispatch, and insecure-dev mode` |
+| **Last Commit** | `98bd0d8` `feat(mobile): implement Flutter client with 4-tier home, event details, log viewer, and debug screens` |
 | **Overall MVP progress** | Phases 0–7 complete · 7 / 9 implementation phases · 82 % of checklist items |
 | **Blocked / Needs Decision** | None |
 
@@ -260,7 +260,7 @@ A test client can connect over loopback, receive snapshot and pushes, page logs,
 
 ---
 
-## Phase 7 — Flutter client (complete)
+## Phase 7 — Flutter client (complete · commit 98bd0d8)
 
 **Goal**: the attention interface: ranked four-tier home, event details with actions, paged log viewer, debug metrics.
 
