@@ -24,8 +24,17 @@ class EventScreen extends StatefulWidget {
 }
 
 class _EventScreenState extends State<EventScreen> {
+  static const _writeInOption = '__agentdesk_write_in__';
   bool _isLoading = false;
   String? _inlineError;
+  final TextEditingController _textController = TextEditingController();
+  final Set<String> _selectedOptions = <String>{};
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -58,9 +67,9 @@ class _EventScreenState extends State<EventScreen> {
         });
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Event dismissed')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Event dismissed')));
           Navigator.of(context).pop();
         }
       }
@@ -74,6 +83,14 @@ class _EventScreenState extends State<EventScreen> {
   }
 
   Future<void> _respond(Decision decision) async {
+    await _respondWithInput(decision);
+  }
+
+  Future<void> _respondWithInput(
+    Decision decision, {
+    List<String>? selectedOptions,
+    String? textInput,
+  }) async {
     setState(() {
       _isLoading = true;
       _inlineError = null;
@@ -84,6 +101,8 @@ class _EventScreenState extends State<EventScreen> {
       final res = await widget.connection.respondRequest(
         widget.eventId,
         decision,
+        selectedOptions: selectedOptions,
+        textInput: textInput,
       );
       if (!res.ok) {
         setState(() {
@@ -96,7 +115,7 @@ class _EventScreenState extends State<EventScreen> {
             SnackBar(
               content: Text(
                 decision == Decision.approve
-                    ? 'Request approved'
+                    ? 'Response sent'
                     : 'Request denied',
               ),
             ),
@@ -111,6 +130,35 @@ class _EventScreenState extends State<EventScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _submitQuestion(Event event) async {
+    final customText = _textController.text;
+    final selected = _selectedOptions
+        .where((option) => option != _writeInOption)
+        .toList(growable: false);
+
+    // A write-in is represented by text_input. The server and core preserve
+    // the existing structured protocol and route it as a TextInput response.
+    if (_selectedOptions.contains(_writeInOption) &&
+        customText.trim().isEmpty) {
+      setState(() => _inlineError = 'Enter a custom response.');
+      return;
+    }
+
+    if (customText.isNotEmpty) {
+      await _respondWithInput(
+        Decision.approve,
+        selectedOptions: selected.isEmpty ? null : selected,
+        textInput: customText,
+      );
+      return;
+    }
+
+    await _respondWithInput(
+      Decision.approve,
+      selectedOptions: selected.isEmpty ? null : selected,
+    );
   }
 
   void _openLogs() {
@@ -170,8 +218,8 @@ class _EventScreenState extends State<EventScreen> {
         final color = _categoryColor(event.category);
         final isRequest = event.category == Category.request;
         final resolution = entry?.resolution;
-        final isResolved = resolution != null &&
-            resolution != Resolution.unresolved;
+        final isResolved =
+            resolution != null && resolution != Resolution.unresolved;
 
         return Scaffold(
           appBar: AppBar(
@@ -257,8 +305,8 @@ class _EventScreenState extends State<EventScreen> {
                       Text(
                         event.summary,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -295,11 +343,15 @@ class _EventScreenState extends State<EventScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.help_outline,
-                                color: Colors.amber.shade900),
+                            Icon(
+                              Icons.help_outline,
+                              color: Colors.amber.shade900,
+                            ),
                             const SizedBox(width: 8),
                             Text(
-                              'Approval Request',
+                              event.request?.questionType == null
+                                  ? 'Approval Request'
+                                  : 'Input Required',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.amber.shade900,
@@ -321,41 +373,11 @@ class _EventScreenState extends State<EventScreen> {
                           ),
                         ],
                         const SizedBox(height: 16),
-                        if (!isResolved)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: FilledButton.icon(
-                                  key: const Key('approve_button'),
-                                  onPressed: _isLoading
-                                      ? null
-                                      : () => _respond(Decision.approve),
-                                  icon: const Icon(Icons.check),
-                                  label: const Text('Approve'),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: Colors.green.shade700,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: FilledButton.icon(
-                                  key: const Key('deny_button'),
-                                  onPressed: _isLoading
-                                      ? null
-                                      : () => _respond(Decision.deny),
-                                  icon: const Icon(Icons.close),
-                                  label: const Text('Deny'),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: Colors.red.shade700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
+                        if (!isResolved && event.request != null)
+                          _buildRequestControls(event)
                         else
                           Text(
-                            'Request already resolved: ${resolution.wireName}',
+                            'Request already resolved: ${resolution!.wireName}',
                             style: const TextStyle(fontStyle: FontStyle.italic),
                           ),
                       ],
@@ -381,35 +403,41 @@ class _EventScreenState extends State<EventScreen> {
                         const Text(
                           'No extra details provided',
                           style: TextStyle(
-                              color: Colors.grey, fontStyle: FontStyle.italic),
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic,
+                          ),
                         )
                       else
-                        ...event.details.entries.map((e) => Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 4.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      e.key,
-                                      style: const TextStyle(
-                                          color: Colors.grey, fontSize: 13),
+                        ...event.details.entries.map(
+                          (e) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    e.key,
+                                    style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 13,
                                     ),
                                   ),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      '${e.value}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 13),
+                                ),
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    '${e.value}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 13,
                                     ),
                                   ),
-                                ],
-                              ),
-                            )),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -443,6 +471,158 @@ class _EventScreenState extends State<EventScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildRequestControls(Event event) {
+    final request = event.request!;
+    final isApprovalOptions =
+        request.options.length == 2 &&
+        request.options
+            .map((option) => option.toLowerCase())
+            .toSet()
+            .containsAll({'approve', 'deny'});
+    final questionType =
+        request.questionType ??
+        (request.options.isNotEmpty && !isApprovalOptions
+            ? QuestionType.singleChoice
+            : null);
+    final allowsWriteIn = event.details['allows_write_in'] == true;
+
+    if (questionType == null) {
+      return Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              key: const Key('approve_button'),
+              onPressed: _isLoading ? null : () => _respond(Decision.approve),
+              icon: const Icon(Icons.check),
+              label: const Text('Approve'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green.shade700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              key: const Key('deny_button'),
+              onPressed: _isLoading ? null : () => _respond(Decision.deny),
+              icon: const Icon(Icons.close),
+              label: const Text('Deny'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final controls = <Widget>[];
+    if (questionType == QuestionType.singleChoice) {
+      final options = [...request.options, if (allowsWriteIn) _writeInOption];
+      controls.add(
+        RadioGroup<String>(
+          groupValue: _selectedOptions.isEmpty ? null : _selectedOptions.first,
+          onChanged: _isLoading
+              ? (_) {}
+              : (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _selectedOptions
+                      ..clear()
+                      ..add(value);
+                  });
+                },
+          child: Column(
+            children: options
+                .map(
+                  (option) => RadioListTile<String>(
+                    key: Key('question_option_$option'),
+                    title: Text(
+                      option == _writeInOption
+                          ? 'Other / Write your own'
+                          : option,
+                    ),
+                    value: option,
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      );
+    } else if (questionType == QuestionType.multipleChoice) {
+      final options = [...request.options, if (allowsWriteIn) _writeInOption];
+      controls.addAll(
+        options.map((option) {
+          return CheckboxListTile(
+            key: Key('question_option_$option'),
+            title: Text(
+              option == _writeInOption ? 'Other / Write your own' : option,
+            ),
+            value: _selectedOptions.contains(option),
+            onChanged: _isLoading
+                ? null
+                : (value) {
+                    setState(() {
+                      if (value == true) {
+                        _selectedOptions.add(option);
+                      } else {
+                        _selectedOptions.remove(option);
+                      }
+                    });
+                  },
+          );
+        }),
+      );
+    }
+
+    if (questionType == QuestionType.freeText ||
+        _selectedOptions.contains(_writeInOption)) {
+      controls.add(
+        TextField(
+          key: const Key('question_text_input'),
+          controller: _textController,
+          enabled: !_isLoading,
+          maxLines: 4,
+          decoration: InputDecoration(
+            labelText: 'Your response',
+            hintText: allowsWriteIn ? 'Or enter a custom response' : null,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+      );
+    }
+
+    controls.add(const SizedBox(height: 12));
+    controls.add(
+      Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              key: const Key('send_question_button'),
+              onPressed: _isLoading ? null : () => _submitQuestion(event),
+              icon: const Icon(Icons.send),
+              label: const Text('Send response'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              key: const Key('deny_question_button'),
+              onPressed: _isLoading ? null : () => _respond(Decision.deny),
+              icon: const Icon(Icons.close),
+              label: const Text('Cancel'),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: controls,
     );
   }
 }

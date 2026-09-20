@@ -97,10 +97,17 @@ Future (when offline queues exist): replay ordering, individual command failure 
 ## Flutter tests
 
 - Model decoding for every laptop → phone message.
+- Structured request widgets cover exact single-choice options, multiple
+  selection, arbitrary text, write-in responses, approval controls, and
+  structured response serialization.
+- The app shell exposes independent Home, Requests, Working, Completed, New
+  Work, and Settings pages and is readable under both light and dark themes.
 - `QueueView` ordering matches the laptop's `(tier, score desc, seq desc)`.
 - Reducer tests: `event`, `score_update`, `state_update`, `snapshot` produce the expected view.
 - Widget tests: Request that is `dismissed` but `unresolved` renders the "still blocking" indicator; escalated Working renders the badge.
 - Persistent configuration tests use in-memory implementations of the configuration-preferences and secure-token-store interfaces. They cover save/load and startup restoration, missing URL/token/fingerprint states, secure `wss://` validation, loopback-only `ws://`, configuration replacement, and secure-token read/write/delete without requiring a physical keystore.
+- New Work remains explicitly unavailable until the server exposes a generic
+  start-task command; no test claims a task was started when it was not.
 
 ## Edge cases to keep in the suite
 

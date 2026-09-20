@@ -475,11 +475,18 @@ class ConnectionService extends ChangeNotifier {
 
   Future<CommandResult> respondRequest(
     String eventId,
-    Decision decision,
-  ) async {
+    Decision decision, {
+    List<String>? selectedOptions,
+    String? textInput,
+  }) async {
     final res = await sendRequest(
       'respond_request',
-      RespondRequest(eventId: eventId, decision: decision),
+      RespondRequest(
+        eventId: eventId,
+        decision: decision,
+        selectedOptions: selectedOptions,
+        textInput: textInput,
+      ),
     );
     if (res.type == 'error') {
       return CommandResult(ok: false, error: CommandError.invalid);

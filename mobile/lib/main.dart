@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'services/client_metrics.dart';
 import 'services/connection_service.dart';
 import 'state/agentdesk_state.dart';
-import 'ui/home_screen.dart';
+import 'ui/app_shell.dart';
+import 'ui/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,8 +38,10 @@ class AgentDeskApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'AgentDesk',
-      theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
-      home: HomeScreen(state: state, connection: connection, metrics: metrics),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
+      home: AppShell(state: state, connection: connection, metrics: metrics),
     );
   }
 }

@@ -111,7 +111,7 @@ void main() {
             'tier': 1,
             'score': 80,
             'state': 'new',
-            'seq': 5
+            'seq': 5,
           },
           'event': {
             'schema_version': 1,
@@ -129,9 +129,9 @@ void main() {
             'summary': 'Build failed',
             'message': 'Syntax error on line 42',
             'details': {},
-            'log_range': {'start': 10, 'end': 20, 'pinned': true}
-          }
-        }
+            'log_range': {'start': 10, 'end': 20, 'pinned': true},
+          },
+        },
       };
       final pushMsg = Message.fromJson(eventPushJson);
       final push = pushMsg.payload as EventPush;
@@ -140,11 +140,7 @@ void main() {
 
       final scoreUpdateJson = {
         'type': 'score_update',
-        'payload': {
-          'event_id': 'id-1',
-          'score': 45,
-          'escalation_level': 1,
-        }
+        'payload': {'event_id': 'id-1', 'score': 45, 'escalation_level': 1},
       };
       final scoreMsg = Message.fromJson(scoreUpdateJson);
       final scoreUpdate = scoreMsg.payload as ScoreUpdate;
@@ -154,11 +150,7 @@ void main() {
 
       final stateUpdateJson = {
         'type': 'state_update',
-        'payload': {
-          'event_id': 'id-1',
-          'state': 'seen',
-          'superseded': false,
-        }
+        'payload': {'event_id': 'id-1', 'state': 'seen', 'superseded': false},
       };
       final stateMsg = Message.fromJson(stateUpdateJson);
       final stateUpdate = stateMsg.payload as StateUpdate;
@@ -174,7 +166,7 @@ void main() {
           'offset': 7,
           'ts': '2026-09-17T10:32:05.000Z',
           'text': 'Compiling...',
-        }
+        },
       };
       final rlMsg = Message.fromJson(rawLineJson);
       final rawLine = rlMsg.payload as RawLine;
@@ -192,7 +184,7 @@ void main() {
           'message': 'running',
           'details': {},
           'log_lines': ['line 1', 'line 2'],
-        }
+        },
       };
       final reMsg = Message.fromJson(rawEventJson);
       final re = reMsg.payload as RawAgentEvent;
@@ -211,8 +203,8 @@ void main() {
           'lines': [
             {'offset': 5, 'ts': '2026-09-17T10:32:05.000Z', 'text': 'log 5'},
             {'offset': 6, 'ts': '2026-09-17T10:32:05.000Z', 'text': 'log 6'},
-          ]
-        }
+          ],
+        },
       };
       final logsMsg = Message.fromJson(logsJson);
       expect(logsMsg.requestId, 'r-2');
@@ -223,10 +215,7 @@ void main() {
       final cmdResultJson = {
         'type': 'command_result',
         'request_id': 'r-5',
-        'payload': {
-          'ok': false,
-          'error': 'already_resolved',
-        }
+        'payload': {'ok': false, 'error': 'already_resolved'},
       };
       final cmdMsg = Message.fromJson(cmdResultJson);
       final cmdResult = cmdMsg.payload as CommandResult;
@@ -236,10 +225,7 @@ void main() {
       final metricsJson = {
         'type': 'metrics',
         'request_id': 'r-6',
-        'payload': {
-          'raw_events': 42,
-          'escalations': 2,
-        }
+        'payload': {'raw_events': 42, 'escalations': 2},
       };
       final metricsMsg = Message.fromJson(metricsJson);
       final metrics = metricsMsg.payload as Map<String, int>;
@@ -249,10 +235,7 @@ void main() {
       final errJson = {
         'type': 'error',
         'request_id': 'r-9',
-        'payload': {
-          'code': 'bad_request',
-          'message': 'cannot parse frame',
-        }
+        'payload': {'code': 'bad_request', 'message': 'cannot parse frame'},
       };
       final errMsg = Message.fromJson(errJson);
       final err = errMsg.payload as ErrorReply;
@@ -260,34 +243,72 @@ void main() {
     });
 
     test('client request payloads serialize correctly', () {
-      final hello = Message.push('hello', Hello(
-        token: 'secret',
-        deviceId: 'phone-1',
-        clientVersion: '0.1.0',
-        schemaVersion: 1,
-      ));
+      final hello = Message.push(
+        'hello',
+        Hello(
+          token: 'secret',
+          deviceId: 'phone-1',
+          clientVersion: '0.1.0',
+          schemaVersion: 1,
+        ),
+      );
       final helloJson = hello.toJson();
       expect(helloJson['type'], 'hello');
       expect(helloJson['request_id'], isNull);
       expect((helloJson['payload'] as Map)['token'], 'secret');
 
-      final reqDetails = Message.request('r-1', 'get_event_details', EventRef(eventId: 'e-1'));
+      final reqDetails = Message.request(
+        'r-1',
+        'get_event_details',
+        EventRef(eventId: 'e-1'),
+      );
       final reqDetailsJson = reqDetails.toJson();
       expect(reqDetailsJson['request_id'], 'r-1');
       expect((reqDetailsJson['payload'] as Map)['event_id'], 'e-1');
 
-      final reqLogs = Message.request('r-2', 'get_event_logs', GetEventLogs(eventId: 'e-1', offset: -1, limit: 100));
+      final reqLogs = Message.request(
+        'r-2',
+        'get_event_logs',
+        GetEventLogs(eventId: 'e-1', offset: -1, limit: 100),
+      );
       final reqLogsJson = reqLogs.toJson();
       expect((reqLogsJson['payload'] as Map)['offset'], -1);
 
       final ack = Message.request('r-3', 'ack', EventRef(eventId: 'e-1'));
       expect(ack.type, 'ack');
 
-      final dismiss = Message.request('r-4', 'dismiss', EventRef(eventId: 'e-1'));
+      final dismiss = Message.request(
+        'r-4',
+        'dismiss',
+        EventRef(eventId: 'e-1'),
+      );
       expect(dismiss.type, 'dismiss');
 
-      final resp = Message.request('r-5', 'respond_request', RespondRequest(eventId: 'e-1', decision: Decision.approve));
+      final resp = Message.request(
+        'r-5',
+        'respond_request',
+        RespondRequest(eventId: 'e-1', decision: Decision.approve),
+      );
       expect((resp.toJson()['payload'] as Map)['decision'], 'approve');
+
+      final structured = Message.request(
+        'r-6',
+        'respond_request',
+        const RespondRequest(
+          eventId: 'e-2',
+          decision: Decision.approve,
+          selectedOptions: ['Rust', 'Go'],
+          textInput: 'custom-value',
+        ),
+      );
+      expect((structured.toJson()['payload'] as Map)['selected_options'], [
+        'Rust',
+        'Go',
+      ]);
+      expect(
+        (structured.toJson()['payload'] as Map)['text_input'],
+        'custom-value',
+      );
     });
   });
 }

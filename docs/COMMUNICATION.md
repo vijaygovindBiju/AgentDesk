@@ -56,6 +56,16 @@ Every frame:
 
 `command_result`: `{ ok: true }` or `{ ok: false, error: "no_such_event" | "not_a_request" | "already_resolved" | "invalid" }`.
 
+For structured questions, `respond_request` may also include `selected_options`
+and/or `text_input`. The server maps these fields to the canonical Rust
+`RequestResponse` variants (`SelectOption`, `SelectMultiple`, and `TextInput`);
+the phone never sends raw terminal text. Responses are accepted only for the
+currently unresolved event.
+
+The MVP transport has no `start_work` message. A new task must be created by a
+future generic runtime/session capability rather than by reusing a completed
+task or faking success in the mobile client.
+
 `error` (any request that cannot be parsed or dispatched): `{ code, message }`.
 
 ### Log paging

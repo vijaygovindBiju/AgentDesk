@@ -107,11 +107,7 @@ class LogLine {
   final DateTime ts;
   final String text;
 
-  const LogLine({
-    required this.offset,
-    required this.ts,
-    required this.text,
-  });
+  const LogLine({required this.offset, required this.ts, required this.text});
 
   factory LogLine.fromJson(Map<String, dynamic> json) {
     return LogLine(
@@ -209,18 +205,19 @@ class Snapshot {
   final List<QueueEntry> entries;
   final List<Event> events;
 
-  const Snapshot({
-    required this.entries,
-    required this.events,
-  });
+  const Snapshot({required this.entries, required this.events});
 
   factory Snapshot.fromJson(Map<String, dynamic> json) {
     return Snapshot(
-      entries: (json['entries'] as List<dynamic>?)
-              ?.map((e) => QueueEntry.fromJson((e as Map).cast<String, dynamic>()))
+      entries:
+          (json['entries'] as List<dynamic>?)
+              ?.map(
+                (e) => QueueEntry.fromJson((e as Map).cast<String, dynamic>()),
+              )
               .toList() ??
           const [],
-      events: (json['events'] as List<dynamic>?)
+      events:
+          (json['events'] as List<dynamic>?)
               ?.map((e) => Event.fromJson((e as Map).cast<String, dynamic>()))
               .toList() ??
           const [],
@@ -237,15 +234,14 @@ class EventPush {
   final Event event;
   final QueueEntry entry;
 
-  const EventPush({
-    required this.event,
-    required this.entry,
-  });
+  const EventPush({required this.event, required this.entry});
 
   factory EventPush.fromJson(Map<String, dynamic> json) {
     return EventPush(
       event: Event.fromJson((json['event'] as Map).cast<String, dynamic>()),
-      entry: QueueEntry.fromJson((json['entry'] as Map).cast<String, dynamic>()),
+      entry: QueueEntry.fromJson(
+        (json['entry'] as Map).cast<String, dynamic>(),
+      ),
     );
   }
 
@@ -402,7 +398,8 @@ class EventLogs {
       offset: (json['offset'] as num).toInt(),
       total: (json['total'] as num).toInt(),
       evicted: json['evicted'] as bool? ?? false,
-      lines: (json['lines'] as List<dynamic>?)
+      lines:
+          (json['lines'] as List<dynamic>?)
               ?.map((e) => LogLine.fromJson((e as Map).cast<String, dynamic>()))
               .toList() ??
           const [],
@@ -421,22 +418,32 @@ class EventLogs {
 class RespondRequest {
   final String eventId;
   final Decision decision;
+  final List<String>? selectedOptions;
+  final String? textInput;
 
   const RespondRequest({
     required this.eventId,
     required this.decision,
+    this.selectedOptions,
+    this.textInput,
   });
 
   factory RespondRequest.fromJson(Map<String, dynamic> json) {
     return RespondRequest(
       eventId: json['event_id'] as String,
       decision: Decision.fromJson(json['decision'] as String),
+      selectedOptions: (json['selected_options'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList(),
+      textInput: json['text_input'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'event_id': eventId,
     'decision': decision.toJson(),
+    if (selectedOptions != null) 'selected_options': selectedOptions,
+    if (textInput != null) 'text_input': textInput,
   };
 }
 
@@ -444,10 +451,7 @@ class CommandResult {
   final bool ok;
   final CommandError? error;
 
-  const CommandResult({
-    required this.ok,
-    this.error,
-  });
+  const CommandResult({required this.ok, this.error});
 
   factory CommandResult.fromJson(Map<String, dynamic> json) {
     return CommandResult(
@@ -468,10 +472,7 @@ class ErrorReply {
   final String code;
   final String message;
 
-  const ErrorReply({
-    required this.code,
-    required this.message,
-  });
+  const ErrorReply({required this.code, required this.message});
 
   factory ErrorReply.fromJson(Map<String, dynamic> json) {
     return ErrorReply(
@@ -480,10 +481,7 @@ class ErrorReply {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'code': code,
-    'message': message,
-  };
+  Map<String, dynamic> toJson() => {'code': code, 'message': message};
 }
 
 /// The envelope carrying every frame.
@@ -492,17 +490,17 @@ class Message {
   final String? requestId;
   final dynamic payload;
 
-  const Message({
-    required this.type,
-    this.requestId,
-    this.payload,
-  });
+  const Message({required this.type, this.requestId, this.payload});
 
   factory Message.push(String type, dynamic payload) {
     return Message(type: type, requestId: null, payload: payload);
   }
 
-  factory Message.withRequestId(String type, String requestId, dynamic payload) {
+  factory Message.withRequestId(
+    String type,
+    String requestId,
+    dynamic payload,
+  ) {
     return Message(type: type, requestId: requestId, payload: payload);
   }
 
@@ -579,18 +577,18 @@ class Message {
       parsedPayload = rawPayload;
     }
 
-    return Message(
-      type: type,
-      requestId: requestId,
-      payload: parsedPayload,
-    );
+    return Message(type: type, requestId: requestId, payload: parsedPayload);
   }
 
   Map<String, dynamic> toJson() {
     dynamic serializedPayload;
     if (payload == null) {
       serializedPayload = <String, dynamic>{};
-    } else if (payload is Map || payload is List || payload is String || payload is num || payload is bool) {
+    } else if (payload is Map ||
+        payload is List ||
+        payload is String ||
+        payload is num ||
+        payload is bool) {
       serializedPayload = payload;
     } else {
       try {

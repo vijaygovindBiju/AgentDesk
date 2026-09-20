@@ -34,7 +34,8 @@
               get_event_details / get_event_logs{offset,limit}        (request)
                                           │
                     ┌─────────────────────▼─────────────── PHONE (Flutter) ──────────┐
-                    │  Connection ──► EventStore + QueueView ──► Home (4 tiers)      │
+                    │  Connection ──► EventStore + QueueView ──► App shell          │
+                    │                         Home / Requests / Working / History   │
                     │                                              │ tap            │
                     │                                              ▼                │
                     │                                    Event screen (Level 2)     │
@@ -172,8 +173,11 @@ Metrics are collected in all three so the bench can compare them on the same see
 
 ### UI
 
-- **Home**: four sections in tier order; within a section, entries sorted by score. Escalated Working entries show an "unusually long" badge. Requests that are `dismissed` but not `resolved` remain visually marked as still blocking the agent.
-- **Event screen**: Level 2 details; `Approve` / `Deny` for requests; `Dismiss`; `View logs`. Opening this screen sends `get_event_details`, which marks the event `seen` on the laptop.
+- **App shell**: page-level Home, Requests, Working, Completed, New Work, and Settings destinations with a persistent bottom navigation bar. Home is an overview; it is not a raw terminal view.
+- **Requests**: unresolved attention events are presented as cards and open a dedicated interaction screen.
+- **Event screen**: structured single-choice, multiple-choice, free-text, write-in, and approval controls. Responses remain bound to the event ID through the existing `respond_request` protocol. Opening this screen sends `get_event_details`, which marks the event `seen` on the laptop.
+- **Themes**: shared light and dark Material 3 themes use the same spacing, contrast, and status semantics.
+- **New Work**: the current daemon has one adapter/session created at startup and does not yet expose a generic start-task command. The mobile page states this capability boundary rather than pretending to create a task.
 - **Log viewer**: tail-first paged log view driven by `get_event_logs { offset, limit }`.
 - **Debug screen**: client-side metrics (`summaries_rendered`, `taps`, `log_pages_requested`), insecure-dev warning banner, and laptop daemon metrics.
 - **Settings screen**: connection URL, auth token, device ID, and certificate fingerprint. URL/device ID/fingerprint persist in ordinary preferences; the token is stored only through the secure-storage abstraction. Incomplete configuration is shown as `configurationRequired`, rather than as a failed network connection.

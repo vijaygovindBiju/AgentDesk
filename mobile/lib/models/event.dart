@@ -92,6 +92,30 @@ enum Operation {
   String toJson() => wireName;
 }
 
+enum QuestionType {
+  singleChoice('single_choice'),
+  multipleChoice('multiple_choice'),
+  freeText('free_text');
+
+  const QuestionType(this.wireName);
+  final String wireName;
+
+  static QuestionType? fromJson(String? value) {
+    switch (value) {
+      case 'single_choice':
+        return QuestionType.singleChoice;
+      case 'multiple_choice':
+        return QuestionType.multipleChoice;
+      case 'free_text':
+        return QuestionType.freeText;
+      default:
+        return null;
+    }
+  }
+
+  String toJson() => wireName;
+}
+
 /// Reference into the per-agent log store.
 class LogRange {
   final int start;
@@ -135,25 +159,30 @@ class LogRange {
 class RequestInfo {
   final String prompt;
   final List<String> options;
+  final QuestionType? questionType;
 
   const RequestInfo({
     required this.prompt,
     required this.options,
+    this.questionType,
   });
 
   factory RequestInfo.fromJson(Map<String, dynamic> json) {
     return RequestInfo(
       prompt: json['prompt'] as String,
-      options: (json['options'] as List<dynamic>?)
+      options:
+          (json['options'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
+      questionType: QuestionType.fromJson(json['question_type'] as String?),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'prompt': prompt,
     'options': options,
+    if (questionType != null) 'question_type': questionType!.toJson(),
   };
 
   @override
@@ -162,10 +191,12 @@ class RequestInfo {
       other is RequestInfo &&
           runtimeType == other.runtimeType &&
           prompt == other.prompt &&
-          _listEquals(options, other.options);
+          _listEquals(options, other.options) &&
+          questionType == other.questionType;
 
   @override
-  int get hashCode => prompt.hashCode ^ options.hashCode;
+  int get hashCode =>
+      prompt.hashCode ^ options.hashCode ^ questionType.hashCode;
 }
 
 /// What an adapter produces.
@@ -203,13 +234,15 @@ class RawAgentEvent {
       details: json['details'] != null
           ? (json['details'] as Map).cast<String, dynamic>()
           : const {},
-      logLines: (json['log_lines'] as List<dynamic>?)
+      logLines:
+          (json['log_lines'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
       request: json['request'] != null
           ? RequestInfo.fromJson(
-              (json['request'] as Map).cast<String, dynamic>())
+              (json['request'] as Map).cast<String, dynamic>(),
+            )
           : null,
     );
   }
@@ -290,10 +323,12 @@ class Event {
           ? (json['details'] as Map).cast<String, dynamic>()
           : const {},
       logRange: LogRange.fromJson(
-          (json['log_range'] as Map).cast<String, dynamic>()),
+        (json['log_range'] as Map).cast<String, dynamic>(),
+      ),
       request: json['request'] != null
           ? RequestInfo.fromJson(
-              (json['request'] as Map).cast<String, dynamic>())
+              (json['request'] as Map).cast<String, dynamic>(),
+            )
           : null,
     );
   }
@@ -344,10 +379,7 @@ class Event {
 
   @override
   int get hashCode =>
-      eventId.hashCode ^
-      seq.hashCode ^
-      category.hashCode ^
-      severity.hashCode;
+      eventId.hashCode ^ seq.hashCode ^ category.hashCode ^ severity.hashCode;
 }
 
 bool _listEquals<T>(List<T> a, List<T> b) {
