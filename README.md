@@ -139,6 +139,26 @@ cargo run -p agentdesk-server --bin agentdesk -- \
 
 Use `--antigravity --agent "agy"` instead of `--agent` for the Antigravity adapter.
 
+## Resource usage
+
+The checked-in project files are approximately **4.5 MiB**. Local development
+requires additional space for compiler and platform caches. On a Linux checkout
+after building and testing, the observed footprint was:
+
+| Component | Approximate size |
+|-----------|------------------:|
+| Rust build artifacts (`core/target` and `tools/.../target`) | 6.1 GiB |
+| Flutter build output (`mobile/build`) | 2.1 GiB |
+| Dart tooling cache (`mobile/.dart_tool`) | 183 MiB |
+| **Total generated development data** | **8.4 GiB** |
+
+These generated directories are ignored by Git and can be removed when disk
+space is needed; they will be recreated by the next build. Runtime memory and
+CPU usage vary with the selected agent, event volume, and whether the Flutter
+client is running, so the figures above should be treated as development
+storage guidance rather than production capacity limits. A development machine
+with at least **10 GiB of free disk space** is recommended.
+
 ## Documentation
 
 | Document | Purpose |
