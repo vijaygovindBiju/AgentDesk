@@ -26,6 +26,8 @@ Coding agents produce substantially more terminal output than a person can conti
 - [Production vs Development](#production-vs-development)
 - [Production Distribution Status](#production-distribution-status)
 - [Normal User Installation Goal](#normal-user-installation-goal)
+- [Prebuilt Linux Installer](#prebuilt-linux-installer)
+- [Release Artifacts](#release-artifacts)
 - [Running the Simulator](#running-the-simulator)
 - [Running a Real Adapter](#running-a-real-adapter)
 - [Building the Android Client](#building-the-android-client)
@@ -530,7 +532,7 @@ The required production workflow is:
 4. Open the mobile application and pair it with the laptop.
 5. Start a supported coding agent and supervise it from the phone.
 
-This workflow is **not yet available** in the current source release. There is currently no published Linux, Windows, or macOS desktop installer, no public Android release APK, and no automatic QR or guided pairing flow.
+This workflow is **not yet available** in the current source release. The repository now contains the production-oriented installer and release contract, but there is currently no published GitHub Release containing the required prebuilt Linux archives or Android APK, and no automatic QR or guided pairing flow.
 
 **End-user availability:** AgentDesk is not currently installable as a normal-user product. Do not ask end users to install Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK, Node/npm, compilers, build tools, or source code as a workaround. The source-build workflow is for developers and contributors only.
 
@@ -742,6 +744,78 @@ Supervise from phone
 ```
 
 This is the target distribution experience. The current repository provides the underlying daemon, Flutter client, secure transport, and developer-oriented manual configuration flow, but not the prebuilt applications, packaged laptop runtime, or automatic pairing needed to deliver it to normal users. The long-term product requirement is a zero-development-dependency installation experience.
+
+## Prebuilt Linux Installer
+
+The repository includes [`install.sh`](install.sh) for the future prebuilt Linux distribution. It downloads a versioned daemon archive, verifies its SHA-256 checksum, installs the binary in the invoking user's local application directory, and enables a least-privilege systemd user service. It never compiles AgentDesk and never requires Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK, Node/npm, or source code.
+
+Once a matching GitHub Release has been published, a normal Linux user will use:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/install.sh | bash
+```
+
+To install a specific release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/install.sh \
+  | VERSION=v0.1.0 bash
+```
+
+The current repository does **not** publish the release assets required by these commands, so the installer will fail safely with a download or release error until a release is available. It does not fall back to building from source.
+
+The installer:
+
+1. accepts Linux only;
+2. supports `x86_64` and `aarch64`;
+3. resolves a specific GitHub Release tag;
+4. downloads `AgentDesk-vX.Y.Z-linux-<arch>.tar.gz` and `SHA256SUMS` over HTTPS;
+5. verifies the archive before installation;
+6. installs under `~/.local/lib/agentdesk` and links `~/.local/bin/agentdesk`;
+7. creates `~/.config/agentdesk/service.env`;
+8. installs and starts `agentdesk.service` as a systemd user service;
+9. verifies that the service is active; and
+10. prints the actual systemd and journal commands for management.
+
+The installer supports `VERSION`, `INSTALL_DIR`, `AGENTDESK_REPOSITORY`, and `AGENTDESK_RELEASE_BASE_URL`. The release base URL must use HTTPS. It refuses to run as root so the daemon and its runtime files remain owned by the normal user.
+
+Manage the installed service with the commands implemented by systemd:
+
+```bash
+systemctl --user status agentdesk.service
+systemctl --user restart agentdesk.service
+systemctl --user stop agentdesk.service
+journalctl --user -u agentdesk.service -f
+```
+
+To remove a user-scoped installation without deleting credentials:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/uninstall.sh | bash
+```
+
+Set `PURGE_CONFIG=1` only when you also want to delete the local AgentDesk token
+and TLS certificate:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/uninstall.sh \
+  | PURGE_CONFIG=1 bash
+```
+
+For LAN access, edit `~/.config/agentdesk/service.env`, set `AGENTDESK_BIND` to the intended interface, and restart the service. The daemon's existing token and TLS fingerprint remain the authentication and server-identity controls.
+
+## Release Artifacts
+
+The release packaging contract is documented in [`packaging/README.md`](packaging/README.md). A release must publish:
+
+```text
+AgentDesk-vX.Y.Z-linux-x86_64.tar.gz
+AgentDesk-vX.Y.Z-linux-aarch64.tar.gz
+AgentDesk-vX.Y.Z.apk
+SHA256SUMS
+```
+
+The Linux archives contain the prebuilt `agentdesk` executable. The Android APK is installed directly by the user and does not require Flutter, Gradle, Android SDK tools, or ADB. The current repository can produce local APKs, but no signed public APK or packaged desktop release is currently published.
 
 ## Running the Simulator
 
