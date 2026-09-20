@@ -186,3 +186,32 @@ When implementation of the production Antigravity adapter is authorized, the arc
 2. **No Changes to Downstream Pipeline**:
    - `CoreTask`, `Tracker`, `Queue`, `Scoring`, and `WssServer` require zero changes.
    - Mobile client UI requires zero changes.
+
+---
+
+## 7. First Production Milestone: Command Permission Round-Trip
+
+The first production vertical slice connects real `agy` to the AgentDesk Core pipeline:
+
+```text
+real `agy`
+  ↓ (PTY)
+AntigravityPtyAdapter
+  ↓ (detects verified Bubbletea command menu)
+normalized `RawAgentEvent` ("approval_required")
+  ↓
+AgentDesk Core (EventProcessor → PriorityQueue tier 0)
+  ↓ (WSS push / CLI)
+phone / client decision (`Approve` / `Deny`)
+  ↓ (RespondRequest → AdapterCommand::Respond)
+AntigravityPtyAdapter
+  ↓ (input_encoder::encode_decision → `\r` or down-arrows + `\r`)
+real `agy` continues execution
+```
+
+### Verified Properties
+1. **Real POSIX PTY Execution**: The adapter allocates a master/slave pseudo-terminal pair via `libc::openpty`, configures the slave as the controlling terminal with `setsid` and `TIOCSCTTY`, and launches `agy` with terminal attributes `TERM=xterm-256color`.
+2. **Structural Bubbletea Menu Detection**: Numbered interactive menu lines (`> 1. Yes, run command`, `4. No, cancel`) and the active command block (`Requesting permission for: ...`) are verified using cursor positions and reverse-video highlights.
+3. **No Terminal Noise Leaks**: Raw terminal bytes never cross into `agentdesk-core` or over the WSS transport to the client.
+4. **Adversarial Resilience**: Markdown text and chat logs containing prompt keywords are rejected because they lack interactive selection attributes.
+5. **Bidirectional End-to-End Proof**: Verified by `test_real_agy_live_command_permission_e2e` spawning real `/home/pirate/.local/bin/agy`, detecting the interactive confirmation menu, sending verified approval keystrokes (`\r`), and observing command execution and resumption.

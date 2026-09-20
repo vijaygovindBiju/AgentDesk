@@ -8,9 +8,8 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 
 use agentdesk_model::{
-    AgentInfo, Body, CommandError, CommandResult, Decision, ErrorReply, EventPush,
-    EventRef, GetEventLogs, Message, PipelineMode, RawLine, RespondRequest,
-    Snapshot, TaskId,
+    AgentInfo, Body, CommandError, CommandResult, Decision, ErrorReply, EventPush, EventRef,
+    GetEventLogs, Message, PipelineMode, RawLine, RespondRequest, Snapshot, TaskId,
 };
 
 use crate::adapter::AdapterOutput;
@@ -52,13 +51,9 @@ pub enum CoreCommand {
         sink: Box<dyn TransportSink>,
     },
     /// Remove an outbound transport sink for a client.
-    Disconnect {
-        client_id: ClientId,
-    },
+    Disconnect { client_id: ClientId },
     /// Push a fresh snapshot of all live entries and events to the client.
-    SendSnapshot {
-        client_id: ClientId,
-    },
+    SendSnapshot { client_id: ClientId },
     /// Shutdown the core actor loop.
     Shutdown,
 }
@@ -227,7 +222,8 @@ impl CoreTask {
             #[allow(clippy::collapsible_if)]
             if let Ok(Some(_)) = self.queue.escalate(&esc.event_id, esc.level) {
                 if let Some(score_upd) =
-                    self.queue.update_entry_score(&esc.event_id, &self.event_store, now)
+                    self.queue
+                        .update_entry_score(&esc.event_id, &self.event_store, now)
                 {
                     self.broadcast(Message::push(Body::ScoreUpdate(score_upd)));
                 }
@@ -265,10 +261,7 @@ impl CoreTask {
                             }
                         }
                         // Push event to clients
-                        self.broadcast(Message::push(Body::Event(EventPush {
-                            event,
-                            entry,
-                        })));
+                        self.broadcast(Message::push(Body::Event(EventPush { event, entry })));
                     }
                 }
             },
@@ -302,21 +295,19 @@ impl CoreTask {
         }
     }
 
-    fn handle_client_message(
-        &mut self,
-        client_id: ClientId,
-        message: Message,
-        now: DateTime<Utc>,
-    ) {
+    fn handle_client_message(&mut self, client_id: ClientId, message: Message, now: DateTime<Utc>) {
         let req_id = message.request_id.clone();
 
         match message.body {
             Body::GetMetrics(_) => {
                 let snap = self.metrics.snapshot();
-                self.send_to(client_id, Message {
-                    request_id: req_id,
-                    body: Body::Metrics(snap),
-                });
+                self.send_to(
+                    client_id,
+                    Message {
+                        request_id: req_id,
+                        body: Body::Metrics(snap),
+                    },
+                );
             }
             Body::Ack(EventRef { event_id }) => {
                 let res = self.queue.ack(&event_id);
@@ -324,23 +315,32 @@ impl CoreTask {
                     Ok(Some(state_update)) => {
                         self.metrics.acks += 1;
                         self.broadcast(Message::push(Body::StateUpdate(state_update)));
-                        self.send_to(client_id, Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::ok()),
-                        });
+                        self.send_to(
+                            client_id,
+                            Message {
+                                request_id: req_id,
+                                body: Body::CommandResult(CommandResult::ok()),
+                            },
+                        );
                     }
                     Ok(None) => {
                         self.metrics.acks += 1;
-                        self.send_to(client_id, Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::ok()),
-                        });
+                        self.send_to(
+                            client_id,
+                            Message {
+                                request_id: req_id,
+                                body: Body::CommandResult(CommandResult::ok()),
+                            },
+                        );
                     }
                     Err(err) => {
-                        self.send_to(client_id, Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::err(err)),
-                        });
+                        self.send_to(
+                            client_id,
+                            Message {
+                                request_id: req_id,
+                                body: Body::CommandResult(CommandResult::err(err)),
+                            },
+                        );
                     }
                 }
             }
@@ -350,23 +350,32 @@ impl CoreTask {
                     Ok(Some(state_update)) => {
                         self.metrics.dismissals += 1;
                         self.broadcast(Message::push(Body::StateUpdate(state_update)));
-                        self.send_to(client_id, Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::ok()),
-                        });
+                        self.send_to(
+                            client_id,
+                            Message {
+                                request_id: req_id,
+                                body: Body::CommandResult(CommandResult::ok()),
+                            },
+                        );
                     }
                     Ok(None) => {
                         self.metrics.dismissals += 1;
-                        self.send_to(client_id, Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::ok()),
-                        });
+                        self.send_to(
+                            client_id,
+                            Message {
+                                request_id: req_id,
+                                body: Body::CommandResult(CommandResult::ok()),
+                            },
+                        );
                     }
                     Err(err) => {
-                        self.send_to(client_id, Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::err(err)),
-                        });
+                        self.send_to(
+                            client_id,
+                            Message {
+                                request_id: req_id,
+                                body: Body::CommandResult(CommandResult::err(err)),
+                            },
+                        );
                     }
                 }
             }
@@ -381,7 +390,8 @@ impl CoreTask {
                     Ok(state_update) => {
                         self.metrics.responses += 1;
                         if let Some(sc) =
-                            self.queue.update_entry_score(&event_id, &self.event_store, now)
+                            self.queue
+                                .update_entry_score(&event_id, &self.event_store, now)
                         {
                             self.broadcast(Message::push(Body::ScoreUpdate(sc)));
                         }
@@ -396,16 +406,22 @@ impl CoreTask {
                             });
                         }
 
-                        self.send_to(client_id, Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::ok()),
-                        });
+                        self.send_to(
+                            client_id,
+                            Message {
+                                request_id: req_id,
+                                body: Body::CommandResult(CommandResult::ok()),
+                            },
+                        );
                     }
                     Err(err) => {
-                        self.send_to(client_id, Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::err(err)),
-                        });
+                        self.send_to(
+                            client_id,
+                            Message {
+                                request_id: req_id,
+                                body: Body::CommandResult(CommandResult::err(err)),
+                            },
+                        );
                     }
                 }
             }
@@ -414,7 +430,8 @@ impl CoreTask {
                     self.metrics.detail_refetches += 1;
                     self.broadcast(Message::push(Body::StateUpdate(state_update)));
                     if let Some(sc) =
-                        self.queue.update_entry_score(&event_id, &self.event_store, now)
+                        self.queue
+                            .update_entry_score(&event_id, &self.event_store, now)
                     {
                         self.broadcast(Message::push(Body::ScoreUpdate(sc)));
                     }
@@ -425,45 +442,66 @@ impl CoreTask {
                 if let (Some(ev), Some(en)) =
                     (self.event_store.get(&event_id), self.queue.get(&event_id))
                 {
-                    self.send_to(client_id, Message {
-                        request_id: req_id,
-                        body: Body::EventDetails(EventPush {
-                            event: ev.clone(),
-                            entry: en.clone(),
-                        }),
-                    });
+                    self.send_to(
+                        client_id,
+                        Message {
+                            request_id: req_id,
+                            body: Body::EventDetails(EventPush {
+                                event: ev.clone(),
+                                entry: en.clone(),
+                            }),
+                        },
+                    );
                 } else {
-                    self.send_to(client_id, Message {
-                        request_id: req_id,
-                        body: Body::Error(ErrorReply {
-                            code: "no_such_event".into(),
-                            message: "event not found".into(),
-                        }),
-                    });
+                    self.send_to(
+                        client_id,
+                        Message {
+                            request_id: req_id,
+                            body: Body::Error(ErrorReply {
+                                code: "no_such_event".into(),
+                                message: "event not found".into(),
+                            }),
+                        },
+                    );
                 }
             }
-            Body::GetEventLogs(GetEventLogs { event_id, offset, limit }) => {
+            Body::GetEventLogs(GetEventLogs {
+                event_id,
+                offset,
+                limit,
+            }) => {
                 self.metrics.log_page_requests += 1;
                 if let Some(logs) = self.log_store.get_event_logs(&event_id, offset, limit) {
-                    self.send_to(client_id, Message {
-                        request_id: req_id,
-                        body: Body::EventLogs(logs),
-                    });
+                    self.send_to(
+                        client_id,
+                        Message {
+                            request_id: req_id,
+                            body: Body::EventLogs(logs),
+                        },
+                    );
                 } else {
-                    self.send_to(client_id, Message {
-                        request_id: req_id,
-                        body: Body::CommandResult(CommandResult::err(CommandError::NoSuchEvent)),
-                    });
+                    self.send_to(
+                        client_id,
+                        Message {
+                            request_id: req_id,
+                            body: Body::CommandResult(CommandResult::err(
+                                CommandError::NoSuchEvent,
+                            )),
+                        },
+                    );
                 }
             }
             _ => {
-                self.send_to(client_id, Message {
-                    request_id: req_id,
-                    body: Body::Error(ErrorReply {
-                        code: "unsupported".into(),
-                        message: "message type not supported as a request".into(),
-                    }),
-                });
+                self.send_to(
+                    client_id,
+                    Message {
+                        request_id: req_id,
+                        body: Body::Error(ErrorReply {
+                            code: "unsupported".into(),
+                            message: "message type not supported as a request".into(),
+                        }),
+                    },
+                );
             }
         }
     }
@@ -491,12 +529,18 @@ impl CoreHandle {
         CoreHandle { sender }
     }
 
-    pub async fn send(&self, cmd: CoreCommand) -> Result<(), tokio::sync::mpsc::error::SendError<CoreCommand>> {
+    pub async fn send(
+        &self,
+        cmd: CoreCommand,
+    ) -> Result<(), tokio::sync::mpsc::error::SendError<CoreCommand>> {
         self.sender.send(cmd).await
     }
 
     #[allow(clippy::result_large_err)]
-    pub fn try_send(&self, cmd: CoreCommand) -> Result<(), tokio::sync::mpsc::error::TrySendError<CoreCommand>> {
+    pub fn try_send(
+        &self,
+        cmd: CoreCommand,
+    ) -> Result<(), tokio::sync::mpsc::error::TrySendError<CoreCommand>> {
         self.sender.try_send(cmd)
     }
 }
@@ -506,9 +550,7 @@ mod tests {
     use super::*;
     use crate::clock::VirtualClock;
     use crate::sink::VecSink;
-    use agentdesk_model::{
-        Details, Empty, Operation, RawAgentEvent, RequestInfo,
-    };
+    use agentdesk_model::{Details, Empty, Operation, RawAgentEvent, RequestInfo};
     use chrono::Duration;
 
     fn make_raw(kind: &str, task_id: Option<&str>, lines: Vec<String>) -> RawAgentEvent {
@@ -552,7 +594,9 @@ mod tests {
         core.step(CoreCommand::Adapter(AdapterOutput::Event(raw.clone())));
 
         let sink = core.sinks.get_mut(&1).unwrap();
-        let vsink = sink.send(&Message::push(Body::GetMetrics(Empty {}))).unwrap();
+        let vsink = sink
+            .send(&Message::push(Body::GetMetrics(Empty {})))
+            .unwrap();
         assert!(vsink > 0);
         // Look at recorded messages: exactly 1 raw_event + 1 get_metrics we just sent
         assert_eq!(core.metrics.raw_lines, 1);
@@ -583,7 +627,11 @@ mod tests {
         }));
 
         // Send event with 2 log lines
-        let raw = make_raw("progress", None, vec!["event line 1".into(), "event line 2".into()]);
+        let raw = make_raw(
+            "progress",
+            None,
+            vec!["event line 1".into(), "event line 2".into()],
+        );
         core.step(CoreCommand::Adapter(AdapterOutput::Event(raw)));
 
         assert_eq!(core.metrics.raw_lines, 3);
@@ -711,7 +759,10 @@ mod tests {
 
         // Check entry in queue is resolved
         let entry = core.queue.get(&event_id).unwrap();
-        assert_eq!(entry.resolution, Some(agentdesk_model::Resolution::Approved));
+        assert_eq!(
+            entry.resolution,
+            Some(agentdesk_model::Resolution::Approved)
+        );
     }
 
     #[test]

@@ -12,9 +12,11 @@ use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 
 use agentdesk_core::{Adapter, AdapterOutput, RespondError};
-use agentdesk_model::{AdapterKind, AgentId, AgentInfo, Decision, Details, RawAgentEvent, RequestInfo, TaskId};
+use agentdesk_model::{
+    AdapterKind, AgentId, AgentInfo, Decision, Details, RawAgentEvent, RequestInfo, TaskId,
+};
 
-use crate::scenario::{is_terminal_kind, Scenario, Step, TaskSpec};
+use crate::scenario::{Scenario, Step, TaskSpec, is_terminal_kind};
 
 #[derive(Debug, Clone)]
 struct Blocked {
@@ -47,7 +49,12 @@ impl Simulator {
         let agents = scenario
             .agents
             .iter()
-            .map(|a| AgentInfo { agent_id: a.agent_id.clone(), name: a.name.clone(), project: a.project.clone(), adapter_kind: AdapterKind::Simulator })
+            .map(|a| AgentInfo {
+                agent_id: a.agent_id.clone(),
+                name: a.name.clone(),
+                project: a.project.clone(),
+                adapter_kind: AdapterKind::Simulator,
+            })
             .collect();
         let tasks = scenario
             .tasks
@@ -62,12 +69,21 @@ impl Simulator {
                 finished: false,
             })
             .collect();
-        Simulator { agents, tasks, agent_seq: HashMap::new(), rng: StdRng::seed_from_u64(seed) }
+        Simulator {
+            agents,
+            tasks,
+            agent_seq: HashMap::new(),
+            rng: StdRng::seed_from_u64(seed),
+        }
     }
 
     /// Tasks currently waiting on `respond`.
     pub fn blocked_tasks(&self) -> Vec<TaskId> {
-        self.tasks.iter().filter(|t| t.blocked.is_some()).map(|t| t.spec.task_id.clone()).collect()
+        self.tasks
+            .iter()
+            .filter(|t| t.blocked.is_some())
+            .map(|t| t.spec.task_id.clone())
+            .collect()
     }
 
     fn next_agent_seq(&mut self, agent_id: &str) -> u64 {
@@ -76,11 +92,30 @@ impl Simulator {
         *c
     }
 
-    fn event(&mut self, ti: usize, kind: &str, message: String, details: Details, log_lines: Vec<String>, request: Option<RequestInfo>) -> AdapterOutput {
+    fn event(
+        &mut self,
+        ti: usize,
+        kind: &str,
+        message: String,
+        details: Details,
+        log_lines: Vec<String>,
+        request: Option<RequestInfo>,
+    ) -> AdapterOutput {
         let spec = &self.tasks[ti].spec;
-        let (agent_id, task_id, operation) = (spec.agent_id.clone(), spec.task_id.clone(), spec.operation);
+        let (agent_id, task_id, operation) =
+            (spec.agent_id.clone(), spec.task_id.clone(), spec.operation);
         let agent_seq = self.next_agent_seq(&agent_id);
-        AdapterOutput::Event(RawAgentEvent { agent_id, agent_seq, task_id: Some(task_id), kind: kind.to_string(), operation, message, details, log_lines, request })
+        AdapterOutput::Event(RawAgentEvent {
+            agent_id,
+            agent_seq,
+            task_id: Some(task_id),
+            kind: kind.to_string(),
+            operation,
+            message,
+            details,
+            log_lines,
+            request,
+        })
     }
 
     fn jitter(&mut self, jitter_ms: u64) -> Duration {
@@ -95,8 +130,16 @@ impl Simulator {
         let due = self.tasks[ti].next_due.expect("emit only for due tasks");
 
         if let Some(b) = self.tasks[ti].pending_deny.take() {
-            let details = Details::from([("task".to_string(), self.tasks[ti].spec.title.clone().into())]);
-            out.push(self.event(ti, &b.on_deny_kind, format!("Denied: {}", b.prompt), details, vec![], None));
+            let details =
+                Details::from([("task".to_string(), self.tasks[ti].spec.title.clone().into())]);
+            out.push(self.event(
+                ti,
+                &b.on_deny_kind,
+                format!("Denied: {}", b.prompt),
+                details,
+                vec![],
+                None,
+            ));
             self.finish(ti);
             return;
         }
@@ -110,12 +153,26 @@ impl Simulator {
 
         match step {
             Step::Started { message } => {
-                out.push(self.event(ti, "started", message.unwrap_or_else(|| title.clone()), task_detail(), vec![], None));
+                out.push(self.event(
+                    ti,
+                    "started",
+                    message.unwrap_or_else(|| title.clone()),
+                    task_detail(),
+                    vec![],
+                    None,
+                ));
                 self.advance_step(ti);
             }
-            Step::Progress { count, interval_ms, jitter_ms, template } => {
+            Step::Progress {
+                count,
+                interval_ms,
+                jitter_ms,
+                template,
+            } => {
                 let i = self.tasks[ti].piece + 1;
-                let msg = template.replace("{i}", &i.to_string()).replace("{n}", &count.to_string());
+                let msg = template
+                    .replace("{i}", &i.to_string())
+                    .replace("{n}", &count.to_string());
                 out.push(self.event(ti, "progress", msg.clone(), Details::new(), vec![msg], None));
                 let delay = Duration::milliseconds(interval_ms as i64) + self.jitter(jitter_ms);
                 self.tasks[ti].next_due = Some(due + delay);
@@ -126,7 +183,10 @@ impl Simulator {
             }
             Step::Log { lines, interval_ms } => {
                 let text = lines[self.tasks[ti].piece].clone();
-                out.push(AdapterOutput::Line { agent_id: self.tasks[ti].spec.agent_id.clone(), text });
+                out.push(AdapterOutput::Line {
+                    agent_id: self.tasks[ti].spec.agent_id.clone(),
+                    text,
+                });
                 self.tasks[ti].next_due = Some(due + Duration::milliseconds(interval_ms as i64));
                 self.tasks[ti].piece += 1;
                 if self.tasks[ti].piece >= lines.len() {
@@ -137,14 +197,39 @@ impl Simulator {
                 self.tasks[ti].next_due = Some(due + Duration::milliseconds(ms as i64));
                 self.advance_step(ti);
             }
-            Step::Request { kind, prompt, options, message, on_deny_kind } => {
-                let req = RequestInfo { prompt: prompt.clone(), options };
-                out.push(self.event(ti, &kind, message.unwrap_or_else(|| prompt.clone()), task_detail(), vec![], Some(req)));
-                self.tasks[ti].blocked = Some(Blocked { prompt, on_deny_kind });
+            Step::Request {
+                kind,
+                prompt,
+                options,
+                message,
+                on_deny_kind,
+            } => {
+                let req = RequestInfo {
+                    prompt: prompt.clone(),
+                    options,
+                };
+                out.push(self.event(
+                    ti,
+                    &kind,
+                    message.unwrap_or_else(|| prompt.clone()),
+                    task_detail(),
+                    vec![],
+                    Some(req),
+                ));
+                self.tasks[ti].blocked = Some(Blocked {
+                    prompt,
+                    on_deny_kind,
+                });
                 self.tasks[ti].next_due = None;
                 self.advance_step(ti);
             }
-            Step::Event { kind, message, details, log_lines, delay_ms } => {
+            Step::Event {
+                kind,
+                message,
+                details,
+                log_lines,
+                delay_ms,
+            } => {
                 out.push(self.event(ti, &kind, message, details, log_lines, None));
                 if is_terminal_kind(&kind) {
                     self.finish(ti);
@@ -199,8 +284,17 @@ impl Adapter for Simulator {
         self.tasks.iter().filter_map(|t| t.next_due).min()
     }
 
-    fn respond(&mut self, task_id: &TaskId, decision: Decision, now: DateTime<Utc>) -> Result<(), RespondError> {
-        let t = self.tasks.iter_mut().find(|t| &t.spec.task_id == task_id).ok_or(RespondError::NoSuchTask)?;
+    fn respond(
+        &mut self,
+        task_id: &TaskId,
+        decision: Decision,
+        now: DateTime<Utc>,
+    ) -> Result<(), RespondError> {
+        let t = self
+            .tasks
+            .iter_mut()
+            .find(|t| &t.spec.task_id == task_id)
+            .ok_or(RespondError::NoSuchTask)?;
         let b = t.blocked.take().ok_or(RespondError::NotBlocked)?;
         match decision {
             Decision::Approve => {

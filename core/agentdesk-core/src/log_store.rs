@@ -5,7 +5,7 @@ use std::collections::{HashMap, VecDeque};
 
 use chrono::{DateTime, Utc};
 
-use agentdesk_model::{AgentId, EventId, EventLogs, LogLine, LogRange, LOG_OFFSET_TAIL};
+use agentdesk_model::{AgentId, EventId, EventLogs, LOG_OFFSET_TAIL, LogLine, LogRange};
 
 pub const DEFAULT_RING_CAPACITY: usize = 10_000;
 pub const DEFAULT_PIN_BEFORE: u64 = 200;
@@ -74,7 +74,10 @@ impl AgentBuffer {
     }
 
     fn oldest_offset(&self) -> u64 {
-        self.lines.front().map(|l| l.offset).unwrap_or(self.next_offset)
+        self.lines
+            .front()
+            .map(|l| l.offset)
+            .unwrap_or(self.next_offset)
     }
 
     fn page(&self, offset: u64, limit: u32, page_cap: u32) -> LogPage {
@@ -184,7 +187,13 @@ impl AgentBuffer {
 
         let start_idx = (clamped_start - oldest) as usize;
         let count = (clamped_end - clamped_start) as usize;
-        let lines = self.lines.iter().skip(start_idx).take(count).cloned().collect();
+        let lines = self
+            .lines
+            .iter()
+            .skip(start_idx)
+            .take(count)
+            .cloned()
+            .collect();
         (clamped_start, lines)
     }
 }
@@ -223,17 +232,26 @@ impl LogStore {
 
     /// Monotonically increasing next offset for `agent_id`.
     pub fn next_offset(&self, agent_id: &str) -> u64 {
-        self.agents.get(agent_id).map(|b| b.next_offset).unwrap_or(0)
+        self.agents
+            .get(agent_id)
+            .map(|b| b.next_offset)
+            .unwrap_or(0)
     }
 
     /// Oldest retrievable offset in the ring buffer for `agent_id`.
     pub fn oldest_offset(&self, agent_id: &str) -> u64 {
-        self.agents.get(agent_id).map(|b| b.oldest_offset()).unwrap_or(0)
+        self.agents
+            .get(agent_id)
+            .map(|b| b.oldest_offset())
+            .unwrap_or(0)
     }
 
     /// Number of lines currently retained in the ring buffer for `agent_id`.
     pub fn ring_len(&self, agent_id: &str) -> usize {
-        self.agents.get(agent_id).map(|b| b.lines.len()).unwrap_or(0)
+        self.agents
+            .get(agent_id)
+            .map(|b| b.lines.len())
+            .unwrap_or(0)
     }
 
     /// Append a single line for `agent_id`.
@@ -242,9 +260,17 @@ impl LogStore {
     }
 
     /// Append multiple lines for `agent_id`.
-    pub fn append_lines(&mut self, agent_id: &str, lines: &[String], ts: DateTime<Utc>) -> Vec<LogLine> {
+    pub fn append_lines(
+        &mut self,
+        agent_id: &str,
+        lines: &[String],
+        ts: DateTime<Utc>,
+    ) -> Vec<LogLine> {
         let buf = self.buffer_mut(agent_id);
-        lines.iter().map(|line| buf.append(line.clone(), ts)).collect()
+        lines
+            .iter()
+            .map(|line| buf.append(line.clone(), ts))
+            .collect()
     }
 
     /// Associate an event with an agent so unpinned log requests find the agent buffer.

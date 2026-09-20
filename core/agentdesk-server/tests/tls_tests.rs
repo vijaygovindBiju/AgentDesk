@@ -9,20 +9,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
+use sha2::{Digest, Sha256};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
+use tokio_rustls::TlsConnector;
 use tokio_rustls::rustls::client::danger::{
     HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
 };
 use tokio_rustls::rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use tokio_rustls::rustls::{DigitallySignedStruct, SignatureScheme};
-use tokio_rustls::TlsConnector;
 use tokio_tungstenite::tungstenite::protocol::Message as WsMessage;
-use sha2::{Digest, Sha256};
 
 use agentdesk_core::{CoreTask, LogStoreConfig, ThresholdTable, VirtualClock};
-use agentdesk_model::{Body, Hello, Message, PipelineMode, TransportMode, SCHEMA_VERSION};
-use agentdesk_server::{generate_token, Server, ServerConfig};
+use agentdesk_model::{Body, Hello, Message, PipelineMode, SCHEMA_VERSION, TransportMode};
+use agentdesk_server::{Server, ServerConfig, generate_token};
 
 #[derive(Debug)]
 struct PinnedFingerprintVerifier {
@@ -84,7 +84,8 @@ impl ServerCertVerifier for PinnedFingerprintVerifier {
 async fn setup_tls_server() -> (Server, String, String, std::path::PathBuf) {
     let clock = Arc::new(VirtualClock::at_epoch());
     let token = generate_token();
-    let temp_dir = std::env::temp_dir().join(format!("agentdesk-tls-test-{}", rand::random::<u64>()));
+    let temp_dir =
+        std::env::temp_dir().join(format!("agentdesk-tls-test-{}", rand::random::<u64>()));
     fs::create_dir_all(&temp_dir).unwrap();
 
     let (tx_core, rx_core) = mpsc::channel(256);
@@ -111,8 +112,13 @@ async fn setup_tls_server() -> (Server, String, String, std::path::PathBuf) {
         config_dir: Some(temp_dir.clone()),
     };
 
-    let server = Server::bind(config, tx_core, clock).await.expect("bind TLS server");
-    let fp = server.fingerprint().expect("server fingerprint").to_string();
+    let server = Server::bind(config, tx_core, clock)
+        .await
+        .expect("bind TLS server");
+    let fp = server
+        .fingerprint()
+        .expect("server fingerprint")
+        .to_string();
 
     (server, token, fp, temp_dir)
 }
@@ -146,7 +152,10 @@ async fn p8_t1_matching_fingerprint_client_connects_successfully() {
 
     let tcp_stream = TcpStream::connect(local_addr).await.expect("connect TCP");
     let domain = ServerName::try_from("localhost".to_string()).unwrap();
-    let tls_stream = connector.connect(domain, tcp_stream).await.expect("TLS handshake success");
+    let tls_stream = connector
+        .connect(domain, tcp_stream)
+        .await
+        .expect("TLS handshake success");
 
     let url = format!("wss://127.0.0.1:{}/", local_addr.port());
     let (mut ws_stream, _) = tokio_tungstenite::client_async(url, tls_stream)
@@ -161,7 +170,9 @@ async fn p8_t1_matching_fingerprint_client_connects_successfully() {
         schema_version: SCHEMA_VERSION,
     }));
     ws_stream
-        .send(WsMessage::Text(serde_json::to_string(&hello).unwrap().into()))
+        .send(WsMessage::Text(
+            serde_json::to_string(&hello).unwrap().into(),
+        ))
         .await
         .unwrap();
 

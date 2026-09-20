@@ -2,22 +2,27 @@ use std::collections::{BTreeMap, HashMap};
 
 use chrono::Duration;
 
-use agentdesk_core::{classify, Adapter, AdapterOutput, Clock, RespondError, VirtualClock};
+use agentdesk_core::{Adapter, AdapterOutput, Clock, RespondError, VirtualClock, classify};
 use agentdesk_model::{Category, Decision, RawAgentEvent};
-use agentdesk_sim::{run_to_end, Scenario, Simulator, Step, Timeline};
+use agentdesk_sim::{Scenario, Simulator, Step, Timeline, run_to_end};
 
 const SEED: u64 = 42;
 
 fn default_sim(seed: u64) -> (Simulator, VirtualClock) {
     let clock = VirtualClock::at_epoch();
-    (Simulator::new(Scenario::default_scenario(), seed, clock.now()), clock)
+    (
+        Simulator::new(Scenario::default_scenario(), seed, clock.now()),
+        clock,
+    )
 }
 
 fn events(t: &Timeline) -> Vec<&RawAgentEvent> {
-    t.iter().filter_map(|(_, o)| match o {
-        AdapterOutput::Event(e) => Some(e),
-        _ => None,
-    }).collect()
+    t.iter()
+        .filter_map(|(_, o)| match o {
+            AdapterOutput::Event(e) => Some(e),
+            _ => None,
+        })
+        .collect()
 }
 
 fn serialize(t: &Timeline) -> String {
@@ -43,11 +48,16 @@ fn default_scenario_parses_and_validates() {
 
 #[test]
 fn scenario_validation_rejects_bad_files() {
-    let base = r#"{"name":"x","agents":[{"agent_id":"a","name":"A","project":"P"}],"tasks":[TASKS]}"#;
+    let base =
+        r#"{"name":"x","agents":[{"agent_id":"a","name":"A","project":"P"}],"tasks":[TASKS]}"#;
     let with = |tasks: &str| Scenario::from_json(&base.replace("TASKS", tasks));
 
     assert!(with(r#"{"task_id":"t","agent_id":"ghost","title":"T","operation":"build","steps":[{"type":"started"}]}"#).is_err(), "unknown agent");
-    assert!(with(r#"{"task_id":"t","agent_id":"a","title":"T","operation":"build","steps":[]}"#).is_err(), "empty task");
+    assert!(
+        with(r#"{"task_id":"t","agent_id":"a","title":"T","operation":"build","steps":[]}"#)
+            .is_err(),
+        "empty task"
+    );
     assert!(with(r#"{"task_id":"t","agent_id":"a","title":"T","operation":"build","steps":[{"type":"progress","count":0,"interval_ms":1,"template":"x"}]}"#).is_err(), "zero count");
     assert!(with(r#"{"task_id":"t","agent_id":"a","title":"T","operation":"build","steps":[{"type":"event","kind":"build_completed","message":"m"},{"type":"started"}]}"#).is_err(), "step after terminal");
     assert!(with(r#"{"task_id":"t","agent_id":"a","title":"T","operation":"build","steps":[{"type":"request","kind":"progress","prompt":"p"}]}"#).is_err(), "request kind must be a request");
@@ -60,7 +70,12 @@ fn scenario_validation_rejects_bad_files() {
 fn request_step_defaults() {
     let s: Step = serde_json::from_str(r#"{"type":"request","prompt":"ok?"}"#).unwrap();
     match s {
-        Step::Request { kind, options, on_deny_kind, .. } => {
+        Step::Request {
+            kind,
+            options,
+            on_deny_kind,
+            ..
+        } => {
             assert_eq!(kind, "approval_required");
             assert_eq!(options, ["approve", "deny"]);
             assert_eq!(on_deny_kind, "cancelled_by_user");
@@ -87,12 +102,18 @@ fn different_seed_changes_only_jitter_not_event_sequence() {
     let (mut b, cb) = default_sim(2);
     let ta = run_to_end(&mut a, &ca, Duration::seconds(5), |_| Decision::Approve);
     let tb = run_to_end(&mut b, &cb, Duration::seconds(5), |_| Decision::Approve);
-    assert_ne!(serialize(&ta), serialize(&tb), "jitter should differ between seeds");
+    assert_ne!(
+        serialize(&ta),
+        serialize(&tb),
+        "jitter should differ between seeds"
+    );
     // Interleaving across tasks may differ, but each task's own sequence must not.
     let per_task = |t: &Timeline| {
         let mut m: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for e in events(t) {
-            m.entry(e.task_id.clone().unwrap()).or_default().push(e.kind.clone());
+            m.entry(e.task_id.clone().unwrap())
+                .or_default()
+                .push(e.kind.clone());
         }
         m
     };
@@ -137,7 +158,14 @@ fn agent_seq_is_strictly_increasing_per_agent() {
     let mut last: HashMap<&str, u64> = HashMap::new();
     for e in events(&t) {
         let prev = last.insert(&e.agent_id, e.agent_seq).unwrap_or(0);
-        assert_eq!(e.agent_seq, prev + 1, "agent {} jumped {} -> {}", e.agent_id, prev, e.agent_seq);
+        assert_eq!(
+            e.agent_seq,
+            prev + 1,
+            "agent {} jumped {} -> {}",
+            e.agent_id,
+            prev,
+            e.agent_seq
+        );
     }
     assert_eq!(last.len(), 2);
 }
@@ -162,11 +190,22 @@ fn default_scenario_has_the_documented_minimum_mix() {
     for e in &evs {
         *by_kind.entry(e.kind.as_str()).or_default() += 1;
     }
-    let by_cat = |c: Category| evs.iter().filter(|e| classify(&e.kind).category == c).count();
+    let by_cat = |c: Category| {
+        evs.iter()
+            .filter(|e| classify(&e.kind).category == c)
+            .count()
+    };
 
     assert_eq!(by_cat(Category::Request), 1);
     assert!(by_cat(Category::Error) >= 2, "{by_kind:?}");
-    assert!(evs.iter().filter(|e| classify(&e.kind).category == Category::Completed && classify(&e.kind).severity.as_u8() >= 2).count() >= 3, "{by_kind:?}");
+    assert!(
+        evs.iter()
+            .filter(|e| classify(&e.kind).category == Category::Completed
+                && classify(&e.kind).severity.as_u8() >= 2)
+            .count()
+            >= 3,
+        "{by_kind:?}"
+    );
     assert_eq!(by_kind["cancelled_by_user"], 1);
     assert_eq!(by_kind["cancelled_by_agent"], 1);
     assert_eq!(by_kind["build_failed"], 1);
@@ -176,14 +215,24 @@ fn default_scenario_has_the_documented_minimum_mix() {
     let working = by_cat(Category::Working);
     assert!(working > 1000, "working events = {working}");
     assert!(working as f64 / evs.len() as f64 > 0.98);
-    let lines = t.iter().filter(|(_, o)| matches!(o, AdapterOutput::Line { .. })).count();
+    let lines = t
+        .iter()
+        .filter(|(_, o)| matches!(o, AdapterOutput::Line { .. }))
+        .count();
     assert!(lines >= 10);
 
     // One long-running build (> 10 min = 2x the expected 5 min for `build`).
-    let long: Vec<_> = evs.iter().filter(|e| e.task_id.as_deref() == Some("task-longbuild")).collect();
+    let long: Vec<_> = evs
+        .iter()
+        .filter(|e| e.task_id.as_deref() == Some("task-longbuild"))
+        .collect();
     let first = t.iter().find(|(_, o)| matches!(o, AdapterOutput::Event(e) if e.task_id.as_deref() == Some("task-longbuild"))).unwrap().0;
     let last = t.iter().rev().find(|(_, o)| matches!(o, AdapterOutput::Event(e) if e.task_id.as_deref() == Some("task-longbuild"))).unwrap().0;
-    assert!(last - first > Duration::minutes(10), "long build ran {}", last - first);
+    assert!(
+        last - first > Duration::minutes(10),
+        "long build ran {}",
+        last - first
+    );
     assert_eq!(long.last().unwrap().kind, "build_completed");
 
     // Whole scenario fits in a compressed virtual run.
@@ -194,7 +243,10 @@ fn default_scenario_has_the_documented_minimum_mix() {
 fn error_events_carry_actionable_details_and_logs() {
     let (mut s, c) = default_sim(SEED);
     let t = run_to_end(&mut s, &c, Duration::seconds(5), |_| Decision::Approve);
-    let bf = events(&t).into_iter().find(|e| e.kind == "build_failed").unwrap();
+    let bf = events(&t)
+        .into_iter()
+        .find(|e| e.kind == "build_failed")
+        .unwrap();
     assert_eq!(bf.details["file"], "auth_service.dart");
     assert_eq!(bf.details["line"], 42);
     assert!(!bf.log_lines.is_empty());
@@ -207,18 +259,37 @@ fn error_events_carry_actionable_details_and_logs() {
 fn approve_resumes_and_completes_the_task() {
     let (mut s, c) = default_sim(SEED);
     let t = run_to_end(&mut s, &c, Duration::seconds(5), |_| Decision::Approve);
-    let db: Vec<_> = events(&t).into_iter().filter(|e| e.task_id.as_deref() == Some("task-db")).map(|e| e.kind.as_str()).collect();
+    let db: Vec<_> = events(&t)
+        .into_iter()
+        .filter(|e| e.task_id.as_deref() == Some("task-db"))
+        .map(|e| e.kind.as_str())
+        .collect();
     let req = db.iter().position(|k| *k == "approval_required").unwrap();
-    assert!(db[req + 1..].contains(&"progress"), "work resumes after approve");
+    assert!(
+        db[req + 1..].contains(&"progress"),
+        "work resumes after approve"
+    );
     assert_eq!(*db.last().unwrap(), "task_completed");
 }
 
 #[test]
 fn deny_emits_on_deny_kind_and_ends_the_task() {
     let (mut s, c) = default_sim(SEED);
-    let t = run_to_end(&mut s, &c, Duration::seconds(5), |id| if id == "task-db" { Decision::Deny } else { Decision::Approve });
-    let db: Vec<_> = events(&t).into_iter().filter(|e| e.task_id.as_deref() == Some("task-db")).collect();
-    let req = db.iter().position(|e| e.kind == "approval_required").unwrap();
+    let t = run_to_end(&mut s, &c, Duration::seconds(5), |id| {
+        if id == "task-db" {
+            Decision::Deny
+        } else {
+            Decision::Approve
+        }
+    });
+    let db: Vec<_> = events(&t)
+        .into_iter()
+        .filter(|e| e.task_id.as_deref() == Some("task-db"))
+        .collect();
+    let req = db
+        .iter()
+        .position(|e| e.kind == "approval_required")
+        .unwrap();
     assert_eq!(db.len(), req + 2, "exactly one event after the request");
     let last = db.last().unwrap();
     assert_eq!(last.kind, "cancelled_by_user");
@@ -230,8 +301,14 @@ fn deny_emits_on_deny_kind_and_ends_the_task() {
 fn respond_errors() {
     let (mut s, c) = default_sim(SEED);
     let now = c.now();
-    assert_eq!(s.respond(&"nope".to_string(), Decision::Approve, now), Err(RespondError::NoSuchTask));
-    assert_eq!(s.respond(&"task-db".to_string(), Decision::Approve, now), Err(RespondError::NotBlocked));
+    assert_eq!(
+        s.respond(&"nope".to_string(), Decision::Approve, now),
+        Err(RespondError::NoSuchTask)
+    );
+    assert_eq!(
+        s.respond(&"task-db".to_string(), Decision::Approve, now),
+        Err(RespondError::NotBlocked)
+    );
 
     // Run until the request appears, then respond twice.
     while s.blocked_tasks().is_empty() {
@@ -240,9 +317,18 @@ fn respond_errors() {
         s.poll(due);
     }
     assert_eq!(s.blocked_tasks(), ["task-db"]);
-    assert!(s.next_due().is_none() || s.next_due().is_some(), "other tasks may still be due");
-    assert_eq!(s.respond(&"task-db".to_string(), Decision::Approve, c.now()), Ok(()));
-    assert_eq!(s.respond(&"task-db".to_string(), Decision::Approve, c.now()), Err(RespondError::NotBlocked));
+    assert!(
+        s.next_due().is_none() || s.next_due().is_some(),
+        "other tasks may still be due"
+    );
+    assert_eq!(
+        s.respond(&"task-db".to_string(), Decision::Approve, c.now()),
+        Ok(())
+    );
+    assert_eq!(
+        s.respond(&"task-db".to_string(), Decision::Approve, c.now()),
+        Err(RespondError::NotBlocked)
+    );
 }
 
 #[test]
@@ -255,7 +341,11 @@ fn blocked_task_produces_nothing_until_answered() {
     }
     c.advance(Duration::hours(1));
     let out = s.poll(c.now());
-    assert!(out.iter().all(|o| !matches!(o, AdapterOutput::Event(e) if e.task_id.as_deref() == Some("task-db"))));
+    assert!(
+        out.iter().all(
+            |o| !matches!(o, AdapterOutput::Event(e) if e.task_id.as_deref() == Some("task-db"))
+        )
+    );
     assert_eq!(s.blocked_tasks(), ["task-db"]);
 }
 
@@ -290,9 +380,20 @@ fn scenario_ground_truth_matches_default_scenario_expectations() {
 
     // 3 important completions (severity >= 2): task-deps, task-db, task-longbuild
     assert_eq!(gt.completed_important.len(), 3);
-    let completed_tasks: Vec<_> = gt.completed_important.iter().map(|e| e.task_id.as_str()).collect();
-    assert_eq!(completed_tasks, vec!["task-deps", "task-db", "task-longbuild"]);
-    assert!(gt.completed_important.iter().all(|e| e.category == Category::Completed && e.severity >= 2));
+    let completed_tasks: Vec<_> = gt
+        .completed_important
+        .iter()
+        .map(|e| e.task_id.as_str())
+        .collect();
+    assert_eq!(
+        completed_tasks,
+        vec!["task-deps", "task-db", "task-longbuild"]
+    );
+    assert!(
+        gt.completed_important
+            .iter()
+            .all(|e| e.category == Category::Completed && e.severity >= 2)
+    );
 
     // 1 routine completion (severity < 2): task-refactor (cancelled_by_user, severity 1)
     assert_eq!(gt.completed_routine.len(), 1);
@@ -307,4 +408,3 @@ fn scenario_ground_truth_matches_default_scenario_expectations() {
     assert_eq!(gt.escalations[1].task_id, "task-longbuild");
     assert_eq!(gt.escalations[1].level, 2);
 }
-

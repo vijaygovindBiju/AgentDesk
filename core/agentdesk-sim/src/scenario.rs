@@ -10,7 +10,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use agentdesk_core::{classify, ThresholdTable};
+use agentdesk_core::{ThresholdTable, classify};
 use agentdesk_model::{AgentId, Category, Details, Operation, TaskId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -108,7 +108,10 @@ fn default_on_deny_kind() -> String {
 
 /// True if an event of this kind ends a task.
 pub fn is_terminal_kind(kind: &str) -> bool {
-    matches!(classify(kind).category, Category::Completed | Category::Error)
+    matches!(
+        classify(kind).category,
+        Category::Completed | Category::Error
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,13 +120,33 @@ pub enum ScenarioError {
     Io(String),
     DuplicateAgent(AgentId),
     DuplicateTask(TaskId),
-    UnknownAgent { task_id: TaskId, agent_id: AgentId },
+    UnknownAgent {
+        task_id: TaskId,
+        agent_id: AgentId,
+    },
     EmptyTask(TaskId),
-    ZeroCount { task_id: TaskId, step: usize },
-    EmptyOptions { task_id: TaskId, step: usize },
-    StepAfterTerminal { task_id: TaskId, step: usize },
-    RequestKindNotRequest { task_id: TaskId, step: usize, kind: String },
-    OnDenyKindNotTerminal { task_id: TaskId, step: usize, kind: String },
+    ZeroCount {
+        task_id: TaskId,
+        step: usize,
+    },
+    EmptyOptions {
+        task_id: TaskId,
+        step: usize,
+    },
+    StepAfterTerminal {
+        task_id: TaskId,
+        step: usize,
+    },
+    RequestKindNotRequest {
+        task_id: TaskId,
+        step: usize,
+        kind: String,
+    },
+    OnDenyKindNotTerminal {
+        task_id: TaskId,
+        step: usize,
+        kind: String,
+    },
 }
 
 impl fmt::Display for ScenarioError {
@@ -135,7 +158,8 @@ impl std::error::Error for ScenarioError {}
 
 impl Scenario {
     pub fn from_json(json: &str) -> Result<Self, ScenarioError> {
-        let s: Scenario = serde_json::from_str(json).map_err(|e| ScenarioError::Parse(e.to_string()))?;
+        let s: Scenario =
+            serde_json::from_str(json).map_err(|e| ScenarioError::Parse(e.to_string()))?;
         s.validate()?;
         Ok(s)
     }
@@ -147,7 +171,8 @@ impl Scenario {
 
     /// The committed default scenario (`scenarios/default.json`).
     pub fn default_scenario() -> Self {
-        Self::from_json(include_str!("../scenarios/default.json")).expect("default scenario is valid")
+        Self::from_json(include_str!("../scenarios/default.json"))
+            .expect("default scenario is valid")
     }
 
     pub fn validate(&self) -> Result<(), ScenarioError> {
@@ -164,7 +189,10 @@ impl Scenario {
                 return Err(ScenarioError::DuplicateTask(tid()));
             }
             if !agents.contains(t.agent_id.as_str()) {
-                return Err(ScenarioError::UnknownAgent { task_id: tid(), agent_id: t.agent_id.clone() });
+                return Err(ScenarioError::UnknownAgent {
+                    task_id: tid(),
+                    agent_id: t.agent_id.clone(),
+                });
             }
             if t.steps.is_empty() {
                 return Err(ScenarioError::EmptyTask(tid()));
@@ -172,19 +200,43 @@ impl Scenario {
             let mut terminated = false;
             for (i, s) in t.steps.iter().enumerate() {
                 if terminated {
-                    return Err(ScenarioError::StepAfterTerminal { task_id: tid(), step: i });
+                    return Err(ScenarioError::StepAfterTerminal {
+                        task_id: tid(),
+                        step: i,
+                    });
                 }
                 match s {
-                    Step::Progress { count: 0, .. } => return Err(ScenarioError::ZeroCount { task_id: tid(), step: i }),
-                    Step::Request { kind, options, on_deny_kind, .. } => {
+                    Step::Progress { count: 0, .. } => {
+                        return Err(ScenarioError::ZeroCount {
+                            task_id: tid(),
+                            step: i,
+                        });
+                    }
+                    Step::Request {
+                        kind,
+                        options,
+                        on_deny_kind,
+                        ..
+                    } => {
                         if classify(kind).category != Category::Request {
-                            return Err(ScenarioError::RequestKindNotRequest { task_id: tid(), step: i, kind: kind.clone() });
+                            return Err(ScenarioError::RequestKindNotRequest {
+                                task_id: tid(),
+                                step: i,
+                                kind: kind.clone(),
+                            });
                         }
                         if options.is_empty() {
-                            return Err(ScenarioError::EmptyOptions { task_id: tid(), step: i });
+                            return Err(ScenarioError::EmptyOptions {
+                                task_id: tid(),
+                                step: i,
+                            });
                         }
                         if !is_terminal_kind(on_deny_kind) {
-                            return Err(ScenarioError::OnDenyKindNotTerminal { task_id: tid(), step: i, kind: on_deny_kind.clone() });
+                            return Err(ScenarioError::OnDenyKindNotTerminal {
+                                task_id: tid(),
+                                step: i,
+                                kind: on_deny_kind.clone(),
+                            });
                         }
                     }
                     Step::Event { kind, .. } if is_terminal_kind(kind) => terminated = true,
@@ -231,9 +283,7 @@ impl Scenario {
                             severity: c.severity.as_u8(),
                         });
                     }
-                    Step::Event {
-                        kind, delay_ms, ..
-                    } => {
+                    Step::Event { kind, delay_ms, .. } => {
                         total_duration_ms += delay_ms;
                         let c = classify(kind);
                         let ev = GroundTruthEvent {
@@ -314,4 +364,3 @@ pub struct ScenarioGroundTruth {
     pub completed_routine: Vec<GroundTruthEvent>,
     pub escalations: Vec<GroundTruthEscalation>,
 }
-

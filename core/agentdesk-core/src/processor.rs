@@ -15,7 +15,7 @@ use agentdesk_model::{
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 
-use crate::classifier::{classify, Matched};
+use crate::classifier::{Matched, classify};
 use crate::event_store::EventStore;
 use crate::log_store::LogStore;
 use crate::metrics::Metrics;
@@ -264,7 +264,14 @@ mod tests {
         // 1. Working event: 2 log lines appended (offsets 0..2)
         let raw_working = sample_raw("agent-a", "progress", 1);
         let (ev_w, _) = processor
-            .process_raw_event(raw_working, now, &mut store, &mut queue, &mut logs, &mut metrics)
+            .process_raw_event(
+                raw_working,
+                now,
+                &mut store,
+                &mut queue,
+                &mut logs,
+                &mut metrics,
+            )
             .unwrap();
 
         assert_eq!(ev_w.log_range.start, 0);
@@ -276,7 +283,14 @@ mod tests {
         let mut raw_error = sample_raw("agent-a", "build_failed", 2);
         raw_error.log_lines = vec!["err 1".into(), "err 2".into(), "err 3".into()];
         let (ev_e, _) = processor
-            .process_raw_event(raw_error, now, &mut store, &mut queue, &mut logs, &mut metrics)
+            .process_raw_event(
+                raw_error,
+                now,
+                &mut store,
+                &mut queue,
+                &mut logs,
+                &mut metrics,
+            )
             .unwrap();
 
         assert_eq!(ev_e.log_range.start, 2);
@@ -292,7 +306,14 @@ mod tests {
             options: vec!["approve".into(), "deny".into()],
         });
         let (ev_r, _) = processor
-            .process_raw_event(raw_req, now, &mut store, &mut queue, &mut logs, &mut metrics)
+            .process_raw_event(
+                raw_req,
+                now,
+                &mut store,
+                &mut queue,
+                &mut logs,
+                &mut metrics,
+            )
             .unwrap();
 
         assert_eq!(ev_r.log_range.start, 5);
@@ -304,7 +325,14 @@ mod tests {
         let mut raw_comp = sample_raw("agent-a", "task_completed", 4);
         raw_comp.log_lines = vec![];
         let (ev_c, _) = processor
-            .process_raw_event(raw_comp, now, &mut store, &mut queue, &mut logs, &mut metrics)
+            .process_raw_event(
+                raw_comp,
+                now,
+                &mut store,
+                &mut queue,
+                &mut logs,
+                &mut metrics,
+            )
             .unwrap();
 
         assert_eq!(ev_c.log_range.start, 6);
@@ -324,19 +352,22 @@ mod tests {
 
         // Empty agent_id
         let mut raw = sample_raw("", "progress", 1);
-        let res = processor.process_raw_event(raw, now, &mut store, &mut queue, &mut logs, &mut metrics);
+        let res =
+            processor.process_raw_event(raw, now, &mut store, &mut queue, &mut logs, &mut metrics);
         assert!(matches!(res, Err(ProcessError::Malformed(_))));
         assert_eq!(metrics.dropped_events, 1);
 
         // Empty kind
         raw = sample_raw("agent", "", 1);
-        let res = processor.process_raw_event(raw, now, &mut store, &mut queue, &mut logs, &mut metrics);
+        let res =
+            processor.process_raw_event(raw, now, &mut store, &mut queue, &mut logs, &mut metrics);
         assert!(matches!(res, Err(ProcessError::Malformed(_))));
         assert_eq!(metrics.dropped_events, 2);
 
         // Zero agent_seq
         raw = sample_raw("agent", "progress", 0);
-        let res = processor.process_raw_event(raw, now, &mut store, &mut queue, &mut logs, &mut metrics);
+        let res =
+            processor.process_raw_event(raw, now, &mut store, &mut queue, &mut logs, &mut metrics);
         assert!(matches!(res, Err(ProcessError::Malformed(_))));
         assert_eq!(metrics.dropped_events, 3);
 
@@ -362,7 +393,14 @@ mod tests {
 
         let raw = sample_raw("backend", "started", 1);
         let (ev, _) = processor
-            .process_raw_event(raw, Utc::now(), &mut store, &mut queue, &mut logs, &mut metrics)
+            .process_raw_event(
+                raw,
+                Utc::now(),
+                &mut store,
+                &mut queue,
+                &mut logs,
+                &mut metrics,
+            )
             .unwrap();
 
         assert_eq!(ev.agent_name, "Backend Service Agent");

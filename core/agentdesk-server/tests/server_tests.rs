@@ -16,13 +16,12 @@ use agentdesk_core::{
 };
 use agentdesk_model::close_code;
 use agentdesk_model::{
-    Body, Category, Decision, Empty, EventPush, EventRef, GetEventLogs,
-    Hello, Message, Operation, PipelineMode, RequestInfo, RespondRequest, TransportMode,
-    SCHEMA_VERSION,
+    Body, Category, Decision, Empty, EventPush, EventRef, GetEventLogs, Hello, Message, Operation,
+    PipelineMode, RequestInfo, RespondRequest, SCHEMA_VERSION, TransportMode,
 };
 use agentdesk_server::{
-    generate_token, is_loopback_addr, set_log_capture, set_log_level, validate_bind_security,
-    LogCapture, LogLevel, Server, ServerConfig,
+    LogCapture, LogLevel, Server, ServerConfig, generate_token, is_loopback_addr, set_log_capture,
+    set_log_level, validate_bind_security,
 };
 use agentdesk_sim::{Scenario, Simulator};
 
@@ -86,7 +85,9 @@ async fn connect_and_hello(
     }));
 
     let json = serde_json::to_string(&hello_msg).unwrap();
-    ws.send(WsMessage::Text(json.into())).await.expect("send hello");
+    ws.send(WsMessage::Text(json.into()))
+        .await
+        .expect("send hello");
 
     // Read next frame: either Welcome or Close frame
     match ws.next().await {
@@ -123,9 +124,11 @@ async fn p6_t1_handshake_tests() {
             client_version: "1.0.0".into(),
             schema_version: SCHEMA_VERSION,
         }));
-        ws.send(WsMessage::Text(serde_json::to_string(&hello).unwrap().into()))
-            .await
-            .unwrap();
+        ws.send(WsMessage::Text(
+            serde_json::to_string(&hello).unwrap().into(),
+        ))
+        .await
+        .unwrap();
 
         // Expect Welcome frame
         let welcome_frame = ws.next().await.unwrap().unwrap();
@@ -158,8 +161,12 @@ async fn p6_t1_handshake_tests() {
 
     // 2. Wrong token -> closes with code 4001
     {
-        let (_ws, close_code) =
-            connect_and_hello(server_arc.local_addr(), "wrong_invalid_token", SCHEMA_VERSION).await;
+        let (_ws, close_code) = connect_and_hello(
+            server_arc.local_addr(),
+            "wrong_invalid_token",
+            SCHEMA_VERSION,
+        )
+        .await;
         assert_eq!(close_code, Some(close_code::UNAUTHORIZED));
     }
 
@@ -169,9 +176,11 @@ async fn p6_t1_handshake_tests() {
         let (mut ws, _) = connect_async(&url).await.expect("connect");
 
         let non_hello = Message::with_request_id("r-bad", Body::GetMetrics(Empty {}));
-        ws.send(WsMessage::Text(serde_json::to_string(&non_hello).unwrap().into()))
-            .await
-            .unwrap();
+        ws.send(WsMessage::Text(
+            serde_json::to_string(&non_hello).unwrap().into(),
+        ))
+        .await
+        .unwrap();
 
         let resp = ws.next().await.unwrap().unwrap();
         match resp {
@@ -229,7 +238,9 @@ async fn p6_t2_every_request_type_gets_matching_reply() {
         }),
     };
     core_tx
-        .send(CoreCommand::Adapter(agentdesk_core::AdapterOutput::Event(raw_event)))
+        .send(CoreCommand::Adapter(agentdesk_core::AdapterOutput::Event(
+            raw_event,
+        )))
         .await
         .unwrap();
 
@@ -362,7 +373,10 @@ async fn p6_t2_every_request_type_gets_matching_reply() {
         }),
         |b| match b {
             Body::CommandResult(res) => assert!(res.ok, "Expected ok, got: {:?}", res),
-            other => panic!("Expected command_result for respond_request, got {:?}", other),
+            other => panic!(
+                "Expected command_result for respond_request, got {:?}",
+                other
+            ),
         },
     )
     .await;
@@ -389,7 +403,8 @@ async fn p6_t3_malformed_json_error_connection_kept() {
     let _ = ws.next().await.unwrap().unwrap();
 
     // Send malformed JSON frame
-    let malformed = r#"{"request_id": "r-malformed", "type": "unknown_invalid_type", "payload": 123"#;
+    let malformed =
+        r#"{"request_id": "r-malformed", "type": "unknown_invalid_type", "payload": 123"#;
     ws.send(WsMessage::Text(malformed.into())).await.unwrap();
 
     // Read reply: should be Error reply
@@ -408,9 +423,11 @@ async fn p6_t3_malformed_json_error_connection_kept() {
 
     // Now send a valid request on the SAME connection to assert it stayed open
     let valid_req = Message::with_request_id("r-subsequent", Body::GetMetrics(Empty {}));
-    ws.send(WsMessage::Text(serde_json::to_string(&valid_req).unwrap().into()))
-        .await
-        .unwrap();
+    ws.send(WsMessage::Text(
+        serde_json::to_string(&valid_req).unwrap().into(),
+    ))
+    .await
+    .unwrap();
 
     let subsequent_reply = ws.next().await.unwrap().unwrap();
     if let WsMessage::Text(t) = subsequent_reply {
@@ -456,7 +473,9 @@ async fn p6_t4_slow_client_overflow_closes_4003_and_core_continues() {
             log_lines: vec![],
         };
         core_tx
-            .send(CoreCommand::Adapter(agentdesk_core::AdapterOutput::Event(raw)))
+            .send(CoreCommand::Adapter(agentdesk_core::AdapterOutput::Event(
+                raw,
+            )))
             .await
             .unwrap();
     }
@@ -504,7 +523,9 @@ async fn p6_t4_slow_client_overflow_closes_4003_and_core_continues() {
         log_lines: vec![],
     };
     core_tx
-        .send(CoreCommand::Adapter(agentdesk_core::AdapterOutput::Event(later_raw)))
+        .send(CoreCommand::Adapter(agentdesk_core::AdapterOutput::Event(
+            later_raw,
+        )))
         .await
         .unwrap();
 
@@ -702,7 +723,9 @@ async fn phase6_exit_criteria_end_to_end() {
         }),
     );
     ws_sink
-        .send(WsMessage::Text(serde_json::to_string(&log_req).unwrap().into()))
+        .send(WsMessage::Text(
+            serde_json::to_string(&log_req).unwrap().into(),
+        ))
         .await
         .unwrap();
 
@@ -733,7 +756,9 @@ async fn phase6_exit_criteria_end_to_end() {
         }),
     );
     ws_sink
-        .send(WsMessage::Text(serde_json::to_string(&approve_req).unwrap().into()))
+        .send(WsMessage::Text(
+            serde_json::to_string(&approve_req).unwrap().into(),
+        ))
         .await
         .unwrap();
 
@@ -756,14 +781,18 @@ async fn phase6_exit_criteria_end_to_end() {
     assert!(approve_reply_ok, "Approve reply must be ok");
 
     // 6. Deliver adapter response to simulator and observe simulator continue
-    let cmd = rx_adapter.recv().await.expect("Adapter command should be sent");
+    let cmd = rx_adapter
+        .recv()
+        .await
+        .expect("Adapter command should be sent");
     match cmd {
         AdapterCommand::Respond {
             task_id,
             decision,
             now,
         } => {
-            sim.respond(&task_id, decision, now).expect("Simulator unblocked");
+            sim.respond(&task_id, decision, now)
+                .expect("Simulator unblocked");
         }
     }
 

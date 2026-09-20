@@ -114,30 +114,35 @@ impl TaskTracker {
                 }
             }
             Category::Working => {
-                let task = self.open_tasks.entry(task_id.clone()).or_insert_with(|| OpenTask {
-                    task_id: task_id.clone(),
-                    agent_id: event.agent_id.clone(),
-                    operation: event.operation,
-                    started_at: event.ts,
-                    latest_working_event: None,
-                    working_events: Vec::new(),
-                    escalation_level: 0,
-                });
+                let task = self
+                    .open_tasks
+                    .entry(task_id.clone())
+                    .or_insert_with(|| OpenTask {
+                        task_id: task_id.clone(),
+                        agent_id: event.agent_id.clone(),
+                        operation: event.operation,
+                        started_at: event.ts,
+                        latest_working_event: None,
+                        working_events: Vec::new(),
+                        escalation_level: 0,
+                    });
                 task.latest_working_event = Some(event.event_id);
                 task.working_events.push(event.event_id);
                 None
             }
             Category::Request => {
                 // Opens or updates task without working event
-                self.open_tasks.entry(task_id.clone()).or_insert_with(|| OpenTask {
-                    task_id,
-                    agent_id: event.agent_id.clone(),
-                    operation: event.operation,
-                    started_at: event.ts,
-                    latest_working_event: None,
-                    working_events: Vec::new(),
-                    escalation_level: 0,
-                });
+                self.open_tasks
+                    .entry(task_id.clone())
+                    .or_insert_with(|| OpenTask {
+                        task_id,
+                        agent_id: event.agent_id.clone(),
+                        operation: event.operation,
+                        started_at: event.ts,
+                        latest_working_event: None,
+                        working_events: Vec::new(),
+                        escalation_level: 0,
+                    });
                 None
             }
         }
@@ -181,7 +186,7 @@ impl TaskTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agentdesk_model::{Details, LogRange, Severity, SCHEMA_VERSION};
+    use agentdesk_model::{Details, LogRange, SCHEMA_VERSION, Severity};
     use uuid::Uuid;
 
     fn make_event(
@@ -268,14 +273,24 @@ mod tests {
         let start: DateTime<Utc> = "2026-09-17T12:00:00Z".parse().unwrap();
 
         let w1 = make_event(Some("task-1"), Category::Working, Operation::Build, start);
-        let w2 = make_event(Some("task-1"), Category::Working, Operation::Build, start + Duration::seconds(2));
+        let w2 = make_event(
+            Some("task-1"),
+            Category::Working,
+            Operation::Build,
+            start + Duration::seconds(2),
+        );
         tracker.observe_event(&w1);
         tracker.observe_event(&w2);
 
         assert_eq!(tracker.open_tasks_len(), 1);
 
         // Completed event closes task and returns working events to supersede
-        let comp = make_event(Some("task-1"), Category::Completed, Operation::Build, start + Duration::seconds(5));
+        let comp = make_event(
+            Some("task-1"),
+            Category::Completed,
+            Operation::Build,
+            start + Duration::seconds(5),
+        );
         let superseded = tracker.observe_event(&comp).expect("task was open");
         assert_eq!(superseded, vec![w1.event_id, w2.event_id]);
         assert_eq!(tracker.open_tasks_len(), 0);
@@ -299,7 +314,10 @@ mod tests {
         tracker.observe_event(&req);
 
         let esc = tracker.tick(start + Duration::seconds(25));
-        assert!(esc.is_empty(), "task without working event must not escalate");
+        assert!(
+            esc.is_empty(),
+            "task without working event must not escalate"
+        );
     }
 
     #[test]

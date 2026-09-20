@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 
-use agentdesk_bench::{run_all_modes, run_bench_mode, TapPolicy};
+use agentdesk_bench::{TapPolicy, run_all_modes, run_bench_mode};
 use agentdesk_model::{Category, PipelineMode};
 use agentdesk_sim::Scenario;
 
@@ -70,13 +70,32 @@ fn p5_t5_escalation() {
     let out = run_bench_mode(&scenario, SEED, PipelineMode::Agentdesk, TapPolicy::Default);
 
     // task-longbuild must reach level 1 and then level 2, but never level 3
-    let longbuild_level = out.observed_escalations.get("task-longbuild").copied().unwrap_or(0);
-    assert_eq!(longbuild_level, 2, "task-longbuild must reach escalation level 2");
+    let longbuild_level = out
+        .observed_escalations
+        .get("task-longbuild")
+        .copied()
+        .unwrap_or(0);
+    assert_eq!(
+        longbuild_level, 2,
+        "task-longbuild must reach escalation level 2"
+    );
 
     // Check that working tier entries never outrank request, error, or completed entries
-    let requests: Vec<_> = out.surfaced_events.iter().filter(|e| e.category == Category::Request).collect();
-    let errors: Vec<_> = out.surfaced_events.iter().filter(|e| e.category == Category::Error).collect();
-    let completed: Vec<_> = out.surfaced_events.iter().filter(|e| e.category == Category::Completed).collect();
+    let requests: Vec<_> = out
+        .surfaced_events
+        .iter()
+        .filter(|e| e.category == Category::Request)
+        .collect();
+    let errors: Vec<_> = out
+        .surfaced_events
+        .iter()
+        .filter(|e| e.category == Category::Error)
+        .collect();
+    let completed: Vec<_> = out
+        .surfaced_events
+        .iter()
+        .filter(|e| e.category == Category::Completed)
+        .collect();
 
     assert!(!requests.is_empty());
     assert!(!errors.is_empty());
@@ -106,7 +125,10 @@ fn p5_t6_no_silent_loss() {
     let scenario = Scenario::default_scenario();
     let report = run_all_modes(&scenario, SEED, TapPolicy::Default);
 
-    assert!(!report.coverage.silent_loss_detected, "No request or error event should be silently lost");
+    assert!(
+        !report.coverage.silent_loss_detected,
+        "No request or error event should be silently lost"
+    );
 }
 
 #[test]
@@ -119,7 +141,10 @@ fn p5_t7_duplicate_control() {
     // Verify all surfaced events have unique event_ids
     let mut ids = HashSet::new();
     for ev in &out.surfaced_events {
-        assert!(ids.insert(ev.event_id), "Duplicate event_id detected in surfaced events");
+        assert!(
+            ids.insert(ev.event_id),
+            "Duplicate event_id detected in surfaced events"
+        );
     }
 
     // score_updates and state_updates are bounded
@@ -141,5 +166,8 @@ fn p5_t8_bench_run_is_reproducible() {
     json1["timestamp"] = serde_json::json!("");
     json2["timestamp"] = serde_json::json!("");
 
-    assert_eq!(json1, json2, "Repeated bench runs with identical args must produce identical reports");
+    assert_eq!(
+        json1, json2,
+        "Repeated bench runs with identical args must produce identical reports"
+    );
 }

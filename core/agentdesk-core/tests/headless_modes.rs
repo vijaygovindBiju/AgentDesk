@@ -8,12 +8,10 @@ use std::sync::Arc;
 use chrono::Duration;
 
 use agentdesk_core::{
-    Adapter, AdapterCommand, Clock, CoreCommand, CoreTask, LogStoreConfig, ThresholdTable,
-    VecSink, VirtualClock,
+    Adapter, AdapterCommand, Clock, CoreCommand, CoreTask, LogStoreConfig, ThresholdTable, VecSink,
+    VirtualClock,
 };
-use agentdesk_model::{
-    Body, Category, Decision, Message, PipelineMode, RespondRequest,
-};
+use agentdesk_model::{Body, Category, Decision, Message, PipelineMode, RespondRequest};
 use agentdesk_sim::{Scenario, Simulator};
 
 fn run_headless_simulation(mode: PipelineMode) -> (Vec<Message>, agentdesk_core::Metrics) {
@@ -59,7 +57,8 @@ fn run_headless_simulation(mode: PipelineMode) -> (Vec<Message>, agentdesk_core:
                         .event_store
                         .iter()
                         .find(|e| {
-                            e.category == Category::Request && e.task_id.as_deref() == Some(&task_id)
+                            e.category == Category::Request
+                                && e.task_id.as_deref() == Some(&task_id)
                         })
                         .map(|e| e.event_id);
 
@@ -136,15 +135,19 @@ fn p4_t4_mode_test_message_types() {
 
     // 1. raw_events forwards only Body::RawEvent
     assert!(!raw_events_msgs.is_empty());
-    assert!(raw_events_msgs
-        .iter()
-        .all(|m| matches!(m.body, Body::RawEvent(_))));
+    assert!(
+        raw_events_msgs
+            .iter()
+            .all(|m| matches!(m.body, Body::RawEvent(_)))
+    );
 
     // 2. raw_lines forwards only Body::RawLine
     assert!(!raw_lines_msgs.is_empty());
-    assert!(raw_lines_msgs
-        .iter()
-        .all(|m| matches!(m.body, Body::RawLine(_))));
+    assert!(
+        raw_lines_msgs
+            .iter()
+            .all(|m| matches!(m.body, Body::RawLine(_)))
+    );
 
     // 3. agentdesk forwards only queue-derived messages (Event, ScoreUpdate, StateUpdate, CommandResult)
     assert!(!agentdesk_msgs.is_empty());
@@ -214,7 +217,16 @@ fn p4_t3_golden_file_runs_deterministically() {
     let expected_re = fs::read_to_string(&path_re).unwrap();
     let expected_rl = fs::read_to_string(&path_rl).unwrap();
 
-    assert_eq!(text_ag, expected_ag, "agentdesk mode must match golden file");
-    assert_eq!(text_re, expected_re, "raw_events mode must match golden file");
-    assert_eq!(text_rl, expected_rl, "raw_lines mode must match golden file");
+    assert_eq!(
+        text_ag, expected_ag,
+        "agentdesk mode must match golden file"
+    );
+    assert_eq!(
+        text_re, expected_re,
+        "raw_events mode must match golden file"
+    );
+    assert_eq!(
+        text_rl, expected_rl,
+        "raw_lines mode must match golden file"
+    );
 }

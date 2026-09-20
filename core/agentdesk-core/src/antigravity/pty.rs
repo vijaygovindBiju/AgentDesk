@@ -1,8 +1,10 @@
-//! POSIX PTY session manager for Antigravity experimentation.
+//! POSIX PTY session manager and transport abstraction for Antigravity integration.
 //!
-//! Spawns processes inside a true pseudo-terminal, provides controlling terminal semantics,
-//! deterministic window sizing, timed chunk capture, and thread-safe input injection.
+//! Provides pseudo-terminal allocation via `libc::openpty`, controlling terminal
+//! setup (`setsid`, `TIOCSCTTY`), deterministic window sizing (`TIOCSWINSZ`),
+//! asynchronous chunk capture, thread-safe input injection, and mock transport for testing.
 
+use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::fd::{FromRawFd, RawFd};
@@ -17,7 +19,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
-/// A single timestamped chunk captured from the PTY master.
+/// A single timestamped byte chunk captured from the PTY master.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PtyChunk {
     /// Milliseconds elapsed since the PTY session started.
@@ -26,7 +28,7 @@ pub struct PtyChunk {
     pub bytes: Vec<u8>,
 }
 
-/// Complete recording of a PTY session for offline replay and regression testing.
+/// Recording of a PTY session for regression testing and offline replay.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PtyRecording {
     pub session_id: String,
@@ -77,7 +79,21 @@ impl PtyRecording {
     }
 }
 
-/// Active PTY session controlling a child process.
+/// Abstract PTY transport enabling both real OS pseudo-terminals and deterministic mocks.
+pub trait PtyTransport: Send {
+    /// Try receiving an incoming chunk from the terminal output without blocking.
+    fn try_recv(&mut self) -> io::Result<Option<PtyChunk>>;
+    /// Send raw keystrokes or byte sequences into the terminal input.
+    fn send_input(&mut self, bytes: &[u8]) -> io::Result<()>;
+    /// Dynamically resize the terminal window geometry.
+    fn resize(&mut self, cols: u16, rows: u16) -> io::Result<()>;
+    /// Check if the child process or stream is still alive.
+    fn is_alive(&self) -> bool;
+    /// Terminate the underlying process/stream.
+    fn terminate(&mut self);
+}
+
+/// Active POSIX PTY session controlling a child process.
 pub struct PtySession {
     master_fd: RawFd,
     writer: Arc<Mutex<File>>,
@@ -149,7 +165,6 @@ impl PtySession {
         }
 
         let child = cmd.spawn()?;
-        // Slave is now held by child and safely closed when child exits
 
         let master_reader = unsafe { File::from_raw_fd(master) };
         let master_writer = master_reader.try_clone()?;
@@ -318,8 +333,107 @@ impl PtySession {
     }
 }
 
+impl PtyTransport for PtySession {
+    fn try_recv(&mut self) -> io::Result<Option<PtyChunk>> {
+        self.try_recv()
+    }
+
+    fn send_input(&mut self, bytes: &[u8]) -> io::Result<()> {
+        self.send_input(bytes)
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16) -> io::Result<()> {
+        self.resize(cols, rows)
+    }
+
+    fn is_alive(&self) -> bool {
+        self.is_alive()
+    }
+
+    fn terminate(&mut self) {
+        self.terminate();
+    }
+}
+
 impl Drop for PtySession {
     fn drop(&mut self) {
         self.terminate();
+    }
+}
+
+/// Deterministic mock PTY transport for unit testing.
+pub struct MockPtyTransport {
+    pub incoming: VecDeque<PtyChunk>,
+    pub sent_inputs: Vec<Vec<u8>>,
+    pub alive: bool,
+    pub cols: u16,
+    pub rows: u16,
+}
+
+impl MockPtyTransport {
+    pub fn new(cols: u16, rows: u16) -> Self {
+        Self {
+            incoming: VecDeque::new(),
+            sent_inputs: Vec::new(),
+            alive: true,
+            cols,
+            rows,
+        }
+    }
+
+    pub fn push_chunk(&mut self, chunk: PtyChunk) {
+        self.incoming.push_back(chunk);
+    }
+
+    pub fn push_bytes(&mut self, bytes: &[u8]) {
+        self.incoming.push_back(PtyChunk {
+            timestamp_ms: 0,
+            bytes: bytes.to_vec(),
+        });
+    }
+
+    pub fn push_text(&mut self, text: &str) {
+        self.push_bytes(text.as_bytes());
+    }
+
+    pub fn close(&mut self) {
+        self.alive = false;
+    }
+}
+
+impl Default for MockPtyTransport {
+    fn default() -> Self {
+        Self::new(120, 40)
+    }
+}
+
+impl PtyTransport for MockPtyTransport {
+    fn try_recv(&mut self) -> io::Result<Option<PtyChunk>> {
+        Ok(self.incoming.pop_front())
+    }
+
+    fn send_input(&mut self, bytes: &[u8]) -> io::Result<()> {
+        if !self.alive {
+            return Err(io::Error::new(
+                io::ErrorKind::BrokenPipe,
+                "Mock PTY is closed",
+            ));
+        }
+        self.sent_inputs.push(bytes.to_vec());
+        Ok(())
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16) -> io::Result<()> {
+        self.cols = cols;
+        self.rows = rows;
+        Ok(())
+    }
+
+    fn is_alive(&self) -> bool {
+        self.alive
+    }
+
+    fn terminate(&mut self) {
+        self.alive = false;
     }
 }

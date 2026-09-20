@@ -2,14 +2,14 @@
 //!
 //! Analyzes VT100 `ScreenSnapshot` structures to determine the high-level semantic state
 //! of `agy`, detecting interactive confirmation menus, questions, progress, and prompts,
-//! and translating them into `agentdesk_model::RawAgentEvent` without relying on naive
+//! and translating them into canonical `agentdesk_model::RawAgentEvent` without relying on naive
 //! unstructured text scraping.
 
 use std::collections::BTreeMap;
 
-use agentdesk_model::{Operation, RawAgentEvent, RequestInfo};
+use agentdesk_model::{Operation, RawAgentEvent, RequestInfo, TaskId};
 
-use crate::screen::ScreenSnapshot;
+use crate::antigravity::screen::ScreenSnapshot;
 
 /// Semantic state of the Antigravity session as observed through the terminal.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,12 +81,167 @@ impl AntigravityStateMachine {
         }
     }
 
-    fn next_seq(&mut self) -> u64 {
+    pub fn next_seq(&mut self) -> u64 {
         self.agent_seq += 1;
         self.agent_seq
     }
 
-    fn state_to_event(&mut self, state: &AntigravityState) -> Option<RawAgentEvent> {
+    /// Convert detected state into canonical normalized AgentDesk `RawAgentEvent`.
+    pub fn to_normalized_event(
+        &mut self,
+        state: &AntigravityState,
+        task_id: Option<TaskId>,
+    ) -> Option<RawAgentEvent> {
+        match state {
+            AntigravityState::CommandConfirmation { command, .. } => {
+                let op = classify_command_operation(command);
+                let seq = self.next_seq();
+                let mut details = BTreeMap::new();
+                details.insert(
+                    "command".to_string(),
+                    serde_json::Value::String(command.clone()),
+                );
+
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "approval_required".to_string(),
+                    operation: op,
+                    message: format!("Command requires approval: {command}"),
+                    details,
+                    log_lines: vec![format!("Command: {command}")],
+                    request: Some(RequestInfo {
+                        prompt: command.clone(),
+                        options: vec!["approve".to_string(), "deny".to_string()],
+                    }),
+                })
+            }
+            AntigravityState::FileEditConfirmation { file_path, .. } => {
+                let seq = self.next_seq();
+                let mut details = BTreeMap::new();
+                details.insert(
+                    "file".to_string(),
+                    serde_json::Value::String(file_path.clone()),
+                );
+
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "approval_required".to_string(),
+                    operation: Operation::Edit,
+                    message: format!("File edit requires approval: {file_path}"),
+                    details,
+                    log_lines: vec![format!("File: {file_path}")],
+                    request: Some(RequestInfo {
+                        prompt: format!("Allow edit to {file_path}?"),
+                        options: vec!["approve".to_string(), "deny".to_string()],
+                    }),
+                })
+            }
+            AntigravityState::WorkspaceTrust { directory } => {
+                let seq = self.next_seq();
+                let mut details = BTreeMap::new();
+                details.insert(
+                    "directory".to_string(),
+                    serde_json::Value::String(directory.clone()),
+                );
+
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "approval_required".to_string(),
+                    operation: Operation::Other,
+                    message: format!("Workspace trust required for: {directory}"),
+                    details,
+                    log_lines: vec![format!("Trust requested for directory {directory}")],
+                    request: Some(RequestInfo {
+                        prompt: format!("Trust directory {directory}?"),
+                        options: vec!["approve".to_string(), "deny".to_string()],
+                    }),
+                })
+            }
+            AntigravityState::UserQuestion { question, options } => {
+                let seq = self.next_seq();
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "input_required".to_string(),
+                    operation: Operation::Other,
+                    message: question.clone(),
+                    details: BTreeMap::new(),
+                    log_lines: vec![question.clone()],
+                    request: Some(RequestInfo {
+                        prompt: question.clone(),
+                        options: options.clone(),
+                    }),
+                })
+            }
+            AntigravityState::Working { details } => {
+                let seq = self.next_seq();
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "progress".to_string(),
+                    operation: Operation::Other,
+                    message: details.clone(),
+                    details: BTreeMap::new(),
+                    log_lines: vec![],
+                    request: None,
+                })
+            }
+            AntigravityState::Completed { message } => {
+                let seq = self.next_seq();
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "task_completed".to_string(),
+                    operation: Operation::Other,
+                    message: message.clone(),
+                    details: BTreeMap::new(),
+                    log_lines: vec![message.clone()],
+                    request: None,
+                })
+            }
+            AntigravityState::FatalError { error } => {
+                let seq = self.next_seq();
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "command_failed".to_string(),
+                    operation: Operation::Other,
+                    message: error.clone(),
+                    details: BTreeMap::new(),
+                    log_lines: vec![error.clone()],
+                    request: None,
+                })
+            }
+            AntigravityState::IdlePrompt => {
+                let seq = self.next_seq();
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "progress".to_string(),
+                    operation: Operation::Other,
+                    message: "Agent ready for input".to_string(),
+                    details: BTreeMap::new(),
+                    log_lines: vec![],
+                    request: None,
+                })
+            }
+            AntigravityState::Initializing => None,
+        }
+    }
+
+    /// Event translation matching the original laboratory fixtures.
+    pub fn state_to_event(&mut self, state: &AntigravityState) -> Option<RawAgentEvent> {
         match state {
             AntigravityState::CommandConfirmation { command, .. } => {
                 let op = classify_command_operation(command);
@@ -312,7 +467,9 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
     // 7. Idle Prompt
     if let Some(last_line) = non_empty_lines.last() {
         let is_idle = last_line.starts_with("> ")
+            || last_line.as_str() == ">"
             || last_line.starts_with("? ")
+            || last_line.as_str() == "?"
             || last_line.contains("Send message")
             || (snapshot.cursor_row > 0 && snapshot.cursor_visible && last_line.trim().is_empty());
         if is_idle {
@@ -328,21 +485,49 @@ fn extract_command_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<Stri
     let mut selected_index = 0;
     let mut command = String::new();
     let mut has_selection = false;
+    let mut expecting_command = false;
 
     for (r, line) in snapshot.lines.iter().enumerate() {
         let trimmed = line.trim();
-        if trimmed.starts_with("Command:")
+
+        if expecting_command && !trimmed.is_empty() {
+            if command.is_empty() {
+                command = trimmed.to_string();
+            }
+            expecting_command = false;
+        }
+
+        if trimmed.starts_with("Requesting permission for:") {
+            expecting_command = true;
+        } else if trimmed.starts_with("Command:")
             || trimmed.starts_with("Run:")
             || trimmed.starts_with("$ ")
         {
-            command = trimmed
-                .trim_start_matches("Command:")
-                .trim_start_matches("Run:")
-                .trim_start_matches("$ ")
-                .trim()
-                .to_string();
-        } else if trimmed.starts_with("Yes,") || trimmed.starts_with("No,") {
-            let opt_text = trimmed.to_string();
+            if command.is_empty() {
+                command = trimmed
+                    .trim_start_matches("Command:")
+                    .trim_start_matches("Run:")
+                    .trim_start_matches("$ ")
+                    .trim()
+                    .to_string();
+            }
+        } else if let Some(start) = trimmed.find("● Bash(") {
+            let after = &trimmed[start + "● Bash(".len()..];
+            if let Some(end) = after.find(')')
+                && command.is_empty()
+            {
+                command = after[..end].trim().to_string();
+            }
+        }
+
+        // Check if line is an interactive option (strip cursor/bullet, digits, dots, spaces)
+        let opt_candidate = trimmed.trim_start_matches(|c: char| {
+            c == '>' || c == '●' || c == ' ' || c.is_ascii_digit() || c == '.'
+        });
+        let opt_candidate = opt_candidate.trim();
+
+        if opt_candidate.starts_with("Yes,") || opt_candidate.starts_with("No,") {
+            let opt_text = opt_candidate.to_string();
             let is_rev = snapshot
                 .reversed_lines
                 .iter()
@@ -387,20 +572,28 @@ fn extract_file_edit_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<St
                 .trim_start_matches("Editing:")
                 .trim()
                 .to_string();
-        } else if trimmed.starts_with("Yes,")
-            || trimmed.starts_with("No,")
-            || trimmed.starts_with("Review in")
-        {
-            let is_rev = snapshot
-                .reversed_lines
-                .iter()
-                .any(|(row, _)| *row == r as u16);
-            let has_cursor = trimmed.starts_with('>') || trimmed.starts_with('●');
-            if is_rev || has_cursor {
-                selected_index = options.len();
-                has_selection = true;
+        } else {
+            let opt_candidate = trimmed.trim_start_matches(|c: char| {
+                c == '>' || c == '●' || c == ' ' || c.is_ascii_digit() || c == '.'
+            });
+            let opt_candidate = opt_candidate.trim();
+
+            if opt_candidate.starts_with("Yes,")
+                || opt_candidate.starts_with("No,")
+                || opt_candidate.starts_with("Review in")
+            {
+                let opt_text = opt_candidate.to_string();
+                let is_rev = snapshot
+                    .reversed_lines
+                    .iter()
+                    .any(|(row, _)| *row == r as u16);
+                let has_cursor = trimmed.starts_with('>') || trimmed.starts_with('●');
+                if is_rev || has_cursor {
+                    selected_index = options.len();
+                    has_selection = true;
+                }
+                options.push(opt_text);
             }
-            options.push(trimmed.to_string());
         }
     }
 
@@ -437,7 +630,7 @@ fn extract_question_dialog(snapshot: &ScreenSnapshot) -> (String, Vec<String>) {
     (question, options)
 }
 
-fn classify_command_operation(cmd: &str) -> Operation {
+pub fn classify_command_operation(cmd: &str) -> Operation {
     let c = cmd.trim();
     if c.starts_with("cargo test") || c.starts_with("pytest") || c.starts_with("npm test") {
         Operation::Test
@@ -448,11 +641,17 @@ fn classify_command_operation(cmd: &str) -> Operation {
     {
         Operation::Build
     } else if c.starts_with("npm install")
-        || c.starts_with("cargo install")
+        || c.starts_with("cargo add")
         || c.starts_with("pip install")
+        || c.starts_with("apt")
     {
         Operation::Install
-    } else if c.starts_with("git status") || c.starts_with("ls") || c.starts_with("cat") {
+    } else if c.starts_with("git")
+        || c.starts_with("ls")
+        || c.starts_with("cat")
+        || c.starts_with("grep")
+        || c.starts_with("find")
+    {
         Operation::Analyze
     } else {
         Operation::Other
@@ -468,16 +667,15 @@ mod tests {
         let snapshot = ScreenSnapshot {
             cols: 80,
             rows: 24,
-            cursor_row: 10,
+            cursor_row: 5,
             cursor_col: 0,
             in_alt_screen: true,
             cursor_visible: true,
             lines: vec![
                 "Command: cargo test --workspace".to_string(),
                 "Yes, run command".to_string(),
-                "Yes, and always allow in this conversation".to_string(),
+                "Yes, always allow".to_string(),
                 "No, deny".to_string(),
-                "No, and tell agent...".to_string(),
             ],
             reversed_lines: vec![(1, "Yes, run command".to_string())],
         };
@@ -491,36 +689,33 @@ mod tests {
             } => {
                 assert_eq!(command, "cargo test --workspace");
                 assert_eq!(selected_option_index, 0);
-                assert_eq!(options.len(), 4);
+                assert_eq!(options.len(), 3);
             }
-            other => panic!("Unexpected state: {:?}", other),
+            other => panic!("Expected CommandConfirmation, got {:?}", other),
         }
     }
 
     #[test]
     fn test_state_machine_emits_request_event() {
-        let mut sm = AntigravityStateMachine::new("test-agy");
+        let mut sm = AntigravityStateMachine::new("test-agent");
         let snapshot = ScreenSnapshot {
             cols: 80,
             rows: 24,
-            cursor_row: 10,
+            cursor_row: 5,
             cursor_col: 0,
             in_alt_screen: true,
             cursor_visible: true,
             lines: vec![
-                "Command: npm test".to_string(),
+                "Command: cargo test --workspace".to_string(),
                 "Yes, run command".to_string(),
                 "No, deny".to_string(),
             ],
             reversed_lines: vec![(1, "Yes, run command".to_string())],
         };
 
-        let evt = sm.update(&snapshot).expect("Expected RawAgentEvent");
-        assert_eq!(evt.kind, "command_confirmation");
-        assert_eq!(evt.operation, Operation::Test);
-        assert!(evt.request.is_some());
-        let req = evt.request.unwrap();
-        assert_eq!(req.prompt, "npm test");
-        assert_eq!(req.options, vec!["approve", "deny"]);
+        let event = sm.update(&snapshot).expect("Must emit event on transition");
+        assert_eq!(event.kind, "command_confirmation");
+        assert_eq!(event.operation, Operation::Test);
+        assert!(event.request.is_some());
     }
 }

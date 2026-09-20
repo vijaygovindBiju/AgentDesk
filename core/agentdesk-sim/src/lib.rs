@@ -6,7 +6,7 @@ pub mod driver;
 pub mod scenario;
 pub mod simulator;
 
-pub use driver::{run_to_end, Timeline};
+pub use driver::{Timeline, run_to_end};
 pub use scenario::{
     AgentSpec, GroundTruthEscalation, GroundTruthEvent, Scenario, ScenarioError,
     ScenarioGroundTruth, Step, TaskSpec,

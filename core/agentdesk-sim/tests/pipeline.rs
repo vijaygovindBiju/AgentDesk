@@ -8,7 +8,7 @@ use chrono::Duration;
 
 use agentdesk_core::{Adapter, Clock, Pipeline, VirtualClock};
 use agentdesk_model::{Category, Decision};
-use agentdesk_sim::{run_to_end, Scenario, Simulator};
+use agentdesk_sim::{Scenario, Simulator, run_to_end};
 
 const SEED: u64 = 42;
 
@@ -23,7 +23,9 @@ fn simulator_driven_pipeline_every_request_and_error_appears_exactly_once() {
     pipeline.register_agents(sim.agents());
 
     // Run the simulator to completion, collecting timeline
-    let timeline = run_to_end(&mut sim, &clock, Duration::seconds(5), |_| Decision::Approve);
+    let timeline = run_to_end(&mut sim, &clock, Duration::seconds(5), |_| {
+        Decision::Approve
+    });
     assert!(!timeline.is_empty());
 
     let mut processed_event_ids = Vec::new();

@@ -4,8 +4,8 @@
 use std::io;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
@@ -14,7 +14,7 @@ use tokio_rustls::TlsAcceptor;
 use agentdesk_core::{Clock, CoreCommand};
 use agentdesk_model::{PipelineMode, TransportMode};
 
-use crate::connection::{handle_connection, ConnectionParams, DEFAULT_OUTBOUND_CAPACITY};
+use crate::connection::{ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, handle_connection};
 use crate::logging;
 use crate::tls::TlsIdentity;
 use crate::token::{default_config_dir, validate_bind_security};
@@ -98,9 +98,9 @@ impl Server {
             let identity = TlsIdentity::load_or_generate(&config_dir).map_err(|e| {
                 io::Error::other(format!("Failed loading/generating TLS identity: {e}"))
             })?;
-            let acceptor = identity.build_tls_acceptor().map_err(|e| {
-                io::Error::other(format!("Failed building TLS acceptor: {e}"))
-            })?;
+            let acceptor = identity
+                .build_tls_acceptor()
+                .map_err(|e| io::Error::other(format!("Failed building TLS acceptor: {e}")))?;
             (Some(Arc::new(identity)), Some(acceptor))
         };
 

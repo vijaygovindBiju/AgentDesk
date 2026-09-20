@@ -10,4 +10,4 @@ pub use report::{
     CategoryCoverage, CoverageSection, EscalationCoverage, MultiModeReport, ObservedEscalation,
     ReductionSection, SingleModeResult,
 };
-pub use runner::{run_all_modes, run_bench_mode, ModeRunOutput};
+pub use runner::{ModeRunOutput, run_all_modes, run_bench_mode};

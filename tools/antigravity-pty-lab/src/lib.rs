@@ -3,12 +3,13 @@
 //! Provides POSIX pseudo-terminal lifecycle management, VT100/ANSI screen emulation,
 //! visual state detection, reverse keystroke encoding, offline replay, and adversarial testing.
 
+pub use agentdesk_core::antigravity::input_encoder;
+pub use agentdesk_core::antigravity::pty;
+pub use agentdesk_core::antigravity::screen;
+pub use agentdesk_core::antigravity::state_machine;
+
 pub mod adversarial;
-pub mod input_encoder;
-pub mod pty;
 pub mod replayer;
-pub mod screen;
-pub mod state_machine;
 
 pub use input_encoder::{encode_decision, encode_text_submission, keys};
 pub use pty::{PtyChunk, PtyRecording, PtySession};

@@ -6,13 +6,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use agentdesk_core::{
-    AcpAdapter, AcpConfig, Adapter, AdapterCommand, Clock, CoreCommand, CoreTask, LogStoreConfig,
-    SystemClock, ThresholdTable,
+    AcpAdapter, AcpConfig, Adapter, AdapterCommand, AntigravityConfig, AntigravityPtyAdapter,
+    Clock, CoreCommand, CoreTask, LogStoreConfig, SystemClock, ThresholdTable,
 };
 use agentdesk_server::{
-    default_config_dir, load_or_generate_token, parse_args, print_help, rotate_token,
-    set_log_level, token_path, CliCommand, LogLevel, RunOptions, Server, ServerConfig,
-    TokenOptions,
+    CliCommand, LogLevel, RunOptions, Server, ServerConfig, TokenOptions, default_config_dir,
+    load_or_generate_token, parse_args, print_help, rotate_token, set_log_level, token_path,
 };
 use agentdesk_sim::{Scenario, Simulator};
 
@@ -98,7 +97,39 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
     let clock = Arc::new(SystemClock);
     let start_time = clock.now();
 
-    let mut adapter: Box<dyn Adapter> = if let Some(agent_cmd) = &opts.agent {
+    let mut adapter: Box<dyn Adapter> = if opts.antigravity {
+        let agent_cmd = opts.agent.as_deref().unwrap_or("agy");
+        let parts: Vec<String> = agent_cmd
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+        let command = parts.first().cloned().unwrap_or_else(|| "agy".into());
+        let args = if parts.len() > 1 {
+            parts[1..].to_vec()
+        } else {
+            Vec::new()
+        };
+        let prompt = opts.prompt.clone();
+
+        let agy_config = AntigravityConfig {
+            command,
+            args,
+            cwd: None,
+            agent_id: "antigravity".into(),
+            agent_name: "Antigravity".into(),
+            project: "AgentDesk".into(),
+            initial_prompt: prompt,
+            cols: 120,
+            rows: 40,
+        };
+        match AntigravityPtyAdapter::spawn(agy_config) {
+            Ok(a) => Box::new(a),
+            Err(e) => {
+                eprintln!("Failed to spawn real Antigravity PTY agent: {}", e);
+                std::process::exit(1);
+            }
+        }
+    } else if let Some(agent_cmd) = &opts.agent {
         let parts: Vec<String> = agent_cmd
             .split_whitespace()
             .map(|s| s.to_string())
@@ -168,7 +199,12 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
     println!(" AgentDesk Daemon started");
     println!(" Address: {}://{}", scheme, local_addr);
     println!(" Mode:    {:?}", opts.mode);
-    if let Some(agent_cmd) = &opts.agent {
+    if opts.antigravity {
+        println!(
+            " Agent:   Real Antigravity PTY ({})",
+            opts.agent.as_deref().unwrap_or("agy")
+        );
+    } else if let Some(agent_cmd) = &opts.agent {
         println!(" Agent:   Real ACP ({})", agent_cmd);
     } else {
         println!(" Agent:   Simulator");
@@ -208,7 +244,11 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             let now = chrono::Utc::now();
             let outputs = adapter.poll(now);
             for out in outputs {
-                if adapter_sender.send(CoreCommand::Adapter(out)).await.is_err() {
+                if adapter_sender
+                    .send(CoreCommand::Adapter(out))
+                    .await
+                    .is_err()
+                {
                     return;
                 }
             }

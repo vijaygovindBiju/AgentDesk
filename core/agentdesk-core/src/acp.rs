@@ -16,7 +16,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{channel, Receiver, TryRecvError};
+use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -62,11 +62,7 @@ pub struct ProcessTransport {
 }
 
 impl ProcessTransport {
-    pub fn spawn(
-        command: &str,
-        args: &[String],
-        cwd: Option<&PathBuf>,
-    ) -> std::io::Result<Self> {
+    pub fn spawn(command: &str, args: &[String], cwd: Option<&PathBuf>) -> std::io::Result<Self> {
         let mut cmd = Command::new(command);
         cmd.args(args)
             .stdin(Stdio::piped())
@@ -242,11 +238,13 @@ impl MockAcpTransport {
     }
 
     pub fn push_stdout(&mut self, text: impl Into<String>) {
-        self.incoming.push_back(TransportMessage::Stdout(text.into()));
+        self.incoming
+            .push_back(TransportMessage::Stdout(text.into()));
     }
 
     pub fn push_stderr(&mut self, text: impl Into<String>) {
-        self.incoming.push_back(TransportMessage::Stderr(text.into()));
+        self.incoming
+            .push_back(TransportMessage::Stderr(text.into()));
     }
 
     pub fn push_eof(&mut self) {
@@ -268,7 +266,8 @@ impl AcpTransport for MockAcpTransport {
                 "Mock process dead",
             ));
         }
-        self.sent_lines.push(line.trim_end_matches('\n').to_string());
+        self.sent_lines
+            .push(line.trim_end_matches('\n').to_string());
         Ok(())
     }
 
@@ -393,7 +392,8 @@ pub struct AcpAdapter<T: AcpTransport> {
 impl AcpAdapter<ProcessTransport> {
     /// Spawn a real agent process (e.g. Gemini CLI) using `ProcessTransport`.
     pub fn spawn(config: AcpConfig) -> std::io::Result<Self> {
-        let transport = ProcessTransport::spawn(&config.command, &config.args, config.cwd.as_ref())?;
+        let transport =
+            ProcessTransport::spawn(&config.command, &config.args, config.cwd.as_ref())?;
         Ok(Self::new_with_transport(config, transport))
     }
 }
@@ -506,7 +506,8 @@ impl<T: AcpTransport> AcpAdapter<T> {
             if method == "session/request_permission" {
                 let req_id = val.get("id").cloned().unwrap_or(Value::Null);
                 if let Some(params_val) = val.get("params")
-                    && let Ok(params) = serde_json::from_value::<AcpPermissionParams>(params_val.clone())
+                    && let Ok(params) =
+                        serde_json::from_value::<AcpPermissionParams>(params_val.clone())
                 {
                     let title = params
                         .tool_call
@@ -594,10 +595,8 @@ impl<T: AcpTransport> AcpAdapter<T> {
                                 .get("title")
                                 .and_then(|t| t.as_str())
                                 .unwrap_or("tool execution");
-                            let status = update
-                                .get("status")
-                                .and_then(|s| s.as_str())
-                                .unwrap_or("");
+                            let status =
+                                update.get("status").and_then(|s| s.as_str()).unwrap_or("");
                             let kind = update.get("kind").and_then(|k| k.as_str());
                             let op = Self::map_tool_kind(kind);
 
@@ -771,19 +770,19 @@ impl<T: AcpTransport> Adapter for AcpAdapter<T> {
             && let Err(e) = self.send_initialize()
         {
             self.agent_seq += 1;
-                self.state = AcpState::Finished;
-                out.push(AdapterOutput::Event(RawAgentEvent {
-                    agent_id: self.config.agent_id.clone(),
-                    agent_seq: self.agent_seq,
-                    task_id: self.task_id.clone(),
-                    kind: "adapter_error".into(),
-                    operation: Operation::Other,
-                    message: format!("Failed to send initialize to ACP agent: {}", e),
-                    details: Details::new(),
-                    log_lines: vec![],
-                    request: None,
-                }));
-                return out;
+            self.state = AcpState::Finished;
+            out.push(AdapterOutput::Event(RawAgentEvent {
+                agent_id: self.config.agent_id.clone(),
+                agent_seq: self.agent_seq,
+                task_id: self.task_id.clone(),
+                kind: "adapter_error".into(),
+                operation: Operation::Other,
+                message: format!("Failed to send initialize to ACP agent: {}", e),
+                details: Details::new(),
+                log_lines: vec![],
+                request: None,
+            }));
+            return out;
         }
 
         while let Ok(Some(msg)) = self.transport.try_recv() {
@@ -868,25 +867,25 @@ impl<T: AcpTransport> Adapter for AcpAdapter<T> {
             if self.state != AcpState::Finished {
                 self.agent_seq += 1;
                 self.state = AcpState::Finished;
-                self.buffered_outputs.push(AdapterOutput::Event(RawAgentEvent {
-                    agent_id: self.config.agent_id.clone(),
-                    agent_seq: self.agent_seq,
-                    task_id: self.task_id.clone(),
-                    kind: "adapter_error".into(),
-                    operation: Operation::Other,
-                    message: "Cannot deliver response: agent process is no longer running".into(),
-                    details: Details::new(),
-                    log_lines: vec![],
-                    request: None,
-                }));
+                self.buffered_outputs
+                    .push(AdapterOutput::Event(RawAgentEvent {
+                        agent_id: self.config.agent_id.clone(),
+                        agent_seq: self.agent_seq,
+                        task_id: self.task_id.clone(),
+                        kind: "adapter_error".into(),
+                        operation: Operation::Other,
+                        message: "Cannot deliver response: agent process is no longer running"
+                            .into(),
+                        details: Details::new(),
+                        log_lines: vec![],
+                        request: None,
+                    }));
             }
             return Err(RespondError::NotBlocked);
         }
 
         let (req_id, options) = match &self.state {
-            AcpState::BlockedOnPermission { req_id, options } => {
-                (req_id.clone(), options.clone())
-            }
+            AcpState::BlockedOnPermission { req_id, options } => (req_id.clone(), options.clone()),
             _ => return Err(RespondError::NotBlocked),
         };
 
@@ -898,8 +897,16 @@ impl<T: AcpTransport> Adapter for AcpAdapter<T> {
                         o.kind.as_deref() == Some("allow_once")
                             || o.kind.as_deref() == Some("allow_always")
                             || o.option_id == "proceed_once"
-                            || o.name.as_deref().unwrap_or("").to_lowercase().contains("allow")
-                            || o.name.as_deref().unwrap_or("").to_lowercase().contains("proceed")
+                            || o.name
+                                .as_deref()
+                                .unwrap_or("")
+                                .to_lowercase()
+                                .contains("allow")
+                            || o.name
+                                .as_deref()
+                                .unwrap_or("")
+                                .to_lowercase()
+                                .contains("proceed")
                     })
                     .map(|o| o.option_id.clone())
                     .unwrap_or_else(|| {
@@ -925,9 +932,21 @@ impl<T: AcpTransport> Adapter for AcpAdapter<T> {
                     o.kind.as_deref() == Some("reject_once")
                         || o.kind.as_deref() == Some("reject_always")
                         || o.option_id == "cancel"
-                        || o.name.as_deref().unwrap_or("").to_lowercase().contains("cancel")
-                        || o.name.as_deref().unwrap_or("").to_lowercase().contains("reject")
-                        || o.name.as_deref().unwrap_or("").to_lowercase().contains("deny")
+                        || o.name
+                            .as_deref()
+                            .unwrap_or("")
+                            .to_lowercase()
+                            .contains("cancel")
+                        || o.name
+                            .as_deref()
+                            .unwrap_or("")
+                            .to_lowercase()
+                            .contains("reject")
+                        || o.name
+                            .as_deref()
+                            .unwrap_or("")
+                            .to_lowercase()
+                            .contains("deny")
                 });
 
                 if let Some(opt) = reject_opt {
@@ -955,8 +974,7 @@ impl<T: AcpTransport> Adapter for AcpAdapter<T> {
             }
         };
 
-        let line = serde_json::to_string(&response_body)
-            .map_err(|_| RespondError::NotBlocked)?;
+        let line = serde_json::to_string(&response_body).map_err(|_| RespondError::NotBlocked)?;
 
         self.transport.send_line(&line).map_err(|_| {
             self.state = AcpState::Finished;

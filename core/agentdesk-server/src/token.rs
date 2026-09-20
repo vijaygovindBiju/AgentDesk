@@ -1,10 +1,10 @@
 //! Token lifecycle and constant-time authentication.
 //! See docs/SECURITY.md and P6.5.
 
+use rand::Rng;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use rand::Rng;
 use subtle::ConstantTimeEq;
 
 /// Verify a provided token against the expected token in constant time.
@@ -31,11 +31,17 @@ pub fn generate_token() -> String {
 /// 3. `HOME/.config/agentdesk`
 /// 4. Current working directory `.agentdesk`
 pub fn default_config_dir() -> PathBuf {
-    if let Some(dir) = std::env::var("AGENTDESK_CONFIG_DIR").ok().filter(|d| !d.trim().is_empty()) {
+    if let Some(dir) = std::env::var("AGENTDESK_CONFIG_DIR")
+        .ok()
+        .filter(|d| !d.trim().is_empty())
+    {
         return PathBuf::from(dir);
     }
 
-    if let Some(xdg) = std::env::var("XDG_CONFIG_HOME").ok().filter(|d| !d.trim().is_empty()) {
+    if let Some(xdg) = std::env::var("XDG_CONFIG_HOME")
+        .ok()
+        .filter(|d| !d.trim().is_empty())
+    {
         return PathBuf::from(xdg).join("agentdesk");
     }
 

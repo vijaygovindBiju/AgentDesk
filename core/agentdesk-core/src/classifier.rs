@@ -15,8 +15,18 @@ pub struct Rule {
     pub summary: &'static str,
 }
 
-const fn rule(kind: &'static str, category: Category, severity: Severity, summary: &'static str) -> Rule {
-    Rule { kind, category, severity, summary }
+const fn rule(
+    kind: &'static str,
+    category: Category,
+    severity: Severity,
+    summary: &'static str,
+) -> Rule {
+    Rule {
+        kind,
+        category,
+        severity,
+        summary,
+    }
 }
 
 use Category::*;
@@ -27,7 +37,12 @@ pub const RULES: &[Rule] = &[
     // Requests: agent is blocked on a human decision.
     rule("approval_required", Request, Critical, "Approval Required"),
     rule("input_required", Request, Critical, "Input Required"),
-    rule("credential_required", Request, Critical, "Credential Required"),
+    rule(
+        "credential_required",
+        Request,
+        Critical,
+        "Credential Required",
+    ),
     // Errors: something failed or stopped unexpectedly.
     rule("build_failed", Error, Critical, "Build Failed"),
     rule("command_failed", Error, Critical, "Command Failed"),
@@ -70,15 +85,35 @@ pub struct Classification {
 /// Classify by `kind`. Never fails, never panics.
 pub fn classify(kind: &str) -> Classification {
     if let Some(r) = RULES.iter().find(|r| r.kind == kind) {
-        return Classification { category: r.category, severity: r.severity, summary: r.summary.to_string(), matched: Matched::Exact };
+        return Classification {
+            category: r.category,
+            severity: r.severity,
+            summary: r.summary.to_string(),
+            matched: Matched::Exact,
+        };
     }
     if kind.ends_with("_failed") {
-        return Classification { category: Error, severity: Critical, summary: humanize(kind), matched: Matched::Suffix };
+        return Classification {
+            category: Error,
+            severity: Critical,
+            summary: humanize(kind),
+            matched: Matched::Suffix,
+        };
     }
     if kind.ends_with("_completed") {
-        return Classification { category: Completed, severity: Important, summary: humanize(kind), matched: Matched::Suffix };
+        return Classification {
+            category: Completed,
+            severity: Important,
+            summary: humanize(kind),
+            matched: Matched::Suffix,
+        };
     }
-    Classification { category: Working, severity: Routine, summary: humanize(kind), matched: Matched::Fallback }
+    Classification {
+        category: Working,
+        severity: Routine,
+        summary: humanize(kind),
+        matched: Matched::Fallback,
+    }
 }
 
 /// `build_failed` → `Build Failed`.
@@ -105,7 +140,12 @@ mod tests {
     fn every_rule_row_classifies_exactly() {
         for r in RULES {
             let c = classify(r.kind);
-            assert_eq!((c.category, c.severity, c.summary.as_str(), c.matched), (r.category, r.severity, r.summary, Matched::Exact), "kind {}", r.kind);
+            assert_eq!(
+                (c.category, c.severity, c.summary.as_str(), c.matched),
+                (r.category, r.severity, r.summary, Matched::Exact),
+                "kind {}",
+                r.kind
+            );
         }
     }
 
@@ -119,29 +159,64 @@ mod tests {
 
     #[test]
     fn cancellation_is_split_by_cause() {
-        assert_eq!((classify("cancelled_by_user").category, classify("cancelled_by_user").severity), (Completed, Notable));
-        assert_eq!((classify("cancelled_by_agent").category, classify("cancelled_by_agent").severity), (Error, Important));
-        assert_eq!((classify("aborted").category, classify("aborted").severity), (Error, Important));
-        assert_eq!((classify("cancelled").category, classify("cancelled").severity), (Completed, Notable));
+        assert_eq!(
+            (
+                classify("cancelled_by_user").category,
+                classify("cancelled_by_user").severity
+            ),
+            (Completed, Notable)
+        );
+        assert_eq!(
+            (
+                classify("cancelled_by_agent").category,
+                classify("cancelled_by_agent").severity
+            ),
+            (Error, Important)
+        );
+        assert_eq!(
+            (classify("aborted").category, classify("aborted").severity),
+            (Error, Important)
+        );
+        assert_eq!(
+            (
+                classify("cancelled").category,
+                classify("cancelled").severity
+            ),
+            (Completed, Notable)
+        );
         for k in ["cancelled_by_user", "cancelled_by_agent", "cancelled"] {
-            assert_eq!(classify(k).summary, "Cancelled", "{k} must never read as success");
+            assert_eq!(
+                classify(k).summary,
+                "Cancelled",
+                "{k} must never read as success"
+            );
         }
     }
 
     #[test]
     fn suffix_fallbacks() {
         let f = classify("foo_failed");
-        assert_eq!((f.category, f.severity, f.matched), (Error, Critical, Matched::Suffix));
+        assert_eq!(
+            (f.category, f.severity, f.matched),
+            (Error, Critical, Matched::Suffix)
+        );
         assert_eq!(f.summary, "Foo Failed");
         let c = classify("deploy_completed");
-        assert_eq!((c.category, c.severity, c.matched), (Completed, Important, Matched::Suffix));
+        assert_eq!(
+            (c.category, c.severity, c.matched),
+            (Completed, Important, Matched::Suffix)
+        );
     }
 
     #[test]
     fn unknown_kind_is_working_routine_and_never_panics() {
         for k in ["teleport", "", "___", "FAILED", "completed_x"] {
             let c = classify(k);
-            assert_eq!((c.category, c.severity, c.matched), (Working, Routine, Matched::Fallback), "{k:?}");
+            assert_eq!(
+                (c.category, c.severity, c.matched),
+                (Working, Routine, Matched::Fallback),
+                "{k:?}"
+            );
         }
         assert_eq!(classify("").summary, "");
     }

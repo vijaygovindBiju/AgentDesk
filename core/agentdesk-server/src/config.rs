@@ -1,8 +1,8 @@
 //! CLI argument parsing and configuration options.
 //! See docs/TODO.md P6.5, P6.6, P6.7.
 
-use std::path::PathBuf;
 use agentdesk_model::PipelineMode;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliCommand {
@@ -30,6 +30,7 @@ pub struct RunOptions {
     pub debug: bool,
     pub agent: Option<String>,
     pub prompt: Option<String>,
+    pub antigravity: bool,
 }
 
 impl Default for RunOptions {
@@ -46,6 +47,7 @@ impl Default for RunOptions {
             debug: false,
             agent: None,
             prompt: None,
+            antigravity: false,
         }
     }
 }
@@ -85,7 +87,12 @@ where
         match sub.as_str() {
             "show" => return Ok(CliCommand::TokenShow(opts)),
             "rotate" => return Ok(CliCommand::TokenRotate(opts)),
-            other => return Err(format!("Unknown token command: '{}'. Expected 'show' or 'rotate'.", other)),
+            other => {
+                return Err(format!(
+                    "Unknown token command: '{}'. Expected 'show' or 'rotate'.",
+                    other
+                ));
+            }
         }
     }
 
@@ -174,6 +181,10 @@ where
                     opts.prompt = Some(args[idx + 1].clone());
                     idx += 2;
                 }
+                "--antigravity" => {
+                    opts.antigravity = true;
+                    idx += 1;
+                }
                 "-h" | "--help" => return Ok(CliCommand::Help),
                 other => return Err(format!("Unknown argument: '{}'", other)),
             }
@@ -181,7 +192,10 @@ where
         return Ok(CliCommand::Run(opts));
     }
 
-    Err(format!("Unknown command: '{}'. Expected 'run' or 'token'.", first))
+    Err(format!(
+        "Unknown command: '{}'. Expected 'run' or 'token'.",
+        first
+    ))
 }
 
 pub fn print_help() {
@@ -201,6 +215,7 @@ pub fn print_help() {
              --config-dir <path>      Override configuration directory for token storage\n\
              --debug                  Enable payload debug logging (opt-in)\n\
              --agent <cmd>            Run real agent via ACP over stdio (e.g. \"gemini --skip-trust --acp\")\n\
+             --antigravity            Run real Antigravity via PTY adapter\n\
              --prompt <text>          Prompt to send to the real agent\n\
              -h, --help               Print help information\n"
     );
@@ -212,7 +227,10 @@ mod tests {
 
     #[test]
     fn parse_help_command() {
-        assert_eq!(parse_args(["agentdesk", "--help"]).unwrap(), CliCommand::Help);
+        assert_eq!(
+            parse_args(["agentdesk", "--help"]).unwrap(),
+            CliCommand::Help
+        );
         assert_eq!(parse_args(["agentdesk"]).unwrap(), CliCommand::Help);
     }
 

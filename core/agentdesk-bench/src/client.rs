@@ -2,16 +2,16 @@
 //! See docs/SYSTEM_DESIGN.md "Pipeline modes" and docs/TODO.md P5.2.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use agentdesk_core::{ClientId, CoreCommand, CoreHandle, SinkError, TransportSink};
 use agentdesk_model::{
-    Body, Category, Decision, Event, EventId, EventPush, EventRef, GetEventLogs, Message,
-    PipelineMode, QueueEntry, RespondRequest, TaskId, LOG_OFFSET_TAIL,
+    Body, Category, Decision, Event, EventId, EventPush, EventRef, GetEventLogs, LOG_OFFSET_TAIL,
+    Message, PipelineMode, QueueEntry, RespondRequest, TaskId,
 };
 
 /// Scripted tap policy controlling fake client interactions.
@@ -102,7 +102,11 @@ pub struct FakeClient {
 }
 
 impl FakeClient {
-    pub fn new(client_id: ClientId, mode: PipelineMode, policy: TapPolicy) -> (Self, FakeClientSink) {
+    pub fn new(
+        client_id: ClientId,
+        mode: PipelineMode,
+        policy: TapPolicy,
+    ) -> (Self, FakeClientSink) {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let bytes_written = Arc::new(AtomicUsize::new(0));
         let sink = FakeClientSink::new(tx, bytes_written.clone());
@@ -266,7 +270,10 @@ impl FakeClient {
                     self.events_by_id.insert(event.event_id, event);
                 }
             }
-            Body::CommandResult(_) | Body::EventDetails(_) | Body::EventLogs(_) | Body::Metrics(_) => {
+            Body::CommandResult(_)
+            | Body::EventDetails(_)
+            | Body::EventLogs(_)
+            | Body::Metrics(_) => {
                 // Command replies handled without changing queue state
             }
             _ => {}
@@ -277,11 +284,7 @@ impl FakeClient {
     pub fn finalize(&mut self) {
         if self.mode == PipelineMode::Agentdesk {
             // Surfaced events are all attention items remaining active/non-superseded in the client view
-            let surfaced_count = self
-                .entries_by_id
-                .values()
-                .filter(|e| e.is_live())
-                .count() as u64;
+            let surfaced_count = self.entries_by_id.values().filter(|e| e.is_live()).count() as u64;
             self.counters.summaries_rendered = surfaced_count;
         }
     }

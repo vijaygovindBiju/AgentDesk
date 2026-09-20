@@ -216,7 +216,11 @@ mod tests {
                 ("file".to_string(), json!("auth_service.dart")),
                 ("line".to_string(), json!(42)),
             ]),
-            log_range: LogRange { start: 9310, end: 9412, pinned: true },
+            log_range: LogRange {
+                start: 9310,
+                end: 9412,
+                pinned: true,
+            },
             request: None,
         }
     }
@@ -281,7 +285,13 @@ mod tests {
     fn category_wire_names_and_tiers() {
         let names: Vec<String> = Category::ALL
             .iter()
-            .map(|c| serde_json::to_value(c).unwrap().as_str().unwrap().to_string())
+            .map(|c| {
+                serde_json::to_value(c)
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_string()
+            })
             .collect();
         assert_eq!(names, ["request", "error", "completed", "working"]);
         let tiers: Vec<u8> = Category::ALL.iter().map(|c| c.tier()).collect();
@@ -292,15 +302,27 @@ mod tests {
     fn operation_wire_names() {
         let names: Vec<String> = Operation::ALL
             .iter()
-            .map(|o| serde_json::to_value(o).unwrap().as_str().unwrap().to_string())
+            .map(|o| {
+                serde_json::to_value(o)
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_string()
+            })
             .collect();
-        assert_eq!(names, ["build", "test", "install", "analyze", "edit", "other"]);
+        assert_eq!(
+            names,
+            ["build", "test", "install", "analyze", "edit", "other"]
+        );
     }
 
     #[test]
     fn severity_is_integer_and_range_checked() {
         assert_eq!(serde_json::to_value(Severity::Critical).unwrap(), json!(3));
-        assert_eq!(serde_json::from_value::<Severity>(json!(0)).unwrap(), Severity::Routine);
+        assert_eq!(
+            serde_json::from_value::<Severity>(json!(0)).unwrap(),
+            Severity::Routine
+        );
         assert!(serde_json::from_value::<Severity>(json!(4)).is_err());
         assert!(serde_json::from_value::<Severity>(json!("3")).is_err());
     }

@@ -88,7 +88,8 @@ pub fn score(entry: &QueueEntry, event: &Event, now: DateTime<Utc>) -> u16 {
     let seen = seen_penalty(entry.state);
     let resolved = resolved_penalty(entry.resolution);
 
-    let total = (base as i32) + (recency as i32) + (escalation as i32) - (seen as i32) - (resolved as i32);
+    let total =
+        (base as i32) + (recency as i32) + (escalation as i32) - (seen as i32) - (resolved as i32);
     total.clamp(0, 100) as u16
 }
 
@@ -166,7 +167,8 @@ mod tests {
         // Now test maximum clamping:
         // Critical (70) + recency (20) = 90. If we had extra bonus, clamped to 100.
         let crit_event = make_test_event(Category::Error, Severity::Critical, start);
-        let crit_entry = QueueEntry::new(crit_event.event_id, crit_event.category, crit_event.seq, 70);
+        let crit_entry =
+            QueueEntry::new(crit_event.event_id, crit_event.category, crit_event.seq, 70);
         assert_eq!(score(&crit_entry, &crit_event, start), 90);
     }
 

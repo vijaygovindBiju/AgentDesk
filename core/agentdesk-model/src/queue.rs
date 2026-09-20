@@ -71,7 +71,11 @@ impl QueueEntry {
 
     /// Sort key: lower tier first, higher score first, newer first.
     pub fn order_key(&self) -> (u8, std::cmp::Reverse<u16>, std::cmp::Reverse<u64>) {
-        (self.tier, std::cmp::Reverse(self.score), std::cmp::Reverse(self.seq))
+        (
+            self.tier,
+            std::cmp::Reverse(self.score),
+            std::cmp::Reverse(self.seq),
+        )
     }
 }
 
@@ -109,8 +113,14 @@ mod tests {
 
     #[test]
     fn wire_names() {
-        assert_eq!(serde_json::to_value(EntryState::Dismissed).unwrap(), json!("dismissed"));
-        assert_eq!(serde_json::to_value(Resolution::Approved).unwrap(), json!("approved"));
+        assert_eq!(
+            serde_json::to_value(EntryState::Dismissed).unwrap(),
+            json!("dismissed")
+        );
+        assert_eq!(
+            serde_json::to_value(Resolution::Approved).unwrap(),
+            json!("approved")
+        );
     }
 
     #[test]

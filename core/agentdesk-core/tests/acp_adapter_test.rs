@@ -13,8 +13,8 @@ use chrono::Utc;
 use serde_json::json;
 
 use agentdesk_core::{
-    classify, AcpAdapter, AcpConfig, AcpState, AcpTransport, Adapter, AdapterOutput,
-    EventProcessor, LogStore, LogStoreConfig, MockAcpTransport, PriorityQueue, RespondError,
+    AcpAdapter, AcpConfig, AcpState, AcpTransport, Adapter, AdapterOutput, EventProcessor,
+    LogStore, LogStoreConfig, MockAcpTransport, PriorityQueue, RespondError, classify,
 };
 use agentdesk_model::{Category, Decision, Operation, Severity};
 
@@ -91,7 +91,10 @@ fn test_happy_path_initialization_and_turn() {
         _ => panic!("Expected RawAgentEvent for started"),
     }
     assert_eq!(*adapter.state(), AcpState::Prompting);
-    assert_eq!(adapter.current_task_id().map(|s| s.as_str()), Some("session-12345"));
+    assert_eq!(
+        adapter.current_task_id().map(|s| s.as_str()),
+        Some("session-12345")
+    );
 
     // Verify session/prompt was sent
     assert_eq!(adapter.transport_mut().sent_lines.len(), 3);
@@ -261,17 +264,23 @@ fn test_permission_approval_flow() {
     );
     let out = adapter.poll(now);
     assert_eq!(out.len(), 1);
-    assert_eq!(out[0], AdapterOutput::Event(agentdesk_model::RawAgentEvent {
-        agent_id: "test-agent".into(),
-        agent_seq: 3,
-        task_id: Some("sess-perm".into()),
-        kind: "task_completed".into(),
-        operation: Operation::Other,
-        message: "Prompt completed (end_turn)".into(),
-        details: agentdesk_model::Details::new(),
-        log_lines: vec![json!({"jsonrpc": "2.0", "id": 3, "result": {"stopReason": "end_turn"}}).to_string()],
-        request: None,
-    }));
+    assert_eq!(
+        out[0],
+        AdapterOutput::Event(agentdesk_model::RawAgentEvent {
+            agent_id: "test-agent".into(),
+            agent_seq: 3,
+            task_id: Some("sess-perm".into()),
+            kind: "task_completed".into(),
+            operation: Operation::Other,
+            message: "Prompt completed (end_turn)".into(),
+            details: agentdesk_model::Details::new(),
+            log_lines: vec![
+                json!({"jsonrpc": "2.0", "id": 3, "result": {"stopReason": "end_turn"}})
+                    .to_string()
+            ],
+            request: None,
+        })
+    );
     assert!(adapter.is_finished());
 }
 
@@ -493,12 +502,22 @@ fn test_arbitrary_terminal_text_logged_only_never_scraped() {
 
     // Send diverse noisy lines on stderr and stdout containing words that
     // a naive regex scraper might mistake for events or errors
-    adapter.transport_mut().push_stderr("WARNING: low disk space");
-    adapter.transport_mut().push_stderr("FATAL ERROR: cannot connect to debugger");
-    adapter.transport_mut().push_stderr("Approval required for sudo access!");
+    adapter
+        .transport_mut()
+        .push_stderr("WARNING: low disk space");
+    adapter
+        .transport_mut()
+        .push_stderr("FATAL ERROR: cannot connect to debugger");
+    adapter
+        .transport_mut()
+        .push_stderr("Approval required for sudo access!");
     adapter.transport_mut().push_stdout("Build failed in 3.42s");
-    adapter.transport_mut().push_stdout("Error: 15 tests failed, 2 passed");
-    adapter.transport_mut().push_stdout("Finished with error code 1");
+    adapter
+        .transport_mut()
+        .push_stdout("Error: 15 tests failed, 2 passed");
+    adapter
+        .transport_mut()
+        .push_stdout("Finished with error code 1");
     adapter.transport_mut().push_stdout("not valid json at all");
 
     let out = adapter.poll(now);
@@ -512,7 +531,10 @@ fn test_arbitrary_terminal_text_logged_only_never_scraped() {
                 assert!(!text.is_empty());
             }
             AdapterOutput::Event(raw) => {
-                panic!("Security violation: Terminal text was scraped into event: {:?}", raw);
+                panic!(
+                    "Security violation: Terminal text was scraped into event: {:?}",
+                    raw
+                );
             }
         }
     }
@@ -550,14 +572,16 @@ fn test_acp_adapter_through_core_pipeline() {
                 processor.process_line(&agent_id, text, now, &mut log_store, &mut metrics);
             }
             AdapterOutput::Event(raw) => {
-                let _ = processor.process_raw_event(
-                    raw,
-                    now,
-                    &mut event_store,
-                    &mut queue,
-                    &mut log_store,
-                    &mut metrics,
-                ).unwrap();
+                let _ = processor
+                    .process_raw_event(
+                        raw,
+                        now,
+                        &mut event_store,
+                        &mut queue,
+                        &mut log_store,
+                        &mut metrics,
+                    )
+                    .unwrap();
             }
         }
     }
@@ -584,14 +608,16 @@ fn test_acp_adapter_through_core_pipeline() {
                 processor.process_line(&agent_id, text, now, &mut log_store, &mut metrics);
             }
             AdapterOutput::Event(raw) => {
-                let (event, _) = processor.process_raw_event(
-                    raw,
-                    now,
-                    &mut event_store,
-                    &mut queue,
-                    &mut log_store,
-                    &mut metrics,
-                ).unwrap();
+                let (event, _) = processor
+                    .process_raw_event(
+                        raw,
+                        now,
+                        &mut event_store,
+                        &mut queue,
+                        &mut log_store,
+                        &mut metrics,
+                    )
+                    .unwrap();
                 assert_eq!(event.category, Category::Request);
                 assert_eq!(event.severity, Severity::Critical);
                 assert_eq!(event.summary, "Approval Required");
@@ -622,14 +648,16 @@ fn test_acp_adapter_through_core_pipeline() {
                 processor.process_line(&agent_id, text, now, &mut log_store, &mut metrics);
             }
             AdapterOutput::Event(raw) => {
-                let (event, _) = processor.process_raw_event(
-                    raw,
-                    now,
-                    &mut event_store,
-                    &mut queue,
-                    &mut log_store,
-                    &mut metrics,
-                ).unwrap();
+                let (event, _) = processor
+                    .process_raw_event(
+                        raw,
+                        now,
+                        &mut event_store,
+                        &mut queue,
+                        &mut log_store,
+                        &mut metrics,
+                    )
+                    .unwrap();
                 assert_eq!(event.category, Category::Completed);
             }
         }
@@ -695,8 +723,12 @@ while True:
 
     // Verify we received both stderr line and stdout events
     let has_stderr = collected.iter().any(|o| matches!(o, AdapterOutput::Line { text, .. } if text.contains("Creating new test session")));
-    let has_started = collected.iter().any(|o| matches!(o, AdapterOutput::Event(raw) if raw.kind == "started"));
-    let has_completed = collected.iter().any(|o| matches!(o, AdapterOutput::Event(raw) if raw.kind == "task_completed"));
+    let has_started = collected
+        .iter()
+        .any(|o| matches!(o, AdapterOutput::Event(raw) if raw.kind == "started"));
+    let has_completed = collected
+        .iter()
+        .any(|o| matches!(o, AdapterOutput::Event(raw) if raw.kind == "task_completed"));
 
     assert!(has_stderr, "Must have received stderr line");
     assert!(has_started, "Must have received started event");
@@ -705,7 +737,12 @@ while True:
 
 #[test]
 fn test_gemini_live_e2e() {
-    if std::process::Command::new("which").arg("gemini").output().map(|o| o.status.success()).unwrap_or(false) {
+    if std::process::Command::new("which")
+        .arg("gemini")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         let config = AcpConfig {
             command: "gemini".into(),
             args: vec!["--skip-trust".into(), "--acp".into()],
@@ -733,13 +770,23 @@ fn test_gemini_live_e2e() {
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
 
-        assert!(adapter.is_finished(), "Live Gemini adapter did not finish in 30s");
+        assert!(
+            adapter.is_finished(),
+            "Live Gemini adapter did not finish in 30s"
+        );
 
-        let has_started = collected.iter().any(|o| matches!(o, AdapterOutput::Event(raw) if raw.kind == "started"));
-        let has_completed = collected.iter().any(|o| matches!(o, AdapterOutput::Event(raw) if raw.kind == "task_completed"));
+        let has_started = collected
+            .iter()
+            .any(|o| matches!(o, AdapterOutput::Event(raw) if raw.kind == "started"));
+        let has_completed = collected
+            .iter()
+            .any(|o| matches!(o, AdapterOutput::Event(raw) if raw.kind == "task_completed"));
 
         assert!(has_started, "Live run must have emitted started event");
-        assert!(has_completed, "Live run must have emitted task_completed event");
+        assert!(
+            has_completed,
+            "Live run must have emitted task_completed event"
+        );
     } else {
         eprintln!("Skipping test_gemini_live_e2e: gemini executable not found in PATH");
     }

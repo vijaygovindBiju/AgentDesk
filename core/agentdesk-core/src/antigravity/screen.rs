@@ -1,8 +1,8 @@
-//! VT100 / ANSI terminal screen emulator for the Antigravity PTY Lab.
+//! VT100 / ANSI terminal screen emulator for Antigravity integration.
 //!
 //! Maintains an in-memory 2D grid of character cells with styling attributes,
-//! tracks cursor position, handles alternate screen buffer switching, and provides
-//! inspection methods for structured state detection.
+//! tracks cursor position, handles alternate screen buffer switching, dynamically
+//! resizes geometry, and provides visual snapshot inspection for state detection.
 
 use std::cmp::min;
 
@@ -96,6 +96,24 @@ impl Screen {
             csi_current_param: None,
             csi_is_private: false,
         }
+    }
+
+    /// Resize the screen dimensions.
+    pub fn resize(&mut self, cols: u16, rows: u16) {
+        self.cols = cols;
+        self.rows = rows;
+        self.main_grid
+            .resize(rows as usize, vec![Cell::default(); cols as usize]);
+        for row in &mut self.main_grid {
+            row.resize(cols as usize, Cell::default());
+        }
+        self.alt_grid
+            .resize(rows as usize, vec![Cell::default(); cols as usize]);
+        for row in &mut self.alt_grid {
+            row.resize(cols as usize, Cell::default());
+        }
+        self.cursor_row = min(self.cursor_row, rows.saturating_sub(1));
+        self.cursor_col = min(self.cursor_col, cols.saturating_sub(1));
     }
 
     fn grid_mut(&mut self) -> &mut Vec<Vec<Cell>> {
@@ -347,18 +365,15 @@ impl Screen {
                 90..=97 => self.current_attrs.fg = Some((self.csi_params[i] - 90 + 8) as u8),
                 100..=107 => self.current_attrs.bg = Some((self.csi_params[i] - 100 + 8) as u8),
                 38 => {
-                    // Extended foreground color: 38;5;n or 38;2;r;g;b
                     if i + 2 < self.csi_params.len() && self.csi_params[i + 1] == 5 {
                         self.current_attrs.fg = Some(self.csi_params[i + 2] as u8);
                         i += 2;
                     } else if i + 4 < self.csi_params.len() && self.csi_params[i + 1] == 2 {
-                        // Truncate 24-bit to 8-bit approximation or store as placeholder
                         self.current_attrs.fg = Some(self.csi_params[i + 2] as u8);
                         i += 4;
                     }
                 }
                 48 => {
-                    // Extended background color: 48;5;n or 48;2;r;g;b
                     if i + 2 < self.csi_params.len() && self.csi_params[i + 1] == 5 {
                         self.current_attrs.bg = Some(self.csi_params[i + 2] as u8);
                         i += 2;
@@ -429,7 +444,6 @@ impl Screen {
 
         match mode {
             0 => {
-                // Clear from cursor to end of screen
                 for c in cc..cols {
                     if cr < rows {
                         grid[cr][c] = Cell::default();
@@ -442,7 +456,6 @@ impl Screen {
                 }
             }
             1 => {
-                // Clear from beginning of screen to cursor
                 for r in 0..cr {
                     for c in 0..cols {
                         grid[r][c] = Cell::default();
@@ -455,7 +468,6 @@ impl Screen {
                 }
             }
             2 | 3 => {
-                // Clear entire screen
                 for r in 0..rows {
                     for c in 0..cols {
                         grid[r][c] = Cell::default();
@@ -480,13 +492,11 @@ impl Screen {
 
         match mode {
             0 => {
-                // Clear from cursor to end of line
                 for c in cc..cols {
                     grid[r][c] = Cell::default();
                 }
             }
             1 => {
-                // Clear from start of line to cursor
                 for c in 0..=cc {
                     if c < cols {
                         grid[r][c] = Cell::default();
@@ -494,7 +504,6 @@ impl Screen {
                 }
             }
             2 => {
-                // Clear entire line
                 for c in 0..cols {
                     grid[r][c] = Cell::default();
                 }
@@ -565,7 +574,6 @@ mod tests {
     #[test]
     fn test_ansi_color_and_reverse_attributes() {
         let mut screen = Screen::new(80, 24);
-        // \x1b[7m = reverse, \x1b[0m = reset
         screen.process_bytes(b"\x1b[7mSelected Option\x1b[0m Normal Option");
         assert_eq!(screen.row_text(0), "Selected Option Normal Option");
 
@@ -581,12 +589,10 @@ mod tests {
         screen.process_bytes(b"Main buffer text");
         assert_eq!(screen.row_text(0), "Main buffer text");
 
-        // Switch to alternate screen
         screen.process_bytes(b"\x1b[?1049h\x1b[H\x1b[2JAlt buffer text");
         assert!(screen.in_alt_screen);
         assert_eq!(screen.row_text(0), "Alt buffer text");
 
-        // Switch back to main screen
         screen.process_bytes(b"\x1b[?1049l");
         assert!(!screen.in_alt_screen);
         assert_eq!(screen.row_text(0), "Main buffer text");
@@ -597,5 +603,17 @@ mod tests {
         let mut screen = Screen::new(80, 24);
         screen.process_bytes(b"Line to clear\x1b[2K");
         assert_eq!(screen.row_text(0), "");
+    }
+
+    #[test]
+    fn test_screen_resize() {
+        let mut screen = Screen::new(80, 24);
+        screen.process_bytes(b"Hello World!");
+        assert_eq!(screen.row_text(0), "Hello World!");
+
+        screen.resize(100, 30);
+        assert_eq!(screen.cols, 100);
+        assert_eq!(screen.rows, 30);
+        assert_eq!(screen.row_text(0), "Hello World!");
     }
 }

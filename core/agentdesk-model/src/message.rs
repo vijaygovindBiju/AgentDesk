@@ -80,10 +80,16 @@ pub struct Message {
 
 impl Message {
     pub fn push(body: Body) -> Self {
-        Message { request_id: None, body }
+        Message {
+            request_id: None,
+            body,
+        }
     }
     pub fn with_request_id(request_id: impl Into<String>, body: Body) -> Self {
-        Message { request_id: Some(request_id.into()), body }
+        Message {
+            request_id: Some(request_id.into()),
+            body,
+        }
     }
 }
 
@@ -211,10 +217,16 @@ pub struct CommandResult {
 
 impl CommandResult {
     pub fn ok() -> Self {
-        CommandResult { ok: true, error: None }
+        CommandResult {
+            ok: true,
+            error: None,
+        }
     }
     pub fn err(error: CommandError) -> Self {
-        CommandResult { ok: false, error: Some(error) }
+        CommandResult {
+            ok: false,
+            error: Some(error),
+        }
     }
 }
 
@@ -257,8 +269,15 @@ mod tests {
             summary: "Approval required".into(),
             message: "Allow migration?".into(),
             details: Details::new(),
-            log_range: LogRange { start: 0, end: 3, pinned: true },
-            request: Some(RequestInfo { prompt: "Allow migration?".into(), options: vec!["approve".into(), "deny".into()] }),
+            log_range: LogRange {
+                start: 0,
+                end: 3,
+                pinned: true,
+            },
+            request: Some(RequestInfo {
+                prompt: "Allow migration?".into(),
+                options: vec!["approve".into(), "deny".into()],
+            }),
         }
     }
 
@@ -267,39 +286,126 @@ mod tests {
     }
 
     fn line(offset: u64) -> LogLine {
-        LogLine { offset, ts: ts(), text: format!("line {offset}") }
+        LogLine {
+            offset,
+            ts: ts(),
+            text: format!("line {offset}"),
+        }
     }
 
     /// One sample of every message type in the catalogue.
     fn all_messages() -> Vec<Message> {
         let id = Uuid::nil();
         vec![
-            Message::push(Body::Hello(Hello { token: "t".into(), device_id: "d".into(), client_version: "0.1.0".into(), schema_version: SCHEMA_VERSION })),
-            Message::push(Body::Welcome(Welcome { daemon_version: "0.1.0".into(), schema_version: SCHEMA_VERSION, pipeline_mode: PipelineMode::Agentdesk, transport: TransportMode::Tls, server_time: ts() })),
-            Message::push(Body::Snapshot(Snapshot { entries: vec![entry()], events: vec![event()] })),
-            Message::push(Body::Event(EventPush { event: event(), entry: entry() })),
-            Message::push(Body::ScoreUpdate(ScoreUpdate { event_id: id, score: 55, escalation_level: 1 })),
-            Message::push(Body::StateUpdate(StateUpdate { event_id: id, state: EntryState::Seen, resolution: Some(Resolution::Unresolved), superseded: false })),
-            Message::push(Body::RawEvent(RawAgentEvent { agent_id: "a".into(), agent_seq: 1, task_id: None, kind: "progress".into(), operation: Operation::Build, message: "m".into(), details: Details::new(), log_lines: vec![], request: None })),
-            Message::push(Body::RawLine(RawLine { agent_id: "a".into(), line: line(7) })),
+            Message::push(Body::Hello(Hello {
+                token: "t".into(),
+                device_id: "d".into(),
+                client_version: "0.1.0".into(),
+                schema_version: SCHEMA_VERSION,
+            })),
+            Message::push(Body::Welcome(Welcome {
+                daemon_version: "0.1.0".into(),
+                schema_version: SCHEMA_VERSION,
+                pipeline_mode: PipelineMode::Agentdesk,
+                transport: TransportMode::Tls,
+                server_time: ts(),
+            })),
+            Message::push(Body::Snapshot(Snapshot {
+                entries: vec![entry()],
+                events: vec![event()],
+            })),
+            Message::push(Body::Event(EventPush {
+                event: event(),
+                entry: entry(),
+            })),
+            Message::push(Body::ScoreUpdate(ScoreUpdate {
+                event_id: id,
+                score: 55,
+                escalation_level: 1,
+            })),
+            Message::push(Body::StateUpdate(StateUpdate {
+                event_id: id,
+                state: EntryState::Seen,
+                resolution: Some(Resolution::Unresolved),
+                superseded: false,
+            })),
+            Message::push(Body::RawEvent(RawAgentEvent {
+                agent_id: "a".into(),
+                agent_seq: 1,
+                task_id: None,
+                kind: "progress".into(),
+                operation: Operation::Build,
+                message: "m".into(),
+                details: Details::new(),
+                log_lines: vec![],
+                request: None,
+            })),
+            Message::push(Body::RawLine(RawLine {
+                agent_id: "a".into(),
+                line: line(7),
+            })),
             Message::with_request_id("r-1", Body::GetEventDetails(EventRef { event_id: id })),
-            Message::with_request_id("r-2", Body::GetEventLogs(GetEventLogs { event_id: id, offset: LOG_OFFSET_TAIL, limit: 200 })),
+            Message::with_request_id(
+                "r-2",
+                Body::GetEventLogs(GetEventLogs {
+                    event_id: id,
+                    offset: LOG_OFFSET_TAIL,
+                    limit: 200,
+                }),
+            ),
             Message::with_request_id("r-3", Body::Ack(EventRef { event_id: id })),
             Message::with_request_id("r-4", Body::Dismiss(EventRef { event_id: id })),
-            Message::with_request_id("r-5", Body::RespondRequest(RespondRequest { event_id: id, decision: Decision::Approve })),
+            Message::with_request_id(
+                "r-5",
+                Body::RespondRequest(RespondRequest {
+                    event_id: id,
+                    decision: Decision::Approve,
+                }),
+            ),
             Message::with_request_id("r-6", Body::GetMetrics(Empty {})),
-            Message::with_request_id("r-1", Body::EventDetails(EventPush { event: event(), entry: entry() })),
-            Message::with_request_id("r-2", Body::EventLogs(EventLogs { event_id: id, offset: 5, total: 8, evicted: false, lines: vec![line(5), line(6)] })),
-            Message::with_request_id("r-5", Body::CommandResult(CommandResult::err(CommandError::AlreadyResolved))),
-            Message::with_request_id("r-6", Body::Metrics(MetricsSnapshot::from([("raw_events".to_string(), 42u64)]))),
-            Message::with_request_id("r-9", Body::Error(ErrorReply { code: "bad_request".into(), message: "cannot parse".into() })),
+            Message::with_request_id(
+                "r-1",
+                Body::EventDetails(EventPush {
+                    event: event(),
+                    entry: entry(),
+                }),
+            ),
+            Message::with_request_id(
+                "r-2",
+                Body::EventLogs(EventLogs {
+                    event_id: id,
+                    offset: 5,
+                    total: 8,
+                    evicted: false,
+                    lines: vec![line(5), line(6)],
+                }),
+            ),
+            Message::with_request_id(
+                "r-5",
+                Body::CommandResult(CommandResult::err(CommandError::AlreadyResolved)),
+            ),
+            Message::with_request_id(
+                "r-6",
+                Body::Metrics(MetricsSnapshot::from([("raw_events".to_string(), 42u64)])),
+            ),
+            Message::with_request_id(
+                "r-9",
+                Body::Error(ErrorReply {
+                    code: "bad_request".into(),
+                    message: "cannot parse".into(),
+                }),
+            ),
         ]
     }
 
     #[test]
     fn every_message_type_round_trips() {
         let msgs = all_messages();
-        assert_eq!(msgs.len(), 19, "catalogue size changed; update COMMUNICATION.md");
+        assert_eq!(
+            msgs.len(),
+            19,
+            "catalogue size changed; update COMMUNICATION.md"
+        );
         for m in msgs {
             let s = serde_json::to_string(&m).unwrap();
             let back: Message = serde_json::from_str(&s).unwrap_or_else(|e| panic!("{e}: {s}"));
@@ -309,7 +415,14 @@ mod tests {
 
     #[test]
     fn envelope_shape_matches_protocol_doc() {
-        let m = Message::with_request_id("r-2", Body::GetEventLogs(GetEventLogs { event_id: Uuid::nil(), offset: -1, limit: 10 }));
+        let m = Message::with_request_id(
+            "r-2",
+            Body::GetEventLogs(GetEventLogs {
+                event_id: Uuid::nil(),
+                offset: -1,
+                limit: 10,
+            }),
+        );
         let v = serde_json::to_value(&m).unwrap();
         assert_eq!(v["type"], json!("get_event_logs"));
         assert_eq!(v["request_id"], json!("r-2"));
@@ -326,14 +439,35 @@ mod tests {
     fn type_names_are_snake_case_catalogue_names() {
         let names: Vec<String> = all_messages()
             .iter()
-            .map(|m| serde_json::to_value(m).unwrap()["type"].as_str().unwrap().to_string())
+            .map(|m| {
+                serde_json::to_value(m).unwrap()["type"]
+                    .as_str()
+                    .unwrap()
+                    .to_string()
+            })
             .collect();
         assert_eq!(
             names,
             [
-                "hello", "welcome", "snapshot", "event", "score_update", "state_update", "raw_event", "raw_line",
-                "get_event_details", "get_event_logs", "ack", "dismiss", "respond_request", "get_metrics",
-                "event_details", "event_logs", "command_result", "metrics", "error",
+                "hello",
+                "welcome",
+                "snapshot",
+                "event",
+                "score_update",
+                "state_update",
+                "raw_event",
+                "raw_line",
+                "get_event_details",
+                "get_event_logs",
+                "ack",
+                "dismiss",
+                "respond_request",
+                "get_metrics",
+                "event_details",
+                "event_logs",
+                "command_result",
+                "metrics",
+                "error",
             ]
         );
     }
@@ -345,12 +479,21 @@ mod tests {
 
         let ok = json!({ "type": "ack", "request_id": "r", "payload": { "event_id": Uuid::nil(), "extra": 1 }, "trace": "x" });
         let m: Message = serde_json::from_value(ok).unwrap();
-        assert_eq!(m.body, Body::Ack(EventRef { event_id: Uuid::nil() }));
+        assert_eq!(
+            m.body,
+            Body::Ack(EventRef {
+                event_id: Uuid::nil()
+            })
+        );
     }
 
     #[test]
     fn raw_line_flattens_log_line() {
-        let v = serde_json::to_value(RawLine { agent_id: "a".into(), line: line(3) }).unwrap();
+        let v = serde_json::to_value(RawLine {
+            agent_id: "a".into(),
+            line: line(3),
+        })
+        .unwrap();
         assert_eq!(v["offset"], json!(3));
         assert_eq!(v["agent_id"], json!("a"));
     }

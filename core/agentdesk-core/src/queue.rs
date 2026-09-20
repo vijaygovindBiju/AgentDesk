@@ -232,7 +232,9 @@ impl PriorityQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agentdesk_model::{Category, Details, Event, LogRange, Operation, Severity, SCHEMA_VERSION};
+    use agentdesk_model::{
+        Category, Details, Event, LogRange, Operation, SCHEMA_VERSION, Severity,
+    };
     use chrono::Duration;
     use uuid::Uuid;
 
@@ -316,11 +318,13 @@ mod tests {
                                     for &st2 in &states {
                                         for &sq1 in &seqs {
                                             for &sq2 in &seqs {
-                                                let mut e1 = QueueEntry::new(Uuid::new_v4(), c1, sq1, s1);
+                                                let mut e1 =
+                                                    QueueEntry::new(Uuid::new_v4(), c1, sq1, s1);
                                                 e1.escalation_level = esc1;
                                                 e1.state = st1;
 
-                                                let mut e2 = QueueEntry::new(Uuid::new_v4(), c2, sq2, s2);
+                                                let mut e2 =
+                                                    QueueEntry::new(Uuid::new_v4(), c2, sq2, s2);
                                                 e2.escalation_level = esc2;
                                                 e2.state = st2;
 
@@ -428,13 +432,24 @@ mod tests {
         let missing = Uuid::new_v4();
 
         assert_eq!(queue.ack(&missing).unwrap_err(), CommandError::NoSuchEvent);
-        assert_eq!(queue.dismiss(&missing).unwrap_err(), CommandError::NoSuchEvent);
         assert_eq!(
-            queue.respond_request(&missing, Decision::Approve).unwrap_err(),
+            queue.dismiss(&missing).unwrap_err(),
             CommandError::NoSuchEvent
         );
-        assert_eq!(queue.escalate(&missing, 1).unwrap_err(), CommandError::NoSuchEvent);
-        assert_eq!(queue.supersede(&missing).unwrap_err(), CommandError::NoSuchEvent);
+        assert_eq!(
+            queue
+                .respond_request(&missing, Decision::Approve)
+                .unwrap_err(),
+            CommandError::NoSuchEvent
+        );
+        assert_eq!(
+            queue.escalate(&missing, 1).unwrap_err(),
+            CommandError::NoSuchEvent
+        );
+        assert_eq!(
+            queue.supersede(&missing).unwrap_err(),
+            CommandError::NoSuchEvent
+        );
     }
 
     #[test]

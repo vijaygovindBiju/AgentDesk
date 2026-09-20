@@ -14,7 +14,12 @@ pub type Timeline = Vec<(DateTime<Utc>, AdapterOutput)>;
 
 /// Advance `clock` through every due instant until the simulator finishes.
 /// Blocked requests are answered by `decide` after `response_delay`.
-pub fn run_to_end(sim: &mut Simulator, clock: &VirtualClock, response_delay: Duration, mut decide: impl FnMut(&TaskId) -> Decision) -> Timeline {
+pub fn run_to_end(
+    sim: &mut Simulator,
+    clock: &VirtualClock,
+    response_delay: Duration,
+    mut decide: impl FnMut(&TaskId) -> Decision,
+) -> Timeline {
     let mut timeline = Timeline::new();
     loop {
         let now = clock.now();
@@ -27,7 +32,8 @@ pub fn run_to_end(sim: &mut Simulator, clock: &VirtualClock, response_delay: Dur
             let at = clock.now();
             for task_id in blocked {
                 let d = decide(&task_id);
-                sim.respond(&task_id, d, at).expect("task was reported blocked");
+                sim.respond(&task_id, d, at)
+                    .expect("task was reported blocked");
             }
             continue;
         }

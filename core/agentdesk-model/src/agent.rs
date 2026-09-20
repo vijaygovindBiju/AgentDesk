@@ -10,6 +10,7 @@ pub enum AdapterKind {
     Simulator,
     ClaudeCode,
     Acp,
+    AntigravityPty,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

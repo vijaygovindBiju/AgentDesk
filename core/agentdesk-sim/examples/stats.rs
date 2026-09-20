@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 
 use chrono::Duration;
 
-use agentdesk_core::{classify, AdapterOutput, Clock, VirtualClock};
+use agentdesk_core::{AdapterOutput, Clock, VirtualClock, classify};
 use agentdesk_model::Decision;
-use agentdesk_sim::{run_to_end, Scenario, Simulator};
+use agentdesk_sim::{Scenario, Simulator, run_to_end};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -19,7 +19,9 @@ fn main() {
     let clock = VirtualClock::at_epoch();
     let start = clock.now();
     let mut sim = Simulator::new(scenario.clone(), seed, start);
-    let timeline = run_to_end(&mut sim, &clock, Duration::seconds(5), |_| Decision::Approve);
+    let timeline = run_to_end(&mut sim, &clock, Duration::seconds(5), |_| {
+        Decision::Approve
+    });
 
     let mut by_kind: BTreeMap<String, usize> = BTreeMap::new();
     let mut by_cat: BTreeMap<String, usize> = BTreeMap::new();
@@ -29,7 +31,9 @@ fn main() {
         match o {
             AdapterOutput::Event(e) => {
                 *by_kind.entry(e.kind.clone()).or_default() += 1;
-                *by_cat.entry(format!("{:?}", classify(&e.kind).category)).or_default() += 1;
+                *by_cat
+                    .entry(format!("{:?}", classify(&e.kind).category))
+                    .or_default() += 1;
                 bytes += serde_json::to_string(e).unwrap().len();
                 lines += e.log_lines.len();
             }

@@ -51,7 +51,7 @@ impl EventStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agentdesk_model::{Category, Details, LogRange, Operation, Severity, SCHEMA_VERSION};
+    use agentdesk_model::{Category, Details, LogRange, Operation, SCHEMA_VERSION, Severity};
     use chrono::Utc;
     use uuid::Uuid;
 

@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use rcgen::generate_simple_self_signed;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::ServerConfig as RustlsServerConfig;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use sha2::{Digest, Sha256};
 use tokio_rustls::TlsAcceptor;
 
@@ -94,7 +94,9 @@ impl TlsIdentity {
         })
     }
 
-    pub fn load_or_generate(config_dir: &Path) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn load_or_generate(
+        config_dir: &Path,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let cert_file = cert_path(config_dir);
         let key_file = key_path(config_dir);
 
@@ -102,7 +104,9 @@ impl TlsIdentity {
             match Self::load(config_dir) {
                 Ok(id) => return Ok(id),
                 Err(e) => {
-                    eprintln!("Warning: failed loading existing TLS credentials ({e}), regenerating...");
+                    eprintln!(
+                        "Warning: failed loading existing TLS credentials ({e}), regenerating..."
+                    );
                 }
             }
         }
@@ -112,7 +116,9 @@ impl TlsIdentity {
         Ok(identity)
     }
 
-    pub fn build_tls_acceptor(&self) -> Result<TlsAcceptor, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn build_tls_acceptor(
+        &self,
+    ) -> Result<TlsAcceptor, Box<dyn std::error::Error + Send + Sync>> {
         let cert = CertificateDer::from(self.cert_der.clone());
         let key = PrivateKeyDer::try_from(self.key_der.clone())
             .map_err(|e| format!("Invalid private key: {:?}", e))?;

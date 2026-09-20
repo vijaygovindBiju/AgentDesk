@@ -44,7 +44,10 @@ impl Metrics {
         map.insert("acks".into(), self.acks);
         map.insert("dismissals".into(), self.dismissals);
         map.insert("responses".into(), self.responses);
-        map.insert("slow_client_disconnects".into(), self.slow_client_disconnects);
+        map.insert(
+            "slow_client_disconnects".into(),
+            self.slow_client_disconnects,
+        );
         map
     }
 

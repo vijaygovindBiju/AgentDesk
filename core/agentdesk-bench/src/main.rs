@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process;
 
-use agentdesk_bench::{run_all_modes, run_bench_mode, TapPolicy};
+use agentdesk_bench::{TapPolicy, run_all_modes, run_bench_mode};
 use agentdesk_model::PipelineMode;
 use agentdesk_sim::Scenario;
 
@@ -126,7 +126,8 @@ fn main() {
         serde_json::to_string_pretty(&report).expect("failed to serialize multi-mode report")
     } else {
         let single = run_bench_mode(&scenario, args.seed, args.mode, args.tap_policy);
-        serde_json::to_string_pretty(&single.result).expect("failed to serialize single-mode result")
+        serde_json::to_string_pretty(&single.result)
+            .expect("failed to serialize single-mode result")
     };
 
     if let Some(out_path) = args.output_path {

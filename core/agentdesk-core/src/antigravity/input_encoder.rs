@@ -5,7 +5,7 @@
 
 use agentdesk_model::Decision;
 
-use crate::state_machine::AntigravityState;
+use crate::antigravity::state_machine::AntigravityState;
 
 /// VT100 keystroke sequences.
 pub mod keys {
@@ -72,11 +72,20 @@ fn encode_confirmation_decision(
             navigate_and_select(current_index, 0)
         }
         Decision::Deny => {
-            // Find "No, deny" or "No, reject" option index if known
+            // Find "No, deny", "No, reject", or "No, cancel" option index if known
             let deny_index = options
                 .iter()
-                .position(|opt| opt.contains("No, deny") || opt.contains("No, reject"))
-                .unwrap_or(if options.len() > 1 { 1 } else { 0 });
+                .position(|opt| {
+                    opt.contains("No, deny")
+                        || opt.contains("No, reject")
+                        || opt.contains("No, cancel")
+                        || opt.contains("cancel")
+                })
+                .unwrap_or(if options.len() > 1 {
+                    options.len() - 1
+                } else {
+                    0
+                });
 
             navigate_and_select(current_index, deny_index)
         }

@@ -1,20 +1,20 @@
 //! Per-connection WebSocket handling and transport sink.
 //! See docs/COMMUNICATION.md and P6.1 - P6.4.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use futures_util::{SinkExt, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
-use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
-use tokio_tungstenite::tungstenite::protocol::frame::CloseFrame;
 use tokio_tungstenite::tungstenite::protocol::Message as WsMessage;
+use tokio_tungstenite::tungstenite::protocol::frame::CloseFrame;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 
 use agentdesk_core::{ClientId, Clock, CoreCommand, SinkError, TransportSink};
 use agentdesk_model::close_code;
 use agentdesk_model::{
-    Body, ErrorReply, Message, PipelineMode, TransportMode, Welcome, SCHEMA_VERSION,
+    Body, ErrorReply, Message, PipelineMode, SCHEMA_VERSION, TransportMode, Welcome,
 };
 
 use crate::logging;
@@ -46,8 +46,7 @@ impl ServerConnectionSink {
 
 impl TransportSink for ServerConnectionSink {
     fn send(&mut self, message: &Message) -> Result<usize, SinkError> {
-        let json_bytes =
-            serde_json::to_vec(message).map_err(|e| SinkError::Io(e.to_string()))?;
+        let json_bytes = serde_json::to_vec(message).map_err(|e| SinkError::Io(e.to_string()))?;
         let len = json_bytes.len();
 
         match self.sender.try_send(message.clone()) {
@@ -114,7 +113,10 @@ where
             return;
         }
         None => {
-            logging::info(format!("Connection closed by {} before handshake", peer_addr));
+            logging::info(format!(
+                "Connection closed by {} before handshake",
+                peer_addr
+            ));
             return;
         }
     };
@@ -197,16 +199,11 @@ where
     ));
 
     // Handshake passed: establish bounded outbound channel & sink
-    let (outbound_tx, mut outbound_rx) =
-        mpsc::channel::<Message>(params.outbound_capacity.max(1));
+    let (outbound_tx, mut outbound_rx) = mpsc::channel::<Message>(params.outbound_capacity.max(1));
     let slow_client_notify = Arc::new(tokio::sync::Notify::new());
     let is_slow = Arc::new(AtomicBool::new(false));
 
-    let sink = ServerConnectionSink::new(
-        outbound_tx,
-        slow_client_notify.clone(),
-        is_slow.clone(),
-    );
+    let sink = ServerConnectionSink::new(outbound_tx, slow_client_notify.clone(), is_slow.clone());
 
     // Register sink with core
     if params

@@ -39,7 +39,12 @@ pub trait Adapter: Send {
 
     /// Deliver a human decision to a task blocked on a request. `now` is
     /// when the decision arrived; the task resumes from that instant.
-    fn respond(&mut self, task_id: &TaskId, decision: Decision, now: DateTime<Utc>) -> Result<(), RespondError>;
+    fn respond(
+        &mut self,
+        task_id: &TaskId,
+        decision: Decision,
+        now: DateTime<Utc>,
+    ) -> Result<(), RespondError>;
 
     /// True once no further output can ever be produced.
     fn is_finished(&self) -> bool;
