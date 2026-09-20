@@ -13,6 +13,7 @@ Coding agents produce substantially more terminal output than a person can conti
 - [Key Features](#key-features)
 - [Attention Model](#attention-model)
 - [Structured Human Interaction](#structured-human-interaction)
+- [🚀 Install AgentDesk](#-install-agentdesk)
 - [Antigravity Integration](#antigravity-integration)
 - [Architecture](#architecture)
 - [Data and Progressive Disclosure](#data-and-progressive-disclosure)
@@ -162,6 +163,65 @@ This rule prevents arbitrary agent output, repository content, or tool output fr
 | Generic mobile “start work” command | Starting arbitrary new tasks from the phone | 📋 Planned |
 
 The experimental label applies to real-agent integration and operational maturity, not to the core event model or transport primitives. The deterministic simulator remains the primary reproducible validation source.
+
+# 🚀 Install AgentDesk
+
+## Normal-user quick start
+
+A normal user should need only:
+
+1. One prebuilt Linux installation command on the laptop.
+2. The prebuilt AgentDesk Android APK on the phone.
+
+The user should **not** install or understand Rust, Cargo, Flutter, Dart, Android Studio, Android SDK tools, ADB, Git, Node.js, npm, Java/JDK, compilers, build tools, or AgentDesk source code.
+
+### Linux laptop
+
+Once a matching prebuilt GitHub Release is published, copy and run this one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/install.sh | bash
+```
+
+The installer is designed to detect Linux and CPU architecture, download the matching prebuilt AgentDesk daemon, verify its SHA-256 checksum, install it for the current user, configure a systemd user service, start the service, and verify that it is running. It does not compile AgentDesk locally.
+
+The current repository does **not** yet publish the required release assets, so this command currently fails safely rather than building from source. A release must provide:
+
+```text
+AgentDesk-vX.Y.Z-linux-x86_64.tar.gz
+AgentDesk-vX.Y.Z-linux-aarch64.tar.gz
+SHA256SUMS
+```
+
+See [Prebuilt Linux Installer](#prebuilt-linux-installer) and [Release Artifacts](#release-artifacts) for the release contract.
+
+### Android phone
+
+Install the signed `AgentDesk-vX.Y.Z.apk` from the project's published release page. The current repository does **not** publish a public Android APK yet, so there is no honest download link to provide. A normal user must not be asked to install Flutter, Android SDK tools, ADB, Gradle, or source code to obtain the production phone application.
+
+### Current connection and setup status
+
+The intended production flow is:
+
+```text
+Install Linux application
+  → Start AgentDesk
+  → Install Android APK
+  → Pair phone with laptop
+  → Confirm secure connection
+  → Start supported coding agent
+  → Supervise from phone
+```
+
+The current source release does not yet implement the complete production flow:
+
+- there is no QR-code or automatic pairing flow;
+- the phone currently requires manual server URL, device ID, authentication token, and TLS fingerprint configuration;
+- there is no published desktop package or Android release APK;
+- the current app does not provide a generic project-selection/start-work flow; `start_work` is explicitly not implemented;
+- the active agent/session and project are currently selected by the daemon's launch configuration or adapter, not by a normal-user setup wizard.
+
+These are distribution and product gaps, not instructions for normal users to install development tooling. The source-build workflow below is for developers and contributors only.
 
 ## Attention Model
 
