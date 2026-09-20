@@ -214,4 +214,4 @@ real `agy` continues execution
 2. **Structural Bubbletea Menu Detection**: Numbered interactive menu lines (`> 1. Yes, run command`, `4. No, cancel`) and the active command block (`Requesting permission for: ...`) are verified using cursor positions and reverse-video highlights.
 3. **No Terminal Noise Leaks**: Raw terminal bytes never cross into `agentdesk-core` or over the WSS transport to the client.
 4. **Adversarial Resilience**: Markdown text and chat logs containing prompt keywords are rejected because they lack interactive selection attributes.
-5. **Bidirectional End-to-End Proof**: Verified by `test_real_agy_live_command_permission_e2e` spawning real `/home/pirate/.local/bin/agy`, detecting the interactive confirmation menu, sending verified approval keystrokes (`\r`), and observing command execution and resumption.
+5. **Bidirectional End-to-End Proof**: Verified by `test_real_agy_live_command_permission_e2e` spawning the `agy` executable, detecting the interactive confirmation menu, sending verified approval keystrokes (`\r`), and observing command execution and resumption.

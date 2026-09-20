@@ -66,6 +66,12 @@ pub struct Screen {
     csi_params: Vec<u16>,
     csi_current_param: Option<u16>,
     csi_is_private: bool,
+    csi_has_intermediate: bool,
+    /// The last printable character landed in the final column; the wrap to the next row is
+    /// deferred until the next printable character (xterm "pending wrap" semantics).
+    pending_wrap: bool,
+    utf8_buf: Vec<u8>,
+    utf8_needed: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,6 +101,10 @@ impl Screen {
             csi_params: Vec::new(),
             csi_current_param: None,
             csi_is_private: false,
+            csi_has_intermediate: false,
+            pending_wrap: false,
+            utf8_buf: Vec::new(),
+            utf8_needed: 0,
         }
     }
 
@@ -141,18 +151,60 @@ impl Screen {
 
     /// Process a single byte through the VT100 state machine.
     pub fn process_byte(&mut self, b: u8) {
+        // UTF-8 multi-byte continuation handling (only in Ground state).
+        if self.utf8_needed > 0 && self.parser_state == ParserState::Ground {
+            if (0x80..0xC0).contains(&b) {
+                self.utf8_buf.push(b);
+                if self.utf8_buf.len() == self.utf8_needed {
+                    let ch = std::str::from_utf8(&self.utf8_buf)
+                        .ok()
+                        .and_then(|s| s.chars().next())
+                        .unwrap_or('\u{FFFD}');
+                    self.utf8_buf.clear();
+                    self.utf8_needed = 0;
+                    self.put_char(ch);
+                }
+                return;
+            }
+            // Invalid continuation: emit replacement and reprocess this byte.
+            self.utf8_buf.clear();
+            self.utf8_needed = 0;
+            self.put_char('\u{FFFD}');
+        }
+
         match self.parser_state {
             ParserState::Ground => match b {
                 0x1b => {
                     self.parser_state = ParserState::Escape;
                 }
+                0xC2..=0xDF => {
+                    self.utf8_buf.clear();
+                    self.utf8_buf.push(b);
+                    self.utf8_needed = 2;
+                }
+                0xE0..=0xEF => {
+                    self.utf8_buf.clear();
+                    self.utf8_buf.push(b);
+                    self.utf8_needed = 3;
+                }
+                0xF0..=0xF4 => {
+                    self.utf8_buf.clear();
+                    self.utf8_buf.push(b);
+                    self.utf8_needed = 4;
+                }
+                0x80..=0xC1 | 0xF5..=0xFF => {
+                    self.put_char('\u{FFFD}');
+                }
                 b'\r' => {
+                    self.pending_wrap = false;
                     self.cursor_col = 0;
                 }
                 b'\n' => {
+                    self.pending_wrap = false;
                     self.line_feed();
                 }
                 0x08 => {
+                    self.pending_wrap = false;
                     self.cursor_col = self.cursor_col.saturating_sub(1);
                 }
                 b'\t' => {
@@ -172,6 +224,7 @@ impl Screen {
                     self.csi_params.clear();
                     self.csi_current_param = None;
                     self.csi_is_private = false;
+                    self.csi_has_intermediate = false;
                 }
                 b']' => {
                     self.parser_state = ParserState::Osc;
@@ -181,12 +234,14 @@ impl Screen {
                     self.parser_state = ParserState::Ground;
                 }
                 b'8' => {
+                    self.pending_wrap = false;
                     self.cursor_row = min(self.saved_cursor.0, self.rows.saturating_sub(1));
                     self.cursor_col = min(self.saved_cursor.1, self.cols.saturating_sub(1));
                     self.parser_state = ParserState::Ground;
                 }
                 b'M' => {
                     // Reverse index (scroll down if at top)
+                    self.pending_wrap = false;
                     if self.cursor_row == 0 {
                         self.scroll_down();
                     } else {
@@ -204,20 +259,34 @@ impl Screen {
                     let current = self.csi_current_param.unwrap_or(0);
                     self.csi_current_param = Some(current.saturating_mul(10).saturating_add(digit));
                 }
-                b';' => {
+                b';' | b':' => {
                     self.csi_params.push(self.csi_current_param.unwrap_or(0));
                     self.csi_current_param = None;
                 }
-                b'?' => {
+                // Private parameter markers (`?`, `>`, `<`, `=`), e.g. `\x1b[?25h`, `\x1b[>4m`.
+                b'?' | b'>' | b'<' | b'=' => {
                     self.csi_is_private = true;
                 }
-                _ => {
+                // Intermediate bytes, e.g. `$` in `\x1b[?2026$p` or space in `\x1b[0 q`.
+                0x20..=0x2f => {
+                    self.csi_has_intermediate = true;
+                }
+                0x40..=0x7e => {
                     // Final character of CSI sequence
                     if let Some(param) = self.csi_current_param {
                         self.csi_params.push(param);
                     }
-                    self.execute_csi(b);
+                    if !self.csi_has_intermediate {
+                        self.execute_csi(b);
+                    }
                     self.parser_state = ParserState::Ground;
+                }
+                // Anything else aborts the sequence (C0 controls are executed as usual).
+                _ => {
+                    self.parser_state = ParserState::Ground;
+                    if b < 0x20 {
+                        self.process_byte(b);
+                    }
                 }
             },
             ParserState::Osc => {
@@ -230,6 +299,9 @@ impl Screen {
     }
 
     fn execute_csi(&mut self, cmd: u8) {
+        if cmd != b'm' {
+            self.pending_wrap = false;
+        }
         match cmd {
             b'H' | b'f' => {
                 // Cursor position: row;col (1-indexed, default 1)
@@ -289,6 +361,73 @@ impl Screen {
                 // Erase in line
                 let mode = self.csi_params.first().copied().unwrap_or(0);
                 self.erase_line(mode);
+            }
+            b'X' => {
+                // Erase Character(s): blank n cells from the cursor, cursor does not move
+                let n = self.csi_params.first().copied().unwrap_or(1).max(1) as usize;
+                let r = self.cursor_row as usize;
+                let cc = self.cursor_col as usize;
+                let cols = self.cols as usize;
+                if r < self.rows as usize {
+                    let grid = self.grid_mut();
+                    for cell in grid[r][cc..min(cc + n, cols)].iter_mut() {
+                        *cell = Cell::default();
+                    }
+                }
+            }
+            b'P' => {
+                // Delete Character(s): shift the rest of the line left
+                let n = self.csi_params.first().copied().unwrap_or(1).max(1) as usize;
+                let r = self.cursor_row as usize;
+                let cc = self.cursor_col as usize;
+                let cols = self.cols as usize;
+                if r < self.rows as usize && cc < cols {
+                    let grid = self.grid_mut();
+                    let n = min(n, cols - cc);
+                    grid[r].drain(cc..cc + n);
+                    grid[r].resize(cols, Cell::default());
+                }
+            }
+            b'@' => {
+                // Insert blank Character(s): shift the rest of the line right
+                let n = self.csi_params.first().copied().unwrap_or(1).max(1) as usize;
+                let r = self.cursor_row as usize;
+                let cc = self.cursor_col as usize;
+                let cols = self.cols as usize;
+                if r < self.rows as usize && cc < cols {
+                    let grid = self.grid_mut();
+                    let n = min(n, cols - cc);
+                    for _ in 0..n {
+                        grid[r].insert(cc, Cell::default());
+                    }
+                    grid[r].truncate(cols);
+                }
+            }
+            b'L' => {
+                // Insert Line(s) at cursor, pushing lines below down
+                let n = self.csi_params.first().copied().unwrap_or(1).max(1) as usize;
+                let r = self.cursor_row as usize;
+                let rows = self.rows as usize;
+                let cols = self.cols as usize;
+                let grid = self.grid_mut();
+                for _ in 0..min(n, rows.saturating_sub(r)) {
+                    grid.pop();
+                    grid.insert(r, vec![Cell::default(); cols]);
+                }
+            }
+            b'M' => {
+                // Delete Line(s) at cursor, pulling lines below up
+                let n = self.csi_params.first().copied().unwrap_or(1).max(1) as usize;
+                let r = self.cursor_row as usize;
+                let rows = self.rows as usize;
+                let cols = self.cols as usize;
+                let grid = self.grid_mut();
+                for _ in 0..min(n, rows.saturating_sub(r)) {
+                    if r < grid.len() {
+                        grid.remove(r);
+                        grid.push(vec![Cell::default(); cols]);
+                    }
+                }
             }
             b'm' => {
                 // SGR (Select Graphic Rendition)
@@ -389,6 +528,12 @@ impl Screen {
     }
 
     fn put_char(&mut self, ch: char) {
+        if self.pending_wrap {
+            self.pending_wrap = false;
+            self.cursor_col = 0;
+            self.line_feed();
+        }
+
         let r = self.cursor_row as usize;
         let c = self.cursor_col as usize;
         let rows = self.rows as usize;
@@ -401,10 +546,10 @@ impl Screen {
             };
         }
 
-        self.cursor_col += 1;
-        if self.cursor_col >= self.cols {
-            self.cursor_col = 0;
-            self.line_feed();
+        if self.cursor_col + 1 >= self.cols {
+            self.pending_wrap = true;
+        } else {
+            self.cursor_col += 1;
         }
     }
 

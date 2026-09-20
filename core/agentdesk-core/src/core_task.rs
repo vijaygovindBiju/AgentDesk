@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 
 use agentdesk_model::{
     AgentInfo, Body, CommandError, CommandResult, Decision, ErrorReply, EventPush, EventRef,
-    GetEventLogs, Message, PipelineMode, RawLine, RespondRequest, Snapshot, TaskId,
+    GetEventLogs, Message, PipelineMode, RawLine, RequestResponse, Snapshot, TaskId,
 };
 
 use crate::adapter::AdapterOutput;
@@ -30,6 +30,9 @@ pub enum AdapterCommand {
     Respond {
         task_id: TaskId,
         decision: Decision,
+        /// `agent_seq` of the request event being answered.
+        request_seq: Option<u64>,
+        response: Option<RequestResponse>,
         now: DateTime<Utc>,
     },
 }
@@ -379,19 +382,21 @@ impl CoreTask {
                     }
                 }
             }
-            Body::RespondRequest(RespondRequest { event_id, decision }) => {
-                let task_id = self
+            Body::RespondRequest(req) => {
+                let req_response = RequestResponse::from_respond_request(&req);
+                let (task_id, request_seq) = self
                     .event_store
-                    .get(&event_id)
-                    .and_then(|e| e.task_id.clone());
-                let res = self.queue.respond_request(&event_id, decision);
+                    .get(&req.event_id)
+                    .map(|e| (e.task_id.clone(), Some(e.agent_seq)))
+                    .unwrap_or((None, None));
+                let res = self.queue.respond_request(&req.event_id, req.decision);
 
                 match res {
                     Ok(state_update) => {
                         self.metrics.responses += 1;
                         if let Some(sc) =
                             self.queue
-                                .update_entry_score(&event_id, &self.event_store, now)
+                                .update_entry_score(&req.event_id, &self.event_store, now)
                         {
                             self.broadcast(Message::push(Body::ScoreUpdate(sc)));
                         }
@@ -401,7 +406,9 @@ impl CoreTask {
                         if let (Some(tid), Some(tx)) = (task_id, &self.adapter_responder) {
                             let _ = tx.try_send(AdapterCommand::Respond {
                                 task_id: tid,
-                                decision,
+                                decision: req.decision,
+                                request_seq,
+                                response: Some(req_response),
                                 now,
                             });
                         }
@@ -550,6 +557,7 @@ mod tests {
     use super::*;
     use crate::clock::VirtualClock;
     use crate::sink::VecSink;
+    use agentdesk_model::RespondRequest;
     use agentdesk_model::{Details, Empty, Operation, RawAgentEvent, RequestInfo};
     use chrono::Duration;
 
@@ -725,6 +733,7 @@ mod tests {
         raw.request = Some(RequestInfo {
             prompt: "Allow migration?".into(),
             options: vec!["approve".into(), "deny".into()],
+            question_type: None,
         });
         core.step(CoreCommand::Adapter(AdapterOutput::Event(raw)));
 
@@ -736,6 +745,8 @@ mod tests {
             Body::RespondRequest(RespondRequest {
                 event_id,
                 decision: Decision::Approve,
+                selected_options: None,
+                text_input: None,
             }),
         );
         core.step(CoreCommand::Client {
@@ -750,6 +761,7 @@ mod tests {
                 task_id,
                 decision,
                 now,
+                ..
             } => {
                 assert_eq!(task_id, "task-auth");
                 assert_eq!(decision, Decision::Approve);

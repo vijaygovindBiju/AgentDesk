@@ -207,6 +207,7 @@ impl Simulator {
                 let req = RequestInfo {
                     prompt: prompt.clone(),
                     options,
+                    question_type: None,
                 };
                 out.push(self.event(
                     ti,

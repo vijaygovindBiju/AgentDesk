@@ -202,10 +202,63 @@ pub struct EventLogs {
     pub lines: Vec<LogLine>,
 }
 
+/// Normalized human response to an agent request or question.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum RequestResponse {
+    /// Binary approval / accept default.
+    Approve,
+    /// Binary denial / cancel / skip.
+    Deny,
+    /// Single choice selection (option label).
+    SelectOption { option: String },
+    /// Multiple choice selection (list of selected options).
+    SelectMultiple { options: Vec<String> },
+    /// Free-form text input response.
+    TextInput { text: String },
+}
+
+impl RequestResponse {
+    pub fn from_decision(decision: Decision) -> Self {
+        match decision {
+            Decision::Approve => RequestResponse::Approve,
+            Decision::Deny => RequestResponse::Deny,
+        }
+    }
+
+    pub fn from_respond_request(req: &RespondRequest) -> Self {
+        if req.decision == Decision::Deny {
+            return RequestResponse::Deny;
+        }
+
+        if let Some(ref text) = req.text_input {
+            return RequestResponse::TextInput { text: text.clone() };
+        }
+
+        if let Some(ref opts) = req.selected_options {
+            if opts.len() == 1 {
+                return RequestResponse::SelectOption {
+                    option: opts[0].clone(),
+                };
+            } else if opts.len() > 1 {
+                return RequestResponse::SelectMultiple {
+                    options: opts.clone(),
+                };
+            }
+        }
+
+        RequestResponse::Approve
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RespondRequest {
     pub event_id: EventId,
     pub decision: Decision,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_options: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_input: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -277,6 +330,7 @@ mod tests {
             request: Some(RequestInfo {
                 prompt: "Allow migration?".into(),
                 options: vec!["approve".into(), "deny".into()],
+                question_type: None,
             }),
         }
     }
@@ -360,6 +414,8 @@ mod tests {
                 Body::RespondRequest(RespondRequest {
                     event_id: id,
                     decision: Decision::Approve,
+                    selected_options: None,
+                    text_input: None,
                 }),
             ),
             Message::with_request_id("r-6", Body::GetMetrics(Empty {})),

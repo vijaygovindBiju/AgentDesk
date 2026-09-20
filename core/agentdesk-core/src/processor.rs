@@ -304,6 +304,7 @@ mod tests {
         raw_req.request = Some(RequestInfo {
             prompt: "Allow?".into(),
             options: vec!["approve".into(), "deny".into()],
+            question_type: None,
         });
         let (ev_r, _) = processor
             .process_raw_event(

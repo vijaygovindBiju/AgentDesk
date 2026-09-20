@@ -79,6 +79,7 @@ pub fn run_bench_mode(
                     task_id,
                     decision,
                     now,
+                    ..
                 } => {
                     let _ = sim.respond(&task_id, decision, now);
                 }

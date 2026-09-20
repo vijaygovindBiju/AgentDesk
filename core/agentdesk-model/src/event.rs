@@ -131,11 +131,22 @@ pub struct LogRange {
     pub pinned: bool,
 }
 
+/// Type of interactive question requested by an agent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QuestionType {
+    SingleChoice,
+    MultipleChoice,
+    FreeText,
+}
+
 /// Present only on `Category::Request` events.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestInfo {
     pub prompt: String,
     pub options: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub question_type: Option<QuestionType>,
 }
 
 /// What an adapter emits. Nothing downstream sees agent-specific data.

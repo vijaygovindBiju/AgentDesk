@@ -256,8 +256,12 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             // Check if any adapter responses arrived
             tokio::select! {
                 adapter_cmd = rx_adapter.recv() => {
-                    if let Some(AdapterCommand::Respond { task_id, decision, now }) = adapter_cmd {
-                        let _ = adapter.respond(&task_id, decision, now);
+                    if let Some(AdapterCommand::Respond { task_id, decision, request_seq, response, now }) = adapter_cmd {
+                        if let Some(ref resp) = response {
+                            let _ = adapter.respond_with_response(&task_id, request_seq, resp, now);
+                        } else {
+                            let _ = adapter.respond(&task_id, decision, now);
+                        }
                     }
                 }
                 _ = tokio::time::sleep(Duration::from_millis(50)) => {}

@@ -235,6 +235,7 @@ async fn p6_t2_every_request_type_gets_matching_reply() {
         request: Some(RequestInfo {
             prompt: "Allow disk write?".into(),
             options: vec!["approve".into(), "deny".into()],
+            question_type: None,
         }),
     };
     core_tx
@@ -370,6 +371,8 @@ async fn p6_t2_every_request_type_gets_matching_reply() {
         Body::RespondRequest(RespondRequest {
             event_id: target_event_id,
             decision: Decision::Approve,
+            selected_options: None,
+            text_input: None,
         }),
         |b| match b {
             Body::CommandResult(res) => assert!(res.ok, "Expected ok, got: {:?}", res),
@@ -753,6 +756,8 @@ async fn phase6_exit_criteria_end_to_end() {
         Body::RespondRequest(RespondRequest {
             event_id: req_id,
             decision: Decision::Approve,
+            selected_options: None,
+            text_input: None,
         }),
     );
     ws_sink
@@ -790,6 +795,7 @@ async fn phase6_exit_criteria_end_to_end() {
             task_id,
             decision,
             now,
+            ..
         } => {
             sim.respond(&task_id, decision, now)
                 .expect("Simulator unblocked");

@@ -544,6 +544,7 @@ impl<T: AcpTransport> AcpAdapter<T> {
                     let request_info = RequestInfo {
                         prompt: title.clone(),
                         options: vec!["approve".into(), "deny".into()],
+                        question_type: None,
                     };
 
                     self.agent_seq += 1;

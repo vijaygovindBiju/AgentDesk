@@ -166,6 +166,8 @@ impl FakeClient {
                                 Body::RespondRequest(RespondRequest {
                                     event_id,
                                     decision: Decision::Approve,
+                                    selected_options: None,
+                                    text_input: None,
                                 }),
                             ),
                         });

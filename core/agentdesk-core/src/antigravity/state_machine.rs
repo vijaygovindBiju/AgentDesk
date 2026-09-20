@@ -7,9 +7,147 @@
 
 use std::collections::BTreeMap;
 
-use agentdesk_model::{Operation, RawAgentEvent, RequestInfo, TaskId};
+use agentdesk_model::{Operation, QuestionType, RawAgentEvent, RequestInfo, TaskId};
 
 use crate::antigravity::screen::ScreenSnapshot;
+
+/// Label Antigravity renders for the free-text write-in row of an `ask_question` menu.
+pub const WRITE_IN_LABEL: &str = "Write-in...";
+
+/// Prefix Antigravity renders on the chosen row once a question has been answered.
+pub const ANSWERED_MARK: &str = "✓";
+
+/// Structural details of an interactive question prompt.
+///
+/// `options` always lists the raw menu rows in screen order (including the `Write-in...`
+/// row when present) because keystroke navigation is index based. Use
+/// [`QuestionDetails::answer_options`] for the answer set exposed to AgentDesk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QuestionDetails {
+    /// Single selection from a numbered menu (`> 1. Option`).
+    SingleChoice {
+        options: Vec<String>,
+        selected_index: usize,
+        write_in_index: Option<usize>,
+    },
+    /// Multiple selection with togglable checkboxes (`> 1. [ ] Option` / `2. [x] Option`).
+    MultipleChoice {
+        options: Vec<String>,
+        checked_indices: Vec<usize>,
+        cursor_index: usize,
+        write_in_index: Option<usize>,
+    },
+    /// Write-in text entry control is active (`Your answer:` ... `enter Submit · esc Back`).
+    FreeText { current_text: String },
+}
+
+impl QuestionDetails {
+    pub fn question_type(&self) -> QuestionType {
+        match self {
+            QuestionDetails::SingleChoice { .. } => QuestionType::SingleChoice,
+            QuestionDetails::MultipleChoice { .. } => QuestionType::MultipleChoice,
+            QuestionDetails::FreeText { .. } => QuestionType::FreeText,
+        }
+    }
+
+    /// Raw menu rows in screen order (navigation index space).
+    pub fn menu_rows(&self) -> &[String] {
+        match self {
+            QuestionDetails::SingleChoice { options, .. }
+            | QuestionDetails::MultipleChoice { options, .. } => options,
+            QuestionDetails::FreeText { .. } => &[],
+        }
+    }
+
+    pub fn write_in_index(&self) -> Option<usize> {
+        match self {
+            QuestionDetails::SingleChoice { write_in_index, .. }
+            | QuestionDetails::MultipleChoice { write_in_index, .. } => *write_in_index,
+            QuestionDetails::FreeText { .. } => None,
+        }
+    }
+
+    /// Answer options exposed to AgentDesk (excludes the TUI's `Write-in...` affordance).
+    pub fn answer_options(&self) -> Vec<String> {
+        let write_in = self.write_in_index();
+        self.menu_rows()
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| Some(*i) != write_in)
+            .map(|(_, o)| o.clone())
+            .collect()
+    }
+
+    /// Whether the TUI offers a free-text write-in path for this question.
+    pub fn allows_write_in(&self) -> bool {
+        self.write_in_index().is_some()
+    }
+
+    /// Currently selected/checked answer options (excluding the write-in row).
+    pub fn selected_options(&self) -> Vec<String> {
+        match self {
+            QuestionDetails::SingleChoice {
+                options,
+                selected_index,
+                write_in_index,
+            } => options
+                .get(*selected_index)
+                .filter(|_| Some(*selected_index) != *write_in_index)
+                .cloned()
+                .into_iter()
+                .collect(),
+            QuestionDetails::MultipleChoice {
+                options,
+                checked_indices,
+                ..
+            } => checked_indices
+                .iter()
+                .filter_map(|i| options.get(*i).cloned())
+                .collect(),
+            QuestionDetails::FreeText { .. } => Vec::new(),
+        }
+    }
+
+    /// True when both describe the same question control set, ignoring live cursor/toggle/text
+    /// state that a human at the laptop may legitimately have changed.
+    pub fn same_controls(&self, other: &QuestionDetails) -> bool {
+        match (self, other) {
+            (
+                QuestionDetails::SingleChoice {
+                    options: a,
+                    write_in_index: wa,
+                    ..
+                },
+                QuestionDetails::SingleChoice {
+                    options: b,
+                    write_in_index: wb,
+                    ..
+                },
+            ) => a == b && wa == wb,
+            (
+                QuestionDetails::MultipleChoice {
+                    options: a,
+                    write_in_index: wa,
+                    ..
+                },
+                QuestionDetails::MultipleChoice {
+                    options: b,
+                    write_in_index: wb,
+                    ..
+                },
+            ) => a == b && wa == wb,
+            (QuestionDetails::FreeText { .. }, QuestionDetails::FreeText { .. }) => true,
+            _ => false,
+        }
+    }
+}
+
+/// Position of a question within a multi-question `ask_question` form (`Question 1/2:`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct QuestionForm {
+    pub index: u32,
+    pub total: u32,
+}
 
 /// Semantic state of the Antigravity session as observed through the terminal.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,10 +168,11 @@ pub enum AntigravityState {
         selected_option_index: usize,
         options: Vec<String>,
     },
-    /// Waiting for user to answer a multiple-choice or text question (`ask_question`).
+    /// Waiting for user to answer an interactive question (`ask_question`).
     UserQuestion {
         question: String,
-        options: Vec<String>,
+        form: Option<QuestionForm>,
+        details: QuestionDetails,
     },
     /// Waiting for workspace trust confirmation.
     WorkspaceTrust { directory: String },
@@ -43,6 +182,108 @@ pub enum AntigravityState {
     Completed { message: String },
     /// Fatal error encountered.
     FatalError { error: String },
+}
+
+impl AntigravityState {
+    /// True for states that block Antigravity on a human decision.
+    pub fn is_blocking(&self) -> bool {
+        matches!(
+            self,
+            AntigravityState::CommandConfirmation { .. }
+                | AntigravityState::FileEditConfirmation { .. }
+                | AntigravityState::UserQuestion { .. }
+                | AntigravityState::WorkspaceTrust { .. }
+        )
+    }
+
+    /// True when `other` is the same human request as `self`, ignoring live cursor /
+    /// toggle / typed-text state. Used to bind a response to the request it answers.
+    pub fn same_request(&self, other: &AntigravityState) -> bool {
+        match (self, other) {
+            (
+                AntigravityState::CommandConfirmation {
+                    command: a,
+                    options: oa,
+                    ..
+                },
+                AntigravityState::CommandConfirmation {
+                    command: b,
+                    options: ob,
+                    ..
+                },
+            ) => a == b && oa == ob,
+            (
+                AntigravityState::FileEditConfirmation {
+                    file_path: a,
+                    options: oa,
+                    ..
+                },
+                AntigravityState::FileEditConfirmation {
+                    file_path: b,
+                    options: ob,
+                    ..
+                },
+            ) => a == b && oa == ob,
+            (
+                AntigravityState::UserQuestion {
+                    question: qa,
+                    form: fa,
+                    details: da,
+                },
+                AntigravityState::UserQuestion {
+                    question: qb,
+                    form: fb,
+                    details: db,
+                },
+            ) => qa == qb && fa == fb && da.same_controls(db),
+            (
+                AntigravityState::WorkspaceTrust { directory: a },
+                AntigravityState::WorkspaceTrust { directory: b },
+            ) => a == b,
+            _ => false,
+        }
+    }
+}
+
+/// Build the normalized `details` map for a detected question. Only structured, sanitized
+/// values are included; no terminal bytes or layout data.
+pub fn question_details_map(
+    question: &str,
+    form: Option<QuestionForm>,
+    details: &QuestionDetails,
+) -> BTreeMap<String, serde_json::Value> {
+    let mut d = BTreeMap::new();
+    d.insert(
+        "question_type".to_string(),
+        serde_json::to_value(details.question_type()).unwrap_or(serde_json::Value::Null),
+    );
+    d.insert(
+        "question".to_string(),
+        serde_json::Value::String(question.to_string()),
+    );
+    d.insert(
+        "options".to_string(),
+        serde_json::json!(details.answer_options()),
+    );
+    d.insert(
+        "selected_options".to_string(),
+        serde_json::json!(details.selected_options()),
+    );
+    d.insert(
+        "allows_write_in".to_string(),
+        serde_json::Value::Bool(details.allows_write_in()),
+    );
+    if let Some(f) = form {
+        d.insert("question_index".to_string(), serde_json::json!(f.index));
+        d.insert("question_total".to_string(), serde_json::json!(f.total));
+    }
+    if let QuestionDetails::FreeText { current_text } = details {
+        d.insert(
+            "current_text".to_string(),
+            serde_json::Value::String(current_text.clone()),
+        );
+    }
+    d
 }
 
 /// State machine tracking Antigravity session transitions.
@@ -114,6 +355,7 @@ impl AntigravityStateMachine {
                     request: Some(RequestInfo {
                         prompt: command.clone(),
                         options: vec!["approve".to_string(), "deny".to_string()],
+                        question_type: None,
                     }),
                 })
             }
@@ -137,6 +379,7 @@ impl AntigravityStateMachine {
                     request: Some(RequestInfo {
                         prompt: format!("Allow edit to {file_path}?"),
                         options: vec!["approve".to_string(), "deny".to_string()],
+                        question_type: None,
                     }),
                 })
             }
@@ -160,10 +403,15 @@ impl AntigravityStateMachine {
                     request: Some(RequestInfo {
                         prompt: format!("Trust directory {directory}?"),
                         options: vec!["approve".to_string(), "deny".to_string()],
+                        question_type: None,
                     }),
                 })
             }
-            AntigravityState::UserQuestion { question, options } => {
+            AntigravityState::UserQuestion {
+                question,
+                form,
+                details,
+            } => {
                 let seq = self.next_seq();
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
@@ -172,11 +420,12 @@ impl AntigravityStateMachine {
                     kind: "input_required".to_string(),
                     operation: Operation::Other,
                     message: question.clone(),
-                    details: BTreeMap::new(),
+                    details: question_details_map(question, *form, details),
                     log_lines: vec![question.clone()],
                     request: Some(RequestInfo {
                         prompt: question.clone(),
-                        options: options.clone(),
+                        options: details.answer_options(),
+                        question_type: Some(details.question_type()),
                     }),
                 })
             }
@@ -264,6 +513,7 @@ impl AntigravityStateMachine {
                     request: Some(RequestInfo {
                         prompt: command.clone(),
                         options: vec!["approve".to_string(), "deny".to_string()],
+                        question_type: None,
                     }),
                 })
             }
@@ -287,6 +537,7 @@ impl AntigravityStateMachine {
                     request: Some(RequestInfo {
                         prompt: format!("Allow edit to {file_path}?"),
                         options: vec!["approve".to_string(), "deny".to_string()],
+                        question_type: None,
                     }),
                 })
             }
@@ -310,10 +561,15 @@ impl AntigravityStateMachine {
                     request: Some(RequestInfo {
                         prompt: format!("Trust directory {directory}?"),
                         options: vec!["approve".to_string(), "deny".to_string()],
+                        question_type: None,
                     }),
                 })
             }
-            AntigravityState::UserQuestion { question, options } => {
+            AntigravityState::UserQuestion {
+                question,
+                form,
+                details,
+            } => {
                 let seq = self.next_seq();
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
@@ -322,11 +578,12 @@ impl AntigravityStateMachine {
                     kind: "question".to_string(),
                     operation: Operation::Other,
                     message: question.clone(),
-                    details: BTreeMap::new(),
+                    details: question_details_map(question, *form, details),
                     log_lines: vec![question.clone()],
                     request: Some(RequestInfo {
                         prompt: question.clone(),
-                        options: options.clone(),
+                        options: details.answer_options(),
+                        question_type: Some(details.question_type()),
                     }),
                 })
             }
@@ -429,12 +686,12 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
     }
 
     // 4. Interactive User Question (ask_question)
-    let has_question_options = non_empty_lines
-        .iter()
-        .any(|l| l.contains("( )") || l.contains("[ ]") || l.contains("(•)") || l.contains("[x]"));
-    if has_question_options {
-        let (question, options) = extract_question_dialog(snapshot);
-        return AntigravityState::UserQuestion { question, options };
+    if let Some(dialog) = extract_question_dialog(snapshot) {
+        return AntigravityState::UserQuestion {
+            question: dialog.question,
+            form: dialog.form,
+            details: dialog.details,
+        };
     }
 
     // 5. Fatal Error check
@@ -614,20 +871,351 @@ fn extract_file_edit_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<St
     }
 }
 
-fn extract_question_dialog(snapshot: &ScreenSnapshot) -> (String, Vec<String>) {
-    let mut question = String::new();
-    let mut options = Vec::new();
+/// Fully parsed interactive question dialog.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuestionDialog {
+    pub question: String,
+    pub form: Option<QuestionForm>,
+    pub details: QuestionDetails,
+}
 
-    for line in &snapshot.lines {
-        let trimmed = line.trim();
-        if trimmed.contains("( )") || trimmed.contains("[ ]") {
-            options.push(trimmed.to_string());
-        } else if question.is_empty() && !trimmed.is_empty() && !trimmed.starts_with('─') {
-            question = trimmed.to_string();
+/// A parsed numbered menu row: `> 3. [x] Logging`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MenuRow {
+    cursor: bool,
+    number: usize,
+    checkbox: Option<bool>,
+    label: String,
+}
+
+/// Parse a single numbered menu row. Only the exact Bubbletea list layout is accepted:
+/// optional `>` cursor in the first column, one or more spaces, `<n>.`, a space, label.
+fn parse_menu_row(line: &str) -> Option<MenuRow> {
+    let (cursor, rest) = match line.strip_prefix('>') {
+        Some(rest) => (true, rest),
+        None => (false, line),
+    };
+    if !rest.starts_with(' ') {
+        return None;
+    }
+    let rest = rest.trim_start_matches(' ');
+    let digits_end = rest.find(|c: char| !c.is_ascii_digit())?;
+    if digits_end == 0 {
+        return None;
+    }
+    let number: usize = rest[..digits_end].parse().ok()?;
+    let after_num = &rest[digits_end..];
+    let label = after_num.strip_prefix(". ")?;
+    let label = label.trim_end();
+    if label.is_empty() {
+        return None;
+    }
+    let (checkbox, label) = if let Some(l) = label.strip_prefix("[ ] ") {
+        (Some(false), l)
+    } else if let Some(l) = label
+        .strip_prefix("[x] ")
+        .or_else(|| label.strip_prefix("[X] "))
+    {
+        (Some(true), l)
+    } else {
+        (None, label)
+    };
+    let label = label.trim();
+    if label.is_empty() {
+        return None;
+    }
+    Some(MenuRow {
+        cursor,
+        number,
+        checkbox,
+        label: label.to_string(),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MenuLegend {
+    /// `↑/↓ Navigate · enter Select · esc Skip`
+    Single,
+    /// `↑/↓ Navigate · space Toggle · enter Submit · esc Skip`
+    Multi,
+}
+
+fn parse_menu_legend(line: &str) -> Option<MenuLegend> {
+    let t = line.trim();
+    if !(t.contains("Navigate") && t.contains("esc Skip")) {
+        return None;
+    }
+    if t.contains("space Toggle") && t.contains("enter Submit") {
+        Some(MenuLegend::Multi)
+    } else if t.contains("enter Select") {
+        Some(MenuLegend::Single)
+    } else {
+        None
+    }
+}
+
+fn is_write_in_legend(line: &str) -> bool {
+    let t = line.trim();
+    t.contains("enter Submit") && t.contains("esc Back") && !t.contains("Navigate")
+}
+
+/// Parse the `Question <i>/<n>: <text>` form header.
+fn parse_question_header(line: &str) -> Option<(QuestionForm, String)> {
+    let rest = line.trim().strip_prefix("Question ")?;
+    let (counter, text) = rest.split_once(':')?;
+    let (i, n) = counter.trim().split_once('/')?;
+    let index: u32 = i.trim().parse().ok()?;
+    let total: u32 = n.trim().parse().ok()?;
+    if index == 0 || total == 0 || index > total {
+        return None;
+    }
+    let text = text.trim();
+    if text.is_empty() {
+        return None;
+    }
+    Some((QuestionForm { index, total }, text.to_string()))
+}
+
+/// Parsed option block anchored at a legend row: rows in screen order plus the row index
+/// (in `lines`) of the first option row.
+struct MenuBlock {
+    rows: Vec<MenuRow>,
+    first_row_line: usize,
+}
+
+/// Walk upward from `legend_line` collecting the contiguous numbered rows that end at the
+/// legend. Numbering must run `n, n-1, ..., 1` (this rejects stale redraw residue above the
+/// live block) and exactly one row must carry the cursor.
+fn collect_menu_block(lines: &[String], legend_line: usize) -> Option<MenuBlock> {
+    let mut rows_rev = Vec::new();
+    let mut r = legend_line;
+    let mut expected: Option<usize> = None;
+    let mut leading_blanks = 0;
+    while r > 0 {
+        r -= 1;
+        let row = match parse_menu_row(&lines[r]) {
+            Some(row) => row,
+            // Up to two blank spacer lines may sit between the block and its legend.
+            None if rows_rev.is_empty() && lines[r].trim().is_empty() && leading_blanks < 2 => {
+                leading_blanks += 1;
+                continue;
+            }
+            None => break,
+        };
+        match expected {
+            None => expected = Some(row.number),
+            Some(e) if row.number == e => {}
+            Some(_) => break,
+        }
+        rows_rev.push(row);
+        expected = Some(expected.unwrap() - 1);
+        if expected == Some(0) {
+            break;
         }
     }
+    if expected != Some(0) {
+        return None;
+    }
+    let first_row_line = r;
+    let rows: Vec<MenuRow> = rows_rev.into_iter().rev().collect();
+    if rows.len() < 2 || rows.iter().filter(|x| x.cursor).count() != 1 {
+        return None;
+    }
+    // A `✓` mark is the post-submit confirmation frame: the answer has been taken, the menu is
+    // no longer live.
+    if rows.iter().any(|x| x.label.starts_with(ANSWERED_MARK)) {
+        return None;
+    }
+    Some(MenuBlock {
+        rows,
+        first_row_line,
+    })
+}
 
-    (question, options)
+/// Locate the `Question i/n:` header above the option block. Stale option rows left behind by
+/// in-place redraws are skipped; up to two blank lines and up to two wrapped continuation lines
+/// of the question text are tolerated.
+fn find_form_header(lines: &[String], first_row_line: usize) -> Option<(QuestionForm, String)> {
+    let mut continuation: Vec<String> = Vec::new();
+    let mut blanks = 0;
+    let mut r = first_row_line;
+    while r > 0 {
+        r -= 1;
+        let t = lines[r].trim();
+        if t.is_empty() {
+            blanks += 1;
+            if blanks > 2 {
+                return None;
+            }
+            continue;
+        }
+        if let Some((form, text)) = parse_question_header(t) {
+            let mut question = text;
+            for c in continuation.iter().rev() {
+                question.push(' ');
+                question.push_str(c);
+            }
+            return Some((form, question));
+        }
+        if parse_menu_row(&lines[r]).is_some() {
+            continue;
+        }
+        if continuation.len() >= 2 {
+            return None;
+        }
+        continuation.push(t.to_string());
+    }
+    None
+}
+
+/// Spinner glyphs and progress labels Antigravity renders while the model is streaming.
+const SPINNER_CHARS: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const BRAILLE_SPINNER_RANGE: std::ops::RangeInclusive<char> = '\u{2800}'..='\u{28FF}';
+
+fn is_progress_line(line: &str) -> bool {
+    line.chars()
+        .next()
+        .is_some_and(|c| SPINNER_CHARS.contains(&c) || BRAILLE_SPINNER_RANGE.contains(&c))
+        || line.contains("Generating...")
+        || line.contains("Working...")
+}
+
+/// A live dialog is the bottom-most region of the TUI: the first non-blank line below its
+/// footer must be Antigravity's own `esc to cancel` status bar, and no progress/spinner line
+/// may follow. Text merely *printed* by the agent or a tool (transcript area) is always
+/// followed by the live input box / spinner / status bar and therefore fails this check.
+fn footer_is_bottom_live_region(lines: &[String], footer_line: usize) -> bool {
+    let mut saw_status_bar = false;
+    for line in &lines[footer_line + 1..] {
+        let t = line.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if is_progress_line(t) {
+            return false;
+        }
+        if !saw_status_bar {
+            if !t.starts_with("esc to cancel") {
+                return false;
+            }
+            saw_status_bar = true;
+        }
+    }
+    saw_status_bar
+}
+
+fn build_menu_details(legend: MenuLegend, rows: &[MenuRow]) -> Option<QuestionDetails> {
+    let last = rows.len() - 1;
+    let write_in_index =
+        (rows[last].label == WRITE_IN_LABEL && rows[last].checkbox.is_none()).then_some(last);
+    let options: Vec<String> = rows.iter().map(|r| r.label.clone()).collect();
+    let cursor = rows.iter().position(|r| r.cursor)?;
+    match legend {
+        MenuLegend::Single => {
+            if rows.iter().any(|r| r.checkbox.is_some()) {
+                return None;
+            }
+            Some(QuestionDetails::SingleChoice {
+                options,
+                selected_index: cursor,
+                write_in_index,
+            })
+        }
+        MenuLegend::Multi => {
+            let mut checked = Vec::new();
+            for (i, r) in rows.iter().enumerate() {
+                match r.checkbox {
+                    Some(true) => checked.push(i),
+                    Some(false) => {}
+                    None if Some(i) == write_in_index => {}
+                    None => return None,
+                }
+            }
+            Some(QuestionDetails::MultipleChoice {
+                options,
+                checked_indices: checked,
+                cursor_index: cursor,
+                write_in_index,
+            })
+        }
+    }
+}
+
+/// Parse the Antigravity `ask_question` form (numbered menu + key legend + form header).
+fn extract_agy_question_form(snapshot: &ScreenSnapshot) -> Option<QuestionDialog> {
+    let lines = &snapshot.lines;
+    // Bottom-up: the lowest footer on screen is the live control.
+    let mut footer = None;
+    for r in (0..lines.len()).rev() {
+        if is_write_in_legend(&lines[r]) {
+            footer = Some((r, None));
+            break;
+        }
+        if let Some(legend) = parse_menu_legend(&lines[r]) {
+            footer = Some((r, Some(legend)));
+            break;
+        }
+    }
+    let (footer_line, legend) = footer?;
+    if !footer_is_bottom_live_region(lines, footer_line) {
+        return None;
+    }
+
+    // Write-in text entry: `Your answer:` label above the footer, and the option block (cursor
+    // on `Write-in...`) with its form header directly above that.
+    if legend.is_none() {
+        // Walk up from the footer: blank spacers and at most two lines of typed text, then
+        // the `Your answer:` label must appear within six rows.
+        let mut answer_label = None;
+        let mut text_lines: Vec<&str> = Vec::new();
+        for r in (footer_line.saturating_sub(6)..footer_line).rev() {
+            let t = lines[r].trim();
+            if t == "Your answer:" {
+                answer_label = Some(r);
+                break;
+            }
+            if t.is_empty() {
+                continue;
+            }
+            if text_lines.len() >= 2 || parse_menu_legend(t).is_some() {
+                return None;
+            }
+            text_lines.push(t);
+        }
+        let answer_label = answer_label?;
+        text_lines.reverse();
+        let current_text = text_lines.join(" ");
+        // Directly above the label (blank spacers allowed) sits the option block with the
+        // cursor parked on its `Write-in...` row; the block's own legend is no longer shown.
+        let block = collect_menu_block(lines, answer_label)?;
+        let cursor_row = block.rows.iter().find(|r| r.cursor)?;
+        if cursor_row.label != WRITE_IN_LABEL || cursor_row.checkbox.is_some() {
+            return None;
+        }
+        let (form, question) = find_form_header(lines, block.first_row_line)?;
+        return Some(QuestionDialog {
+            question,
+            form: Some(form),
+            details: QuestionDetails::FreeText { current_text },
+        });
+    }
+
+    let block = collect_menu_block(lines, footer_line)?;
+    let (form, question) = find_form_header(lines, block.first_row_line)?;
+    let details = build_menu_details(legend?, &block.rows)?;
+    Some(QuestionDialog {
+        question,
+        form: Some(form),
+        details,
+    })
+}
+
+/// Detect an interactive question dialog. Evidence of an actual TUI control is required:
+/// the Antigravity form header + numbered menu (exactly one cursor row, numbering `1..n`) +
+/// key legend (or its write-in text entry), positioned as the bottom live region above the
+/// `esc to cancel` status bar. Question-like prose alone is never sufficient.
+pub fn extract_question_dialog(snapshot: &ScreenSnapshot) -> Option<QuestionDialog> {
+    extract_agy_question_form(snapshot)
 }
 
 pub fn classify_command_operation(cmd: &str) -> Operation {

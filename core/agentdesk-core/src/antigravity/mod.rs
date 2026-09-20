@@ -12,10 +12,16 @@ pub mod pty;
 pub mod screen;
 pub mod state_machine;
 
-pub use adapter::{AntigravityConfig, AntigravityLifecycle, AntigravityPtyAdapter};
-pub use input_encoder::{encode_decision, encode_text_submission, keys};
+pub use adapter::{
+    AntigravityConfig, AntigravityLifecycle, AntigravityPtyAdapter, PendingRequest, RequestOutcome,
+};
+pub use input_encoder::{
+    QuestionInput, encode_decision, encode_question_response, encode_text_submission, keys,
+    validate_text_input,
+};
 pub use pty::{MockPtyTransport, PtyChunk, PtyRecording, PtySession, PtyTransport};
 pub use screen::{Cell, CellAttributes, Screen, ScreenSnapshot};
 pub use state_machine::{
-    AntigravityState, AntigravityStateMachine, classify_command_operation, detect_state,
+    AntigravityState, AntigravityStateMachine, QuestionDetails, QuestionDialog, QuestionForm,
+    WRITE_IN_LABEL, classify_command_operation, detect_state, extract_question_dialog,
 };

@@ -9,7 +9,7 @@
 
 use chrono::{DateTime, Utc};
 
-use agentdesk_model::{AgentId, AgentInfo, Decision, RawAgentEvent, TaskId};
+use agentdesk_model::{AgentId, AgentInfo, Decision, RawAgentEvent, RequestResponse, TaskId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AdapterOutput {
@@ -24,6 +24,16 @@ pub enum RespondError {
     NoSuchTask,
     /// The task exists but is not waiting for a decision.
     NotBlocked,
+    /// The request is stale or already consumed.
+    AlreadyConsumed,
+    /// The current TUI state does not match the active request.
+    StateMismatch,
+    /// The response is invalid for the current request type (e.g. invalid option).
+    InvalidResponse,
+    /// PTY transport is disconnected or closed.
+    Disconnected,
+    /// The response targets a request that has been superseded by a newer one.
+    WrongRequest,
 }
 
 pub trait Adapter: Send {
@@ -45,6 +55,25 @@ pub trait Adapter: Send {
         decision: Decision,
         now: DateTime<Utc>,
     ) -> Result<(), RespondError>;
+
+    /// Deliver a normalized human response (which may include option selections or text input).
+    /// `request_seq` is the `agent_seq` of the request event being answered, when known; adapters
+    /// that track pending requests use it to reject responses aimed at a superseded request.
+    /// Defaults to delegating to `respond` with `Decision::Approve` or `Decision::Deny`.
+    fn respond_with_response(
+        &mut self,
+        task_id: &TaskId,
+        request_seq: Option<u64>,
+        response: &RequestResponse,
+        now: DateTime<Utc>,
+    ) -> Result<(), RespondError> {
+        let _ = request_seq;
+        let decision = match response {
+            RequestResponse::Deny => Decision::Deny,
+            _ => Decision::Approve,
+        };
+        self.respond(task_id, decision, now)
+    }
 
     /// True once no further output can ever be produced.
     fn is_finished(&self) -> bool;

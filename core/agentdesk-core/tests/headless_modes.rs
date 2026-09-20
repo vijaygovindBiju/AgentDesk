@@ -70,6 +70,8 @@ fn run_headless_simulation(mode: PipelineMode) -> (Vec<Message>, agentdesk_core:
                                 Body::RespondRequest(RespondRequest {
                                     event_id: eid,
                                     decision: Decision::Approve,
+                                    selected_options: None,
+                                    text_input: None,
                                 }),
                             ),
                         });
@@ -81,6 +83,7 @@ fn run_headless_simulation(mode: PipelineMode) -> (Vec<Message>, agentdesk_core:
                                 task_id,
                                 decision,
                                 now,
+                                ..
                             } => {
                                 sim.respond(&task_id, decision, now).unwrap();
                             }
