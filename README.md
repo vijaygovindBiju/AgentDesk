@@ -473,7 +473,7 @@ AgentDesk currently has a source-based development workflow. It does not yet pub
 
 ### End User Requirements
 
-For a future packaged production release, a normal user should install the AgentDesk desktop application on the laptop and the AgentDesk Android application on the phone. Rust, Cargo, Flutter, Android SDK tools, ADB, Git, and the source tree should not be required to run packaged applications.
+For a packaged production release, a normal user must install only the AgentDesk desktop application on the laptop and the AgentDesk Android application on the phone. Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK, Node/npm, compilers, build tools, and the source tree must not be required to run packaged applications.
 
 | Requirement | Normal user |
 |---|---|
@@ -481,15 +481,18 @@ For a future packaged production release, a normal user should install the Agent
 | AgentDesk Android application | Required; a public release APK is not yet published |
 | Supported coding agent | Required for real-agent integration; current adapters are ACP-compatible agents and experimental Antigravity |
 | Network connection | Required for phone-to-laptop communication over the configured WebSocket endpoint |
-| Rust toolchain | Not required for packaged applications; required only to build the current daemon from source |
-| Cargo | Not required for packaged applications; required only to build from source |
-| Flutter SDK | Not required for a packaged Android application; required only to build the current client from source |
-| Android SDK | Not required to install a published APK; required only to build the client |
-| ADB | Not required for a published APK; used for emulator setup, device installation, and development |
-| Git | Not required after obtaining packaged applications; required to clone the source repository |
-| AgentDesk source code | Not required for packaged applications; required for the current source-based workflow |
+| Rust toolchain | Not required for packaged applications; developer-only build dependency |
+| Cargo | Not required for packaged applications; developer-only build dependency |
+| Flutter SDK | Not required for a packaged Android application; developer-only build dependency |
+| Android SDK | Not required to install a published APK; developer-only build dependency |
+| ADB | Not required for a published APK; developer-only development and testing tool |
+| Java/JDK | Not required for packaged applications; only relevant to Android builds |
+| Node/npm | Not required for the current packaged-user model |
+| Compilers and build tools | Not required for packaged applications; developer-only build dependencies |
+| Git | Not required after obtaining packaged applications; developer-only source-management tool |
+| AgentDesk source code | Not required for packaged applications; developer-only source dependency |
 
-**Important:** Rust and Flutter are development/build requirements. A normal user should run packaged applications rather than build AgentDesk from source. That packaged production distribution does not exist yet in this repository.
+**Important:** Rust, Cargo, Flutter, Android SDK tools, ADB, Java/JDK, Git, compilers, build tools, and source code are development/build requirements only. A normal user must run packaged AgentDesk applications rather than build AgentDesk from source. That packaged production distribution does not exist yet in this repository.
 
 ### Developer / Contributor Requirements
 
@@ -519,7 +522,7 @@ adb version
 
 ### For Normal Users
 
-The intended production workflow is:
+The required production workflow is:
 
 1. Download and install an AgentDesk desktop release on the laptop.
 2. Launch AgentDesk and follow the setup flow.
@@ -527,14 +530,9 @@ The intended production workflow is:
 4. Open the mobile application and pair it with the laptop.
 5. Start a supported coding agent and supervise it from the phone.
 
-This workflow is **not yet available** in the current source release. There is currently no published Linux, Windows, or macOS desktop installer, no public Android release APK, and no automatic QR or guided pairing flow. A normal user cannot currently complete installation without using the developer/source workflow below.
+This workflow is **not yet available** in the current source release. There is currently no published Linux, Windows, or macOS desktop installer, no public Android release APK, and no automatic QR or guided pairing flow.
 
-The current manual setup requires:
-
-- building and running the Rust daemon on the laptop;
-- building or running the Flutter application on an Android emulator or device;
-- entering the server URL, device ID, token, and, for `wss://`, the certificate fingerprint manually;
-- using `adb reverse` for the documented emulator-only `--insecure-dev` path.
+**End-user availability:** AgentDesk is not currently installable as a normal-user product. Do not ask end users to install Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK, Node/npm, compilers, build tools, or source code as a workaround. The source-build workflow is for developers and contributors only.
 
 Do not use `--insecure-dev` for a LAN or production deployment. It enables plaintext `ws://` only on loopback.
 
@@ -684,18 +682,22 @@ There is no QR pairing flow, device registry, automatic certificate transfer, or
 
 ### Planned production experience
 
-The planned production setup is a guided laptop/phone pairing flow that transfers the server address, token, and certificate identity safely, supports device management, and removes the need for manual credential entry. This is planned work, not current functionality.
+The planned production setup is a zero-development-dependency installation: prebuilt laptop packages contain the required AgentDesk daemon/runtime, the phone receives a signed Android application, and a guided pairing flow transfers the server address, token, and certificate identity safely. This is planned work, not current functionality.
 
 ## Production vs Development
 
 | Area | Development | Normal user / production |
 |---|---|---|
 | Installation | Build Rust and Flutter components from source | Install packaged applications; not yet available |
-| Rust | Required for the laptop daemon | Not required for a packaged desktop application |
-| Flutter SDK | Required to build or run the mobile client | Not required for a packaged Android application |
-| Android SDK | Required to build the mobile client | Not required to install a published APK |
+| Rust | Required for the laptop daemon build | Not required |
+| Cargo | Required for the laptop daemon build | Not required |
+| Flutter SDK | Required to build or run the mobile client | Not required |
+| Android SDK | Required to build the mobile client | Not required |
 | ADB | Used for emulator forwarding, device installation, and testing | Not required |
+| Java/JDK | May be required by the Android build toolchain | Not required |
+| Node/npm | Not required by the current build | Not required |
 | Source code | Required | Not required |
+| Compilers and build tools | Required to build from source | Not required |
 | TLS setup | Manual URL, token, and fingerprint configuration | Should be guided or automatic; not implemented |
 | Authentication | Shared token printed by the daemon and entered manually | Should be guided; not implemented |
 | Pairing | No automatic pairing; manual configuration | Should be guided; not implemented |
@@ -709,7 +711,7 @@ The planned production setup is a guided laptop/phone pairing flow that transfer
 | Flutter source build | ✅ Available with `flutter build` / `flutter run` |
 | Android debug build | ✅ Available through Flutter tooling |
 | Android release APK | 🚧 Can be generated locally with `flutter build apk --release --split-per-abi`; not published |
-| Linux desktop package | 🚧 Not yet available |
+| Linux desktop package | 🚧 Not yet available; required for normal-user laptop installation |
 | Windows package | 🚧 Not yet available |
 | macOS package | 🚧 Not yet available |
 | Automatic pairing | 📋 Planned; current setup is manual |
@@ -739,7 +741,7 @@ Start supported coding agent
 Supervise from phone
 ```
 
-This is the target distribution experience. The current repository provides the underlying daemon, Flutter client, secure transport, and manual configuration flow, but not the packaged installers or automatic pairing needed to deliver it to normal users.
+This is the target distribution experience. The current repository provides the underlying daemon, Flutter client, secure transport, and developer-oriented manual configuration flow, but not the prebuilt applications, packaged laptop runtime, or automatic pairing needed to deliver it to normal users. The long-term product requirement is a zero-development-dependency installation experience.
 
 ## Running the Simulator
 
