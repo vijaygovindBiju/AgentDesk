@@ -79,6 +79,66 @@ AgentDesk/
 └── mobile/    Flutter client
 ```
 
+## Installation and local development
+
+### Prerequisites
+
+- Rust and Cargo (edition 2024 toolchain)
+- Flutter SDK 3.12 or newer
+- An Android emulator or physical Android device for the mobile client
+
+### Install dependencies
+
+```sh
+cd core
+cargo fetch
+
+cd ../mobile
+flutter pub get
+```
+
+### Run the simulator and mobile client
+
+Start the local daemon in development mode:
+
+```sh
+cd core
+cargo run -p agentdesk-server --bin agentdesk -- \
+  run \
+  --scenario agentdesk-sim/scenarios/default.json \
+  --seed 42 \
+  --mode agentdesk \
+  --insecure-dev
+```
+
+For an Android emulator, forward the daemon's loopback port before starting Flutter:
+
+```sh
+adb reverse tcp:8765 tcp:8765
+cd mobile
+flutter run
+```
+
+The daemon prints the connection token at startup. Configure the mobile client with
+`ws://127.0.0.1:8765`, the printed token, and the development connection settings.
+The `--insecure-dev` option is loopback-only and must not be used for LAN or production
+connections.
+
+### Run a real agent
+
+The daemon can also connect to an ACP-compatible agent or the Antigravity PTY adapter:
+
+```sh
+cd core
+cargo run -p agentdesk-server --bin agentdesk -- \
+  run \
+  --agent "gemini --skip-trust --acp" \
+  --prompt "Explain the purpose of this project." \
+  --insecure-dev
+```
+
+Use `--antigravity --agent "agy"` instead of `--agent` for the Antigravity adapter.
+
 ## Documentation
 
 | Document | Purpose |
