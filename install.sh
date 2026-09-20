@@ -90,6 +90,8 @@ validate_setting "INSTALL_DIR" "$INSTALL_DIR"
 [[ "$INSTALL_DIR" != *[[:space:]]* ]] ||
   fail "INSTALL_DIR must not contain whitespace"
 
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/agentdesk-install.XXXXXX")"
+
 case "$(uname -m)" in
   x86_64|amd64)
     ARCH="x86_64"
@@ -103,16 +105,26 @@ case "$(uname -m)" in
 esac
 
 if [[ "$VERSION" == "latest" ]]; then
-  require_command grep
   API_URL="https://api.github.com/repos/${REPOSITORY}/releases/latest"
+  API_RESPONSE="${WORK_DIR}/release.json"
+  API_STATUS=""
   log "resolving the latest release from ${REPOSITORY}"
-  RELEASE_JSON="$(curl --fail --silent --show-error --location \
+  mkdir -p "$(dirname "$API_RESPONSE")"
+  if ! API_STATUS="$(curl --silent --show-error --location \
     --proto '=https' --proto-redir '=https' \
-    --header 'Accept: application/vnd.github+json' "$API_URL")" ||
+    --header 'Accept: application/vnd.github+json' \
+    --output "$API_RESPONSE" --write-out '%{http_code}' "$API_URL")"; then
     fail "could not query the latest GitHub release"
-  VERSION="$(printf '%s\n' "$RELEASE_JSON" |
-    sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
-  [[ -n "$VERSION" ]] || fail "GitHub returned no release tag; publish a release before installing"
+  fi
+  if [[ "$API_STATUS" == "404" ]]; then
+    fail "AgentDesk has no published release yet. Please install a published release or use the developer installation."
+  fi
+  [[ "$API_STATUS" == "200" ]] ||
+    fail "could not query the latest GitHub release (HTTP ${API_STATUS})"
+  VERSION="$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$API_RESPONSE" |
+    head -n 1)"
+  [[ -n "$VERSION" ]] ||
+    fail "GitHub returned no release tag; publish a release before installing"
 fi
 
 [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] ||
@@ -121,7 +133,6 @@ fi
 ASSET="AgentDesk-${VERSION}-linux-${ARCH}.tar.gz"
 CHECKSUMS_ASSET="SHA256SUMS"
 RELEASE_URL="${RELEASE_BASE_URL}/${VERSION}"
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/agentdesk-install.XXXXXX")"
 ARCHIVE_PATH="${WORK_DIR}/${ASSET}"
 CHECKSUMS_PATH="${WORK_DIR}/${CHECKSUMS_ASSET}"
 
@@ -132,7 +143,7 @@ download() {
   curl --fail --silent --show-error --location \
     --proto '=https' --proto-redir '=https' \
     --output "$destination" "$url" ||
-    fail "download failed: ${url}"
+    fail "Could not download AgentDesk release data"
 }
 
 download "${RELEASE_URL}/${CHECKSUMS_ASSET}" "$CHECKSUMS_PATH"
@@ -155,7 +166,7 @@ EXPECTED_SHA="$(
 
 ACTUAL_SHA="$(sha256sum "$ARCHIVE_PATH" | awk '{print $1}')"
 [[ "$ACTUAL_SHA" == "$EXPECTED_SHA" ]] ||
-  fail "checksum verification failed for ${ASSET}"
+  fail "Checksum verification failed for ${ASSET}"
 log "verified SHA-256 checksum for ${ASSET}"
 
 ARCHIVE_ENTRIES="$(tar --list --gzip --file "$ARCHIVE_PATH")"
@@ -226,7 +237,9 @@ systemctl --user daemon-reload
 systemctl --user enable --now "$SERVICE_NAME"
 sleep 1
 systemctl --user is-active --quiet "$SERVICE_NAME" ||
-  fail "the AgentDesk service did not start; inspect logs with: systemctl --user status ${SERVICE_NAME} and journalctl --user -u ${SERVICE_NAME}"
+  fail "AgentDesk installation failed: the user service did not start; inspect logs with: systemctl --user status ${SERVICE_NAME} and journalctl --user -u ${SERVICE_NAME}"
+[[ "$(systemctl --user show --property=ActiveState --value "$SERVICE_NAME")" == "active" ]] ||
+  fail "AgentDesk installation failed: the user service is not healthy"
 
 log "installed ${VERSION} for Linux ${ARCH}"
 log "binary: ${BIN_DIR}/agentdesk"

@@ -4,7 +4,10 @@ This directory documents the release contract consumed by `../install.sh`.
 
 ## Linux daemon archive
 
-Each Linux release must publish these versioned assets under a GitHub Release tag:
+The workspace version in `core/Cargo.toml` is the release version source of
+truth. A release tag must be the same version with a `v` prefix, for example
+`core/Cargo.toml` version `0.1.0` is published as tag `v0.1.0`. The release
+workflow publishes these assets under that tag:
 
 ```text
 AgentDesk-vX.Y.Z-linux-x86_64.tar.gz
@@ -34,15 +37,16 @@ does not match.
 
 ## Android application
 
-The initial direct-download Android artifact is:
+The direct-download Android artifact produced by the release workflow is:
 
 ```text
 AgentDesk-vX.Y.Z.apk
 ```
 
-It should be a signed release APK built from `mobile/`. It is distributed
-separately from the Linux installer. The current repository can build APKs
-locally, but it does not yet publish a signed release APK.
+It is built from `mobile/` for Android ARM64 and distributed separately from the
+Linux installer. The workflow currently uses Flutter's default release signing
+configuration; configure repository signing secrets before treating it as a
+production-signed APK.
 
 ## Release hosting
 

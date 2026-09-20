@@ -1,0 +1,143 @@
+name: Release AgentDesk
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            target: x86_64-unknown-linux-gnu
+            linker: gcc
+          - arch: aarch64
+            target: aarch64-unknown-linux-gnu
+            linker: aarch64-linux-gnu-gcc
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Linux cross compiler
+        if: matrix.arch == 'aarch64'
+        run: sudo apt-get update && sudo apt-get install --yes gcc-aarch64-linux-gnu
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Verify release version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          package_version="$(cargo pkgid --manifest-path core/Cargo.toml -p agentdesk-server | sed 's/.*#//')"
+          expected_version="${RELEASE_TAG#v}"
+          [[ "$package_version" == "$expected_version" ]] || {
+            printf 'Cargo workspace version %s does not match tag %s\n' "$package_version" "$RELEASE_TAG" >&2
+            exit 1
+          }
+
+      - name: Build daemon
+        working-directory: core
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: cargo build --locked --release --package agentdesk-server --target "${{ matrix.target }}"
+
+      - name: Package daemon
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          versioned_name="AgentDesk-${RELEASE_TAG}-linux-${{ matrix.arch }}.tar.gz"
+          staging="$(mktemp -d)"
+          install -m 0755 "core/target/${{ matrix.target }}/release/agentdesk" "$staging/agentdesk"
+          tar --create --gzip --file "$versioned_name" -C "$staging" agentdesk
+          rm -rf "$staging"
+
+      - name: Upload daemon artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: AgentDesk-*.tar.gz
+          if-no-files-found: error
+
+  android:
+    name: Android APK
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build Android ARM64 APK
+        working-directory: mobile
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter build apk --release --split-per-abi \
+            --target-platform android-arm64 \
+            --build-name "${RELEASE_TAG#v}" \
+            --build-number "${GITHUB_RUN_NUMBER}"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+            "../AgentDesk-${RELEASE_TAG}.apk"
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: AgentDesk-*.apk
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: [linux, android]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download Linux x86_64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-x86_64
+          path: release
+
+      - name: Download Linux aarch64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-aarch64
+          path: release
+
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android
+          path: release
+
+      - name: Create checksums
+        working-directory: release
+        run: sha256sum AgentDesk-*.tar.gz AgentDesk-*.apk > SHA256SUMS
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release/AgentDesk-*.tar.gz
+            release/AgentDesk-*.apk
+            release/SHA256SUMS

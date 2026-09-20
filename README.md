@@ -185,7 +185,9 @@ curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/master/in
 
 The installer is designed to detect Linux and CPU architecture, download the matching prebuilt AgentDesk daemon, verify its SHA-256 checksum, install it for the current user, configure a systemd user service, start the service, and verify that it is running. It does not compile AgentDesk locally.
 
-The current repository does **not** yet publish the required release assets, so this command currently fails safely rather than building from source. A release must provide:
+The repository's release workflow publishes the required assets when a `vX.Y.Z`
+tag is pushed. Until the first published release exists, this command fails
+clearly rather than building from source. A release provides:
 
 ```text
 AgentDesk-vX.Y.Z-linux-x86_64.tar.gz
@@ -197,7 +199,12 @@ See [Prebuilt Linux Installer](#prebuilt-linux-installer) and [Release Artifacts
 
 ### Android phone
 
-Install the signed `AgentDesk-vX.Y.Z.apk` from the project's published release page. The current repository does **not** publish a public Android APK yet, so there is no honest download link to provide. A normal user must not be asked to install Flutter, Android SDK tools, ADB, Gradle, or source code to obtain the production phone application.
+Install `AgentDesk-vX.Y.Z.apk` from the project's published release page. The
+release workflow currently builds the Android ARM64 APK with Flutter's default
+release signing configuration; production signing secrets must be configured
+before distributing it as a production-signed app.
+A normal user must not be asked to install Flutter, Android SDK tools, ADB,
+Gradle, or source code to obtain the phone application.
 
 ### Current connection and setup status
 
@@ -531,7 +538,10 @@ docs/            Design and validation documentation
 
 ## Requirements
 
-AgentDesk currently has a source-based development workflow. It does not yet publish a packaged desktop application, a public Android release APK, or an automatic pairing installer. The requirements below distinguish the intended runtime experience from the tools required to build the current source release.
+AgentDesk has a source-based development workflow and a tag-driven release
+workflow. Until a release tag is published, the packaged artifacts are not
+available from GitHub. The requirements below distinguish the intended runtime
+experience from the tools required to build the source release.
 
 ### End User Requirements
 
@@ -539,8 +549,8 @@ For a packaged production release, a normal user must install only the AgentDesk
 
 | Requirement | Normal user |
 |---|---|
-| AgentDesk desktop application | Required; packaged desktop distribution is not yet available |
-| AgentDesk Android application | Required; a public release APK is not yet published |
+| AgentDesk desktop application | Required; install the prebuilt Linux release |
+| AgentDesk Android application | Required; install the APK from the same release |
 | Supported coding agent | Required for real-agent integration; current adapters are ACP-compatible agents and experimental Antigravity |
 | Network connection | Required for phone-to-laptop communication over the configured WebSocket endpoint |
 | Rust toolchain | Not required for packaged applications; developer-only build dependency |
@@ -592,9 +602,17 @@ The required production workflow is:
 4. Open the mobile application and pair it with the laptop.
 5. Start a supported coding agent and supervise it from the phone.
 
-This workflow is **not yet available** in the current source release. The repository now contains the production-oriented installer and release contract, but there is currently no published GitHub Release containing the required prebuilt Linux archives or Android APK, and no automatic QR or guided pairing flow.
+The installer and release workflow are implemented, but the current repository
+still has no published GitHub Release. After the first version-matching tag is
+published and its workflow completes, normal users can install the prebuilt
+Linux daemon and Android ARM64 APK without development tooling. There is no
+automatic QR or guided pairing flow yet.
 
-**End-user availability:** AgentDesk is not currently installable as a normal-user product. Do not ask end users to install Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK, Node/npm, compilers, build tools, or source code as a workaround. The source-build workflow is for developers and contributors only.
+**End-user availability:** Until that first release is published, the normal
+user installation command correctly reports that no release exists. Do not ask
+end users to install Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK,
+Node/npm, compilers, build tools, or source code as a workaround. The
+source-build workflow is for developers and contributors only.
 
 Do not use `--insecure-dev` for a LAN or production deployment. It enables plaintext `ws://` only on loopback.
 
@@ -742,15 +760,19 @@ On the first daemon run:
 
 There is no QR pairing flow, device registry, automatic certificate transfer, or automatic token configuration. The token and TLS fingerprint are entered manually.
 
-### Planned production experience
+### Production distribution experience
 
-The planned production setup is a zero-development-dependency installation: prebuilt laptop packages contain the required AgentDesk daemon/runtime, the phone receives a signed Android application, and a guided pairing flow transfers the server address, token, and certificate identity safely. This is planned work, not current functionality.
+The release workflow provides the zero-development-dependency distribution
+artifacts: a prebuilt Linux daemon and an Android ARM64 APK. Guided pairing,
+automatic configuration, and project selection are still planned; the current
+phone setup requires the server URL, device ID, token, and TLS fingerprint to be
+entered manually.
 
 ## Production vs Development
 
 | Area | Development | Normal user / production |
 |---|---|---|
-| Installation | Build Rust and Flutter components from source | Install packaged applications; not yet available |
+| Installation | Build Rust and Flutter components from source | Install the published Linux and Android release artifacts |
 | Rust | Required for the laptop daemon build | Not required |
 | Cargo | Required for the laptop daemon build | Not required |
 | Flutter SDK | Required to build or run the mobile client | Not required |
@@ -772,8 +794,8 @@ The planned production setup is a zero-development-dependency installation: preb
 | Rust source build | ✅ Available with `cargo build --workspace` |
 | Flutter source build | ✅ Available with `flutter build` / `flutter run` |
 | Android debug build | ✅ Available through Flutter tooling |
-| Android release APK | 🚧 Can be generated locally with `flutter build apk --release --split-per-abi`; not published |
-| Linux desktop package | 🚧 Not yet available; required for normal-user laptop installation |
+| Android release APK | ✅ Published by the tag-driven release workflow for Android ARM64 |
+| Linux desktop package | ✅ Published as prebuilt x86_64 and aarch64 archives |
 | Windows package | 🚧 Not yet available |
 | macOS package | 🚧 Not yet available |
 | Automatic pairing | 📋 Planned; current setup is manual |
@@ -803,11 +825,19 @@ Start supported coding agent
 Supervise from phone
 ```
 
-This is the target distribution experience. The current repository provides the underlying daemon, Flutter client, secure transport, and developer-oriented manual configuration flow, but not the prebuilt applications, packaged laptop runtime, or automatic pairing needed to deliver it to normal users. The long-term product requirement is a zero-development-dependency installation experience.
+The tag-driven release workflow provides the prebuilt daemon and Android APK
+needed for the zero-development-dependency installation experience. Automatic
+pairing and project selection remain product work; the current connection setup
+is documented as manual configuration below.
 
 ## Prebuilt Linux Installer
 
-The repository includes [`install.sh`](install.sh) for the future prebuilt Linux distribution. It downloads a versioned daemon archive, verifies its SHA-256 checksum, installs the binary in the invoking user's local application directory, and enables a least-privilege systemd user service. It never compiles AgentDesk and never requires Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK, Node/npm, or source code.
+The repository includes [`install.sh`](install.sh) for the prebuilt Linux
+distribution. It downloads a versioned daemon archive, verifies its SHA-256
+checksum, installs the binary in the invoking user's local application
+directory, and enables a least-privilege systemd user service. It never
+compiles AgentDesk and never requires Rust, Cargo, Flutter, Android SDK tools,
+ADB, Git, Java/JDK, Node/npm, or source code.
 
 Once a matching GitHub Release has been published, a normal Linux user will use:
 
@@ -822,7 +852,14 @@ curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/master/in
   | VERSION=v0.1.0 bash
 ```
 
-The current repository does **not** publish the release assets required by these commands, so the installer will fail safely with a download or release error until a release is available. It does not fall back to building from source.
+If no GitHub Release is published yet, the installer reports:
+
+```text
+AgentDesk has no published release yet.
+Please install a published release or use the developer installation.
+```
+
+It never falls back to building from source.
 
 The installer:
 
@@ -875,7 +912,10 @@ AgentDesk-vX.Y.Z.apk
 SHA256SUMS
 ```
 
-The Linux archives contain the prebuilt `agentdesk` executable. The Android APK is installed directly by the user and does not require Flutter, Gradle, Android SDK tools, or ADB. The current repository can produce local APKs, but no signed public APK or packaged desktop release is currently published.
+The Linux archives contain the prebuilt `agentdesk` executable. The Android APK
+is installed directly by the user and does not require Flutter, Gradle, Android
+SDK tools, or ADB. The first public artifacts become available after a
+version-matching tag is published and the release workflow completes.
 
 ## Running the Simulator
 
