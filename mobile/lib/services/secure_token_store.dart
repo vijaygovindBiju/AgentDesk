@@ -11,9 +11,15 @@ abstract interface class SecureTokenStore {
 
 class FlutterSecureTokenStore implements SecureTokenStore {
   static const _tokenKey = 'agentdesk.authentication_token';
+  static const _androidOptions = AndroidOptions(
+    migrateOnAlgorithmChange: true,
+    migrateWithBackup: true,
+    resetOnError: false,
+  );
 
   const FlutterSecureTokenStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage =
+          storage ?? const FlutterSecureStorage(aOptions: _androidOptions);
 
   final FlutterSecureStorage _storage;
 

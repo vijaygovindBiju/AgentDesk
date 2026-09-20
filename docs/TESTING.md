@@ -102,10 +102,16 @@ Future (when offline queues exist): replay ordering, individual command failure 
   structured response serialization.
 - The app shell exposes independent Home, Requests, Working, Completed, New
   Work, and Settings pages and is readable under both light and dark themes.
+- Onboarding tests cover first launch, page progression, skip/completion,
+  preference persistence, logo rendering, and dark-theme readability.
 - `QueueView` ordering matches the laptop's `(tier, score desc, seq desc)`.
 - Reducer tests: `event`, `score_update`, `state_update`, `snapshot` produce the expected view.
 - Widget tests: Request that is `dismissed` but `unresolved` renders the "still blocking" indicator; escalated Working renders the badge.
 - Persistent configuration tests use in-memory implementations of the configuration-preferences and secure-token-store interfaces. They cover save/load and startup restoration, missing URL/token/fingerprint states, secure `wss://` validation, loopback-only `ws://`, configuration replacement, and secure-token read/write/delete without requiring a physical keystore.
+- Android secure-storage configuration is non-destructive on key/decryption failure:
+  algorithm migration is enabled with backup protection and reset-on-error is
+  disabled. Physical-device validation covers fresh install, save/relaunch, and
+  upgrade/reinstall behavior without logging or exposing the token.
 - New Work remains explicitly unavailable until the server exposes a generic
   start-task command; no test claims a task was started when it was not.
 

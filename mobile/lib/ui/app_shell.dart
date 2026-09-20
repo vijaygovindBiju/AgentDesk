@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
 import '../services/client_metrics.dart';
 import '../services/connection_service.dart';
+import '../services/onboarding_store.dart';
 import '../state/agentdesk_state.dart';
 import 'completed_screen.dart';
 import 'home_screen.dart';
 import 'new_work_screen.dart';
 import 'requests_screen.dart';
-import 'settings_screen.dart';
 import 'working_screen.dart';
+import 'onboarding_screen.dart';
 
 class AppShell extends StatefulWidget {
   final AgentDeskState state;
   final ConnectionService connection;
   final ClientMetrics metrics;
+  final OnboardingStore onboardingStore;
 
   const AppShell({
     super.key,
     required this.state,
     required this.connection,
     required this.metrics,
+    required this.onboardingStore,
   });
 
   @override
@@ -27,14 +30,24 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  bool _showOnboarding = false;
 
   @override
   Widget build(BuildContext context) {
+    if (_showOnboarding) {
+      return OnboardingScreen(
+        onComplete: () async {
+          await widget.onboardingStore.markComplete();
+          if (mounted) setState(() => _showOnboarding = false);
+        },
+      );
+    }
     final pages = [
       HomeScreen(
         state: widget.state,
         connection: widget.connection,
         metrics: widget.metrics,
+        onShowIntroduction: () => setState(() => _showOnboarding = true),
       ),
       RequestsScreen(
         state: widget.state,
@@ -44,7 +57,6 @@ class _AppShellState extends State<AppShell> {
       WorkingScreen(state: widget.state),
       CompletedScreen(state: widget.state),
       NewWorkScreen(connection: widget.connection),
-      SettingsScreen(connection: widget.connection),
     ];
 
     return Scaffold(
@@ -77,11 +89,6 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.add_circle_outline),
             selectedIcon: Icon(Icons.add_circle),
             label: 'New Work',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
           ),
         ],
       ),

@@ -164,7 +164,7 @@ Metrics are collected in all three so the bench can compare them on the same see
 
 ### Connection
 
-`wss://` client with certificate-fingerprint pinning and token hello. At startup it restores URL, device ID, and fingerprint from ordinary app preferences and restores the token through an OS-backed secure-storage abstraction before attempting a connection. It refuses incomplete configuration, remote `ws://`, and any TLS connection without a fingerprint; it never downgrades `wss://` to `ws://`. Reconnects with backoff; on reconnect it receives a fresh `snapshot` and replaces local queue state.
+`wss://` client with certificate-fingerprint pinning and token hello. At startup it restores URL, device ID, and fingerprint from ordinary app preferences and restores the token through an OS-backed secure-storage abstraction before attempting a connection. Android secure storage explicitly enables algorithm migration with backup and disables destructive reset-on-error, so a key/decryption failure cannot silently erase a stored token. It refuses incomplete configuration, remote `ws://`, and any TLS connection without a fingerprint; it never downgrades `wss://` to `ws://`. Reconnects with backoff; on reconnect it receives a fresh `snapshot` and replaces local queue state.
 
 ### State
 
@@ -177,6 +177,8 @@ Metrics are collected in all three so the bench can compare them on the same see
 - **Requests**: unresolved attention events are presented as cards and open a dedicated interaction screen.
 - **Event screen**: structured single-choice, multiple-choice, free-text, write-in, and approval controls. Responses remain bound to the event ID through the existing `respond_request` protocol. Opening this screen sends `get_event_details`, which marks the event `seen` on the laptop.
 - **Themes**: shared light and dark Material 3 themes use the same spacing, contrast, and status semantics.
+- **Onboarding**: first launch presents a five-page explanation of the laptop/phone attention model. Completion is persisted in the existing `SharedPreferences` store; Settings can reopen it without creating a second storage system.
+- **Branding**: the original AgentDesk geometric connection mark is stored as SVG source plus PNG fallback, used by Flutter onboarding/home, Android launch splash, and launcher resources.
 - **New Work**: the current daemon has one adapter/session created at startup and does not yet expose a generic start-task command. The mobile page states this capability boundary rather than pretending to create a task.
 - **Log viewer**: tail-first paged log view driven by `get_event_logs { offset, limit }`.
 - **Debug screen**: client-side metrics (`summaries_rendered`, `taps`, `log_pages_requested`), insecure-dev warning banner, and laptop daemon metrics.

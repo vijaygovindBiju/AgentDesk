@@ -3,20 +3,22 @@ import '../models/models.dart';
 import '../services/client_metrics.dart';
 import '../services/connection_service.dart';
 import '../state/agentdesk_state.dart';
-import 'debug_screen.dart';
 import 'event_screen.dart';
 import 'settings_screen.dart';
+import 'brand_logo.dart';
 
 class HomeScreen extends StatelessWidget {
   final AgentDeskState state;
   final ConnectionService connection;
   final ClientMetrics metrics;
+  final VoidCallback? onShowIntroduction;
 
   const HomeScreen({
     super.key,
     required this.state,
     required this.connection,
     required this.metrics,
+    this.onShowIntroduction,
   });
 
   static const List<Map<String, dynamic>> tierDefs = [
@@ -94,7 +96,7 @@ class HomeScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('AgentDesk'),
+            title: const BrandLogo(size: 34, showWordmark: true),
             actions: [
               // Connection status indicator chip
               InkWell(
@@ -102,7 +104,10 @@ class HomeScreen extends StatelessWidget {
                   metrics.recordTap();
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => SettingsScreen(connection: connection),
+                      builder: (_) => SettingsScreen(
+                        connection: connection,
+                        onShowIntroduction: onShowIntroduction,
+                      ),
                     ),
                   );
                 },
@@ -137,23 +142,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               IconButton(
-                key: const Key('debug_button'),
-                icon: const Icon(Icons.analytics_outlined),
-                tooltip: 'Debug & Metrics',
-                onPressed: () {
-                  metrics.recordTap();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => DebugScreen(
-                        connection: connection,
-                        state: state,
-                        metrics: metrics,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              IconButton(
                 key: const Key('settings_button'),
                 icon: const Icon(Icons.settings_outlined),
                 tooltip: 'Settings',
@@ -161,7 +149,10 @@ class HomeScreen extends StatelessWidget {
                   metrics.recordTap();
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => SettingsScreen(connection: connection),
+                      builder: (_) => SettingsScreen(
+                        connection: connection,
+                        onShowIntroduction: onShowIntroduction,
+                      ),
                     ),
                   );
                 },

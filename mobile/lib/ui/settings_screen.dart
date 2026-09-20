@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import '../services/connection_service.dart';
+import 'brand_logo.dart';
 
 class SettingsScreen extends StatefulWidget {
   final ConnectionService connection;
+  final VoidCallback? onShowIntroduction;
 
-  const SettingsScreen({super.key, required this.connection});
+  const SettingsScreen({
+    super.key,
+    required this.connection,
+    this.onShowIntroduction,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -82,6 +88,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(18),
+              child: BrandLogo(size: 54, showWordmark: true),
+            ),
+          ),
+          const SizedBox(height: 16),
           TextField(
             key: const Key('url_field'),
             controller: _urlController,
@@ -153,6 +166,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ],
+          ),
+          const SizedBox(height: 28),
+          Text('About & Help', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          const Text(
+            'AgentDesk is a phone-based control and attention surface for coding agents running on your computer.',
+          ),
+          const SizedBox(height: 8),
+          const Text('Version 0.1.0'),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const Key('show_introduction_button'),
+            onPressed: widget.onShowIntroduction,
+            icon: const Icon(Icons.menu_book_outlined),
+            label: const Text('Show Introduction Again'),
           ),
         ],
       ),

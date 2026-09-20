@@ -96,11 +96,13 @@ class ConnectionService extends ChangeNotifier {
       _fingerprint = _blankToNull(stored.fingerprint);
       _token = token?.trim() ?? '';
       _setConfigurationStatus();
-    } catch (_) {
+    } catch (error) {
       _isActive = false;
       _setStatus(
         ConnectionStatus.configurationRequired,
-        'Unable to read saved connection configuration. Open Settings and save it again.',
+        'Unable to read saved connection configuration securely. '
+        'Existing credentials were preserved; open Settings to retry or re-enter configuration. '
+        '($error)',
       );
     }
   }

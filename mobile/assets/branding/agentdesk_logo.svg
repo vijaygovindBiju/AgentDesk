@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="agentdeskBlue" x1="72" y1="440" x2="440" y2="72" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1257C7"/>
+      <stop offset="1" stop-color="#53A0FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="#0E1B33"/>
+  <path d="M112 386 234 112h44l122 274h-64l-26-62H202l-26 62h-64Zm112-119h64l-32-78-32 78Z" fill="url(#agentdeskBlue)"/>
+  <circle cx="256" cy="103" r="24" fill="#F6B73C"/>
+  <path d="M280 103h96c25 0 45 20 45 45v42" fill="none" stroke="#F6B73C" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="421" cy="214" r="20" fill="#F6B73C"/>
+</svg>
