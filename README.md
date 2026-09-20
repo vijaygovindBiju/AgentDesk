@@ -139,6 +139,43 @@ cargo run -p agentdesk-server --bin agentdesk -- \
 
 Use `--antigravity --agent "agy"` instead of `--agent` for the Antigravity adapter.
 
+### Build an installable Android app
+
+The Flutter application is included in `mobile/`. Build architecture-specific
+release APKs to avoid shipping one APK containing native binaries for every
+Android CPU:
+
+```sh
+cd mobile
+flutter build apk --release --split-per-abi
+```
+
+The generated files are written to `mobile/build/app/outputs/flutter-apk/`:
+
+```text
+app-armeabi-v7a-release.apk
+app-arm64-v8a-release.apk
+app-x86_64-release.apk
+```
+
+Choose the APK matching the device architecture, then install it with:
+
+```sh
+adb install mobile/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+```
+
+The current development build uses the Android debug signing key, which is
+appropriate for local installation only. Before publishing a public release,
+configure a private Android signing key and use the same key for future updates.
+Never commit the keystore or its passwords.
+
+Release mode removes debug tooling and tree-shakes unused Material icons. It
+reduces download size and runtime overhead compared with debug mode, but every
+Flutter Android app still includes the Flutter engine, so a small native app
+will not have the same memory baseline. Use the ABI-specific APKs for smaller
+downloads; keep the event list bounded and avoid unnecessary background work to
+limit runtime memory.
+
 ## Resource usage
 
 The checked-in project files are approximately **4.5 MiB**. Local development
