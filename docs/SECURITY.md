@@ -52,6 +52,13 @@ Single trust level in the MVP: a holder of the token can do everything. Per-devi
 
 Intended for `adb reverse` / emulator testing without certificates. It is not a supported deployment mode and must never be the default.
 
+### 5. Agent Control & Subprocess Execution Boundary
+
+- **Zero-Terminal Scraping Guarantee**: Arbitrary terminal text or stderr streams are NEVER interpreted as commands, approval prompts, or error signals. Heuristics or regex scraping over unstructured agent output would expose the daemon to prompt-injection exploits where an untrusted agent or tool output could spoof authorization prompts. All raw terminal/stderr output is confined to bounded log stores as `AdapterOutput::Line`.
+- **Strict Protocol Validation**: Attention events (`Category::Request`, `Category::Error`, `Category::Completed`, `Category::Working`) are generated exclusively from documented, strongly-typed Agent Client Protocol (ACP) JSON-RPC 2.0 frames (`session/request_permission`, `session/update`, `end_turn`).
+- **Direct Subprocess Spawning**: Child processes are executed directly with explicit argument vectors (`std::process::Command::new`), avoiding shell injection risks (`/bin/sh -c`).
+- **Safe Feedback Delegation & Dead-Process Rejection**: Human decisions received via `respond_request` are verified against active, pending task IDs and live child processes. If a process terminates, crashes, or disconnects, control inputs are rejected (`RespondError::NoSuchTask` or `RespondError::NotBlocked`), preventing stale decisions from affecting future tasks.
+
 ## File locations and credential lifecycle
 
 - **Configuration directory**:

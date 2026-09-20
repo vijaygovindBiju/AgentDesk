@@ -6,8 +6,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use agentdesk_core::{
-    Adapter, AdapterCommand, Clock, CoreCommand, CoreTask, LogStoreConfig, SystemClock,
-    ThresholdTable,
+    AcpAdapter, AcpConfig, Adapter, AdapterCommand, Clock, CoreCommand, CoreTask, LogStoreConfig,
+    SystemClock, ThresholdTable,
 };
 use agentdesk_server::{
     default_config_dir, load_or_generate_token, parse_args, print_help, rotate_token,
@@ -95,17 +95,51 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         std::process::exit(1);
     }
 
-    // Load scenario
-    let scenario = if let Some(path) = &opts.scenario {
-        let content = fs::read_to_string(path)?;
-        Scenario::from_json(&content)?
-    } else {
-        Scenario::default_scenario()
-    };
-
     let clock = Arc::new(SystemClock);
     let start_time = clock.now();
-    let mut sim = Simulator::new(scenario, opts.seed, start_time);
+
+    let mut adapter: Box<dyn Adapter> = if let Some(agent_cmd) = &opts.agent {
+        let parts: Vec<String> = agent_cmd
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+        if parts.is_empty() {
+            eprintln!("Configuration error: --agent command cannot be empty");
+            std::process::exit(1);
+        }
+        let command = parts[0].clone();
+        let args = parts[1..].to_vec();
+        let prompt = opts
+            .prompt
+            .clone()
+            .unwrap_or_else(|| "Explain the purpose of this project and report git status.".into());
+
+        let acp_config = AcpConfig {
+            command,
+            args,
+            cwd: None,
+            agent_id: "gemini".into(),
+            agent_name: "Gemini CLI".into(),
+            project: "AgentDesk".into(),
+            initial_prompt: prompt,
+        };
+        match AcpAdapter::spawn(acp_config) {
+            Ok(a) => Box::new(a),
+            Err(e) => {
+                eprintln!("Failed to spawn real ACP agent: {}", e);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        // Load scenario
+        let scenario = if let Some(path) = &opts.scenario {
+            let content = fs::read_to_string(path)?;
+            Scenario::from_json(&content)?
+        } else {
+            Scenario::default_scenario()
+        };
+        Box::new(Simulator::new(scenario, opts.seed, start_time))
+    };
 
     let (tx_adapter, mut rx_adapter) = tokio::sync::mpsc::channel(64);
     let (tx_core, rx_core) = tokio::sync::mpsc::channel(256);
@@ -118,7 +152,7 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         ThresholdTable::default(),
         Some(tx_adapter),
     );
-    core.register_agents(sim.agents());
+    core.register_agents(adapter.agents());
 
     // Spawn core task
     let core_sender = tx_core.clone();
@@ -134,6 +168,11 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
     println!(" AgentDesk Daemon started");
     println!(" Address: {}://{}", scheme, local_addr);
     println!(" Mode:    {:?}", opts.mode);
+    if let Some(agent_cmd) = &opts.agent {
+        println!(" Agent:   Real ACP ({})", agent_cmd);
+    } else {
+        println!(" Agent:   Simulator");
+    }
     if let Some(fp) = server.fingerprint() {
         println!(" Fingerprint (SHA-256): {}", fp);
     }
@@ -162,14 +201,14 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         }
     });
 
-    // Simulator driving loop
-    let sim_sender = core_sender.clone();
+    // Adapter driving loop
+    let adapter_sender = core_sender.clone();
     tokio::spawn(async move {
         loop {
             let now = chrono::Utc::now();
-            let outputs = sim.poll(now);
+            let outputs = adapter.poll(now);
             for out in outputs {
-                if sim_sender.send(CoreCommand::Adapter(out)).await.is_err() {
+                if adapter_sender.send(CoreCommand::Adapter(out)).await.is_err() {
                     return;
                 }
             }
@@ -178,7 +217,7 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             tokio::select! {
                 adapter_cmd = rx_adapter.recv() => {
                     if let Some(AdapterCommand::Respond { task_id, decision, now }) = adapter_cmd {
-                        let _ = sim.respond(&task_id, decision, now);
+                        let _ = adapter.respond(&task_id, decision, now);
                     }
                 }
                 _ = tokio::time::sleep(Duration::from_millis(50)) => {}

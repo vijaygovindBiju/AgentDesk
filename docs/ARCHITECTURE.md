@@ -66,12 +66,30 @@ Why separate crates: `model` is pure data and is mirrored into Dart; `core` is f
 ### Adapter (trait) and Simulator
 
 - **Responsibility**: turn agent-specific activity into `RawAgentEvent`s and raw log lines.
-- **Inputs**: Simulator — a seed and a scenario script (`docs/SIMULATOR.md`). Future adapters — agent hooks, PTY output, structured APIs.
+- **Inputs**: Simulator — a seed and a scenario script (`docs/SIMULATOR.md`). Real agents — standard Agent Client Protocol (ACP) over stdio.
 - **Outputs**: `AdapterOutput::Event(RawAgentEvent)` or `AdapterOutput::Line { agent_id, text }` (pure log noise that is not an event).
 - **Interface** (`agentdesk-core::adapter::Adapter`): adapters are **passive and time-driven**. The owner calls `poll(now)` to collect everything due at or before `now` (in due-time order), `next_due()` to learn how long to sleep or how far to advance a virtual clock, `respond(task_id, decision, now)` to deliver a human decision, and `agents()` for identity (`AgentInfo`). No threads or timers inside an adapter, so the same scenario yields the same output regardless of polling granularity.
 - **Dependencies**: none on the rest of core (it only produces).
 - **State**: per-agent `agent_seq` counter; simulator per-task cursor, blocked state and seeded RNG (`StdRng::seed_from_u64`).
 - **Failure**: runs in its own task. A panic or error is converted into an Error event about the adapter itself; the daemon keeps running.
+
+### Real-Agent Adapter (Agent Client Protocol - ACP)
+
+- **Responsibility**: Integrate real, interactive coding agents into AgentDesk using the open Agent Client Protocol (ACP v1 over JSON-RPC 2.0 stdio).
+- **Architecture**:
+  - `AcpTransport` trait: Pluggable I/O layer with `send_line`, `try_recv`, `is_alive`, and `close`.
+  - `ProcessTransport`: Spawns the target agent CLI process (e.g. `gemini --skip-trust --acp`), captures child stdout/stderr onto non-blocking mpsc channels, and manages stdin for newline-delimited JSON-RPC communication.
+  - `MockAcpTransport`: Fully deterministic in-memory fake transport for hermetic, offline testing of all protocol edge cases and error states.
+  - `AcpAdapter<T: AcpTransport>`: Implements the `Adapter` trait:
+    - On startup, executes the ACP handshake: `initialize` → `session/new` → `session/prompt`.
+    - **Zero-Terminal-Scraping Guarantee**: Arbitrary terminal text, stderr lines, and non-protocol stdout chunks are strictly piped as `AdapterOutput::Line` into the bounded ring buffer log store. Terminal text is *never* parsed or heuristically scraped for attention events.
+    - **Documented Structured Signals**:
+      - `session/request_permission` RPC request → `approval_required` raw event (`Category::Request`, `Severity::Critical`, `RequestInfo`).
+      - `session/update` tool execution notification → `progress` raw event (`Category::Working`, `Severity::Info`).
+      - `stopReason: "end_turn"` in prompt response → `task_completed` raw event (`Category::Completed`, `Severity::Info`).
+      - JSON-RPC error or child process exit/crash → `adapter_error` or `command_failed` raw event (`Category::Error`, `Severity::Critical`).
+    - **Safe Human Feedback**: `respond(task_id, decision, now)` checks whether the task exists and is blocked. If valid, maps `Decision::Approve` to option selection (e.g. `allow_once`) and `Decision::Deny` to cancellation/rejection, dispatching the JSON-RPC response to the child process.
+    - **Dead-Process Rejection**: If `respond` is invoked when the child process has exited or crashed, the call safely rejects the command with `RespondError::NotBlocked` or `RespondError::NoSuchTask` and queues an `adapter_error` raw event for the core pipeline.
 
 ### Log Store
 

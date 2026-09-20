@@ -28,6 +28,8 @@ pub struct RunOptions {
     pub token: Option<String>,
     pub config_dir: Option<PathBuf>,
     pub debug: bool,
+    pub agent: Option<String>,
+    pub prompt: Option<String>,
 }
 
 impl Default for RunOptions {
@@ -42,6 +44,8 @@ impl Default for RunOptions {
             token: None,
             config_dir: None,
             debug: false,
+            agent: None,
+            prompt: None,
         }
     }
 }
@@ -156,6 +160,20 @@ where
                     opts.debug = true;
                     idx += 1;
                 }
+                "--agent" => {
+                    if idx + 1 >= args.len() {
+                        return Err("--agent requires a command string".into());
+                    }
+                    opts.agent = Some(args[idx + 1].clone());
+                    idx += 2;
+                }
+                "--prompt" => {
+                    if idx + 1 >= args.len() {
+                        return Err("--prompt requires a prompt string".into());
+                    }
+                    opts.prompt = Some(args[idx + 1].clone());
+                    idx += 2;
+                }
                 "-h" | "--help" => return Ok(CliCommand::Help),
                 other => return Err(format!("Unknown argument: '{}'", other)),
             }
@@ -182,6 +200,8 @@ pub fn print_help() {
              --token <str>            Override authentication token\n\
              --config-dir <path>      Override configuration directory for token storage\n\
              --debug                  Enable payload debug logging (opt-in)\n\
+             --agent <cmd>            Run real agent via ACP over stdio (e.g. \"gemini --skip-trust --acp\")\n\
+             --prompt <text>          Prompt to send to the real agent\n\
              -h, --help               Print help information\n"
     );
 }
@@ -233,6 +253,27 @@ mod tests {
                 assert!(opts.insecure_dev);
                 assert_eq!(opts.port, 9001);
                 assert!(opts.debug);
+            }
+            _ => panic!("expected run command"),
+        }
+    }
+
+    #[test]
+    fn parse_run_with_agent() {
+        let cmd = parse_args([
+            "agentdesk",
+            "run",
+            "--agent",
+            "gemini --skip-trust --acp",
+            "--prompt",
+            "hello world",
+        ])
+        .unwrap();
+
+        match cmd {
+            CliCommand::Run(opts) => {
+                assert_eq!(opts.agent.as_deref(), Some("gemini --skip-trust --acp"));
+                assert_eq!(opts.prompt.as_deref(), Some("hello world"));
             }
             _ => panic!("expected run command"),
         }

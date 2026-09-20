@@ -2,6 +2,7 @@
 //! event pipeline, priority queue, log store, task tracker and metrics.
 //! See docs/ARCHITECTURE.md.
 
+pub mod acp;
 pub mod adapter;
 pub mod classifier;
 pub mod clock;
@@ -16,6 +17,10 @@ pub mod scoring;
 pub mod sink;
 pub mod tracker;
 
+pub use acp::{
+    AcpAdapter, AcpConfig, AcpPermissionOption, AcpState, AcpToolCall, AcpTransport,
+    MockAcpTransport, ProcessTransport, TransportMessage,
+};
 pub use adapter::{Adapter, AdapterOutput, RespondError};
 pub use classifier::{classify, Classification, Matched, Rule, RULES};
 pub use clock::{Clock, SystemClock, VirtualClock};

@@ -308,3 +308,31 @@ Decision: Persist the server URL, device ID, and pinned certificate fingerprint 
 Reason: It preserves a secure, restart-safe connection setup without treating a certificate fingerprint as secret or coupling app logic/tests to Android/iOS keystore APIs. The token remains protected by the device OS and is never written to ordinary preferences, files, or logs.
 
 Consequences: Startup restores configuration before any connection attempt; incomplete configuration is explicit. `wss://` is the default and requires a fingerprint. Plain `ws://` is accepted only for loopback insecure-development endpoints; there is no downgrade path.
+
+---
+
+## Decision: Real-Agent Adapter adopts Agent Client Protocol (ACP v1) over stdio with Gemini CLI
+
+Date: 2026-09-20
+
+Problem: Integrate a real, interactive coding agent into AgentDesk without fragile terminal scraping, brittle PTY hacks, or vendor-specific proprietary lock-in.
+
+Options:
+1. PTY-based terminal screen scraping of CLI tools (e.g. Claude Code or custom shell wrappers).
+2. Proprietary vendor-specific NDJSON stream parsing.
+3. Open-standard Agent Client Protocol (ACP v1) over JSON-RPC 2.0 stdio.
+
+Decision: Option 3 — Adopt the open Agent Client Protocol (ACP v1) via `gemini --skip-trust --acp` (Gemini CLI v0.52.0).
+
+Reason:
+- ACP is an open, cross-agent standard (implemented by Gemini CLI, Devin, OpenCode) with explicit JSON-RPC 2.0 lifecycle semantics (`initialize`, `session/new`, `session/prompt`).
+- It has first-class permission negotiation (`session/request_permission`), enabling clean, bidirectional human-in-the-loop decision routing without terminal scraping.
+- Enforces a zero-terminal-scraping guarantee: all stdout/stderr non-protocol noise is strictly bounded into `AdapterOutput::Line`.
+- Pure decoupled transport abstraction (`AcpTransport` trait with `ProcessTransport` and `MockAcpTransport`) ensures all error states, crashes, and lifecycle paths can be tested hermetically with zero flakiness.
+
+Trade-offs: Requires agents that implement ACP over stdio; agents with only raw terminal interactive TUIs require an ACP shim.
+
+Consequences:
+- Added `AdapterKind::Acp` to `agentdesk-model`.
+- Implemented `AcpAdapter<T: AcpTransport>` in `agentdesk-core` conforming strictly to the `Adapter` trait.
+- Extended `agentdesk run` with `--agent <cmd>` and `--prompt <text>` flags to drive real agents seamlessly through the existing `CoreTask` pipeline.

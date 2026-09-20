@@ -96,16 +96,10 @@ impl Server {
         } else {
             let config_dir = config.config_dir.clone().unwrap_or_else(default_config_dir);
             let identity = TlsIdentity::load_or_generate(&config_dir).map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Failed loading/generating TLS identity: {e}"),
-                )
+                io::Error::other(format!("Failed loading/generating TLS identity: {e}"))
             })?;
             let acceptor = identity.build_tls_acceptor().map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Failed building TLS acceptor: {e}"),
-                )
+                io::Error::other(format!("Failed building TLS acceptor: {e}"))
             })?;
             (Some(Arc::new(identity)), Some(acceptor))
         };

@@ -58,6 +58,22 @@
 - TLS: client with the pinned fingerprint connects; client with a different fingerprint fails the handshake. `--insecure-dev` refuses to bind to non-loopback.
 - Token never appears in any log line at default log level (grep the captured log output).
 
+## Real-Agent Adapter tests (`agentdesk-core/tests/acp_adapter_test.rs`)
+
+- **Deterministic mock transport tests**:
+  - `test_happy_path_initialization_and_turn`: Handshake (`initialize` → `session/new` → `session/prompt`), streaming updates, and turn completion.
+  - `test_permission_approval_flow`: `session/request_permission` yields `approval_required` (`Category::Request`), `respond(Approve)` emits structured JSON-RPC selection (`outcome: "selected"`), and turn completes.
+  - `test_permission_denial_flow`: `respond(Deny)` emits structured JSON-RPC cancellation (`outcome: "cancelled"`).
+  - `test_dead_process_control_rejection`: Control signals dispatched after process termination or crash return `RespondError` and emit an `adapter_error` event.
+  - `test_invalid_task_and_not_blocked_rejections`: Calls to `respond()` with nonexistent task IDs or unblocked states are safely rejected.
+  - `test_process_crash_and_disconnect`: Subprocess EOF / unexpected termination generates `command_failed` (`Category::Error`).
+  - `test_jsonrpc_error_handling`: Incoming JSON-RPC errors generate `command_failed` with structured details.
+  - `test_arbitrary_terminal_text_logged_only_never_scraped`: Stderr and arbitrary terminal text containing misleading keywords ("ERROR:", "FATAL", "Permission denied", "Approve? [y/N]") are piped strictly as `AdapterOutput::Line` and NEVER promote to `Request` or `Error`.
+  - `test_acp_adapter_through_core_pipeline`: End-to-end integration through `CoreTask`, log store ring buffer, classifier, and attention queue.
+- **Process lifecycle and live tests**:
+  - `test_real_process_transport_stdio_lifecycle`: Validates non-blocking child process stdout/stderr capture and stdin piping using a live Python mock child process.
+  - `test_gemini_live_e2e`: Live integration test against `/usr/bin/gemini --skip-trust --acp` with real LLM inference. Runs automatically when the binary is installed.
+
 ## Detail retrieval tests
 
 - Tail request on a pinned Error event returns lines from the pinned window even after the ring has fully rotated.

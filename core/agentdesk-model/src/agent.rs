@@ -9,6 +9,7 @@ use crate::event::AgentId;
 pub enum AdapterKind {
     Simulator,
     ClaudeCode,
+    Acp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
