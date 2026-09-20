@@ -6,7 +6,7 @@
 # invokes Rust, Cargo, Flutter, Android tooling, or a compiler.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/master/install.sh | bash
 #   curl -fsSL .../install.sh | VERSION=v0.1.0 bash
 #
 # Optional environment:

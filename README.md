@@ -180,7 +180,7 @@ The user should **not** install or understand Rust, Cargo, Flutter, Dart, Androi
 Once a matching prebuilt GitHub Release is published, copy and run this one command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/master/install.sh | bash
 ```
 
 The installer is designed to detect Linux and CPU architecture, download the matching prebuilt AgentDesk daemon, verify its SHA-256 checksum, install it for the current user, configure a systemd user service, start the service, and verify that it is running. It does not compile AgentDesk locally.
@@ -812,13 +812,13 @@ The repository includes [`install.sh`](install.sh) for the future prebuilt Linux
 Once a matching GitHub Release has been published, a normal Linux user will use:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/master/install.sh | bash
 ```
 
 To install a specific release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/install.sh \
+curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/master/install.sh \
   | VERSION=v0.1.0 bash
 ```
 
