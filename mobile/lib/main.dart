@@ -73,6 +73,7 @@ class _AgentDeskAppState extends State<AgentDeskApp> {
               onboardingStore: widget.onboardingStore,
             )
           : OnboardingScreen(
+              connection: widget.connection,
               onComplete: () async {
                 await widget.onboardingStore.markComplete();
                 if (mounted) setState(() => _onboardingComplete = true);

@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import '../services/connection_service.dart';
 import 'brand_logo.dart';
+import 'qr_scan_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final Future<void> Function() onComplete;
+  final ConnectionService? connection;
 
-  const OnboardingScreen({super.key, required this.onComplete});
+  const OnboardingScreen({
+    super.key,
+    required this.onComplete,
+    this.connection,
+  });
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -58,6 +65,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_isSaving) return;
     setState(() => _isSaving = true);
     await widget.onComplete();
+  }
+
+  Future<void> _openQrScannerAndFinish() async {
+    final connection = widget.connection;
+    if (connection == null) {
+      await _finish();
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => QRScanScreen(connection: connection),
+      ),
+    );
+    await _finish();
   }
 
   void _next() {
@@ -153,20 +174,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      key: const Key('onboarding_primary_button'),
-                      onPressed: _isSaving ? null : _next,
-                      child: Text(
-                        isLast
-                            ? 'Start Using AgentDesk'
-                            : _page == 0
-                            ? 'Get Started'
-                            : 'Next',
+                  if (isLast && widget.connection != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        key: const Key('onboarding_scan_qr_button'),
+                        onPressed: _isSaving ? null : _openQrScannerAndFinish,
+                        icon: const Icon(Icons.qr_code_scanner),
+                        label: const Text('Scan QR Code to Pair'),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        key: const Key('onboarding_primary_button'),
+                        onPressed: _isSaving ? null : _next,
+                        child: const Text('Start Using AgentDesk'),
+                      ),
+                    ),
+                  ] else ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        key: const Key('onboarding_primary_button'),
+                        onPressed: _isSaving ? null : _next,
+                        child: Text(
+                          isLast
+                              ? 'Start Using AgentDesk'
+                              : _page == 0
+                              ? 'Get Started'
+                              : 'Next',
+                        ),
+                      ),
+                    ),
+                  ],
                   if (!isLast)
                     TextButton(
                       onPressed: _isSaving ? null : _finish,

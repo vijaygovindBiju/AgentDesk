@@ -484,6 +484,66 @@ class ErrorReply {
   Map<String, dynamic> toJson() => {'code': code, 'message': message};
 }
 
+class PairRequest {
+  final String deviceId;
+  final String deviceName;
+  final String sessionId;
+  final String pairingSecret;
+  final int schemaVersion;
+
+  const PairRequest({
+    required this.deviceId,
+    required this.deviceName,
+    required this.sessionId,
+    required this.pairingSecret,
+    this.schemaVersion = 1,
+  });
+
+  factory PairRequest.fromJson(Map<String, dynamic> json) {
+    return PairRequest(
+      deviceId: json['device_id'] as String,
+      deviceName: json['device_name'] as String,
+      sessionId: json['session_id'] as String,
+      pairingSecret: json['pairing_secret'] as String,
+      schemaVersion: json['schema_version'] as int? ?? 1,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'device_id': deviceId,
+    'device_name': deviceName,
+    'session_id': sessionId,
+    'pairing_secret': pairingSecret,
+    'schema_version': schemaVersion,
+  };
+}
+
+class PairResponse {
+  final String instanceId;
+  final String deviceToken;
+  final int schemaVersion;
+
+  const PairResponse({
+    required this.instanceId,
+    required this.deviceToken,
+    this.schemaVersion = 1,
+  });
+
+  factory PairResponse.fromJson(Map<String, dynamic> json) {
+    return PairResponse(
+      instanceId: json['instance_id'] as String,
+      deviceToken: json['device_token'] as String,
+      schemaVersion: json['schema_version'] as int? ?? 1,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'instance_id': instanceId,
+    'device_token': deviceToken,
+    'schema_version': schemaVersion,
+  };
+}
+
 /// The envelope carrying every frame.
 class Message {
   final String type;
@@ -517,6 +577,12 @@ class Message {
     if (rawPayload is Map) {
       final payloadMap = rawPayload.cast<String, dynamic>();
       switch (type) {
+        case 'pair_request':
+          parsedPayload = PairRequest.fromJson(payloadMap);
+          break;
+        case 'pair_response':
+          parsedPayload = PairResponse.fromJson(payloadMap);
+          break;
         case 'hello':
           parsedPayload = Hello.fromJson(payloadMap);
           break;

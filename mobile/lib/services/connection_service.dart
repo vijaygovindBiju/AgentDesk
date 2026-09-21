@@ -44,11 +44,18 @@ class ConnectionService extends ChangeNotifier {
   String _token = '';
   String _deviceId = 'flutter-client-1';
   String? _fingerprint;
+  String? _instanceId;
+  String? _lanAddress;
+  String? _relayUrl;
 
   String get url => _url;
   String get token => _token;
   String get deviceId => _deviceId;
   String? get fingerprint => _fingerprint;
+  String? get instanceId => _instanceId;
+  String? get lanAddress => _lanAddress;
+  String? get relayUrl => _relayUrl;
+  bool get isPaired => _instanceId != null && _instanceId!.isNotEmpty;
 
   /// A user-facing explanation when the app cannot safely connect yet.
   String? get configurationError => _configurationError();
@@ -94,6 +101,9 @@ class ConnectionService extends ChangeNotifier {
           ? 'flutter-client-1'
           : stored.deviceId!.trim();
       _fingerprint = _blankToNull(stored.fingerprint);
+      _instanceId = stored.instanceId?.trim();
+      _lanAddress = stored.lanAddress?.trim();
+      _relayUrl = stored.relayUrl?.trim();
       _token = token?.trim() ?? '';
       _setConfigurationStatus();
     } catch (error) {
@@ -126,6 +136,9 @@ class ConnectionService extends ChangeNotifier {
         url: normalizedUrl.isEmpty ? null : normalizedUrl,
         deviceId: normalizedDeviceId.isEmpty ? null : normalizedDeviceId,
         fingerprint: normalizedFingerprint,
+        instanceId: _instanceId,
+        lanAddress: _lanAddress,
+        relayUrl: _relayUrl,
       ),
     );
     if (normalizedToken.isEmpty) {
@@ -139,6 +152,60 @@ class ConnectionService extends ChangeNotifier {
     _deviceId = normalizedDeviceId;
     _fingerprint = normalizedFingerprint;
     _setConfigurationStatus();
+    notifyListeners();
+  }
+
+  /// Persists newly paired device credentials and optionally connects.
+  Future<void> savePairing({
+    required String instanceId,
+    required String deviceToken,
+    required String deviceId,
+    required String lanAddress,
+    required String fingerprint,
+    String? relayUrl,
+    bool autoConnect = true,
+  }) async {
+    final url = 'wss://$lanAddress';
+    _instanceId = instanceId.trim();
+    _lanAddress = lanAddress.trim();
+    _relayUrl = relayUrl?.trim();
+    _url = url;
+    _token = deviceToken.trim();
+    _deviceId = deviceId.trim();
+    _fingerprint = _blankToNull(fingerprint);
+
+    await _tokenStore.writeToken(_token);
+    await _configurationStore.save(
+      ConnectionConfiguration(
+        url: _url,
+        deviceId: _deviceId,
+        fingerprint: _fingerprint,
+        instanceId: _instanceId,
+        lanAddress: _lanAddress,
+        relayUrl: _relayUrl,
+      ),
+    );
+    _setConfigurationStatus();
+    notifyListeners();
+    if (autoConnect) {
+      connect();
+    }
+  }
+
+  /// Revokes local pairing credentials and returns to unconfigured state.
+  Future<void> unpair() async {
+    disconnect();
+    _instanceId = null;
+    _lanAddress = null;
+    _relayUrl = null;
+    _token = '';
+    _fingerprint = null;
+    await _tokenStore.deleteToken();
+    await _configurationStore.save(
+      const ConnectionConfiguration(),
+    );
+    _setConfigurationStatus();
+    notifyListeners();
   }
 
   void connect() {
