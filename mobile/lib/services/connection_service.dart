@@ -47,6 +47,8 @@ class ConnectionService extends ChangeNotifier {
   String? _instanceId;
   String? _lanAddress;
   String? _relayUrl;
+  TransportMode? _activeTransport;
+  String? _connectedEndpoint;
 
   String get url => _url;
   String get token => _token;
@@ -55,6 +57,8 @@ class ConnectionService extends ChangeNotifier {
   String? get instanceId => _instanceId;
   String? get lanAddress => _lanAddress;
   String? get relayUrl => _relayUrl;
+  TransportMode? get activeTransport => _activeTransport;
+  String? get connectedEndpoint => _connectedEndpoint;
   bool get isPaired => _instanceId != null && _instanceId!.isNotEmpty;
 
   /// A user-facing explanation when the app cannot safely connect yet.
@@ -226,6 +230,8 @@ class ConnectionService extends ChangeNotifier {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _cleanupChannel();
+    _activeTransport = null;
+    _connectedEndpoint = null;
     _setStatus(
       isConfigurationComplete
           ? ConnectionStatus.disconnected
@@ -256,6 +262,24 @@ class ConnectionService extends ChangeNotifier {
   }
 
   String? _configurationError() {
+    if (_token.trim().isEmpty) return 'Authentication token is required.';
+    if (_deviceId.trim().isEmpty) return 'Device identifier is required.';
+
+    if (isPaired) {
+      if ((_lanAddress == null || _lanAddress!.trim().isEmpty) &&
+          (_relayUrl == null || _relayUrl!.trim().isEmpty)) {
+        return 'Paired device has no LAN address or relay URL.';
+      }
+      if (_lanAddress != null && _lanAddress!.trim().isNotEmpty) {
+        final raw = _lanAddress!.trim();
+        final isPlainWs = raw.startsWith('ws://');
+        if (!isPlainWs && (_fingerprint == null || _fingerprint!.trim().isEmpty)) {
+          return 'Direct LAN connection requires a pinned SHA-256 certificate fingerprint in Settings.';
+        }
+      }
+      return null;
+    }
+
     final url = _url.trim();
     if (url.isEmpty) return 'Server WebSocket URL is required.';
     final uri = Uri.tryParse(url);
@@ -268,8 +292,6 @@ class ConnectionService extends ChangeNotifier {
     if (uri.scheme == 'ws' && !_isLoopbackHost(uri.host)) {
       return 'Plain ws:// is allowed only for loopback insecure-development servers.';
     }
-    if (_token.trim().isEmpty) return 'Authentication token is required.';
-    if (_deviceId.trim().isEmpty) return 'Device identifier is required.';
     if (uri.scheme == 'wss' &&
         (_fingerprint == null || _fingerprint!.isEmpty)) {
       return 'TLS connection requires a pinned SHA-256 certificate fingerprint in Settings.';
@@ -285,43 +307,107 @@ class ConnectionService extends ChangeNotifier {
     return trimmed.isEmpty ? null : trimmed;
   }
 
+  Future<WebSocket> _connectTls(Uri uri) async {
+    if (_fingerprint == null || _fingerprint!.trim().isEmpty) {
+      throw const SocketException(
+        'TLS connection requires a pinned SHA-256 certificate fingerprint in Settings',
+      );
+    }
+
+    final client = HttpClient();
+    client.badCertificateCallback = (cert, host, port) {
+      final valid = verifyCertificateFingerprint(cert.der, _fingerprint!);
+      if (!valid) {
+        final presented = formatFingerprint(cert.der);
+        debugPrint(
+          'Rejecting certificate: fingerprint mismatch. Presented: $presented, Pinned: $_fingerprint',
+        );
+      }
+      return valid;
+    };
+    return WebSocket.connect(uri.toString(), customClient: client);
+  }
+
   Future<void> _doConnect() async {
     if (!_isActive) return;
     _cleanupChannel();
     _setStatus(ConnectionStatus.connecting);
 
     try {
-      final uri = Uri.parse(_url);
-      WebSocket ws;
-      if (uri.scheme == 'wss') {
-        if (_fingerprint == null || _fingerprint!.trim().isEmpty) {
+      WebSocket? ws;
+      TransportMode? currentTransport;
+      String? endpoint;
+
+      if (isPaired) {
+        // Dual-mode connection strategy:
+        // Priority 1: Direct LAN connection
+        if (_lanAddress != null && _lanAddress!.trim().isNotEmpty) {
+          final lanAddress = _lanAddress!.trim();
+          final rawUri = lanAddress.startsWith('ws://') || lanAddress.startsWith('wss://')
+              ? Uri.parse(lanAddress)
+              : Uri.parse('wss://$lanAddress');
+
+          try {
+            debugPrint('Attempting direct LAN connection to $rawUri...');
+            if (rawUri.scheme == 'wss') {
+              ws = await _connectTls(rawUri).timeout(const Duration(milliseconds: 2500));
+            } else if (rawUri.scheme == 'ws' && _isLoopbackHost(rawUri.host)) {
+              ws = await WebSocket.connect(rawUri.toString()).timeout(const Duration(milliseconds: 2500));
+            }
+            if (ws != null) {
+              currentTransport = TransportMode.tls;
+              endpoint = rawUri.toString();
+              debugPrint('Direct LAN connection established');
+            }
+          } catch (e) {
+            debugPrint('Direct LAN connection failed or timed out ($e)');
+            ws = null;
+          }
+        }
+
+        // Priority 2: Relay fallback
+        if (ws == null && _relayUrl != null && _relayUrl!.trim().isNotEmpty && _instanceId != null) {
+          final cleanRelay = _relayUrl!.trim().replaceAll(RegExp(r'/+$'), '');
+          final relayUri = Uri.parse('$cleanRelay/ws?role=client&inst=$_instanceId');
+          try {
+            debugPrint('Attempting relay fallback connection to $relayUri...');
+            ws = await WebSocket.connect(relayUri.toString()).timeout(const Duration(seconds: 5));
+            currentTransport = TransportMode.relay;
+            endpoint = relayUri.toString();
+            debugPrint('Relay connection established');
+          } catch (e) {
+            debugPrint('Relay connection failed ($e)');
+            ws = null;
+          }
+        }
+
+        if (ws == null) {
+          final errorMsg = _lanAddress != null && _relayUrl != null
+              ? 'Could not connect via direct LAN or Relay.'
+              : 'Connection failed: no reachable endpoint.';
+          _onFailure(errorMsg);
+          return;
+        }
+      } else {
+        // Manual / developer configuration mode
+        final uri = Uri.parse(_url);
+        if (uri.scheme == 'wss') {
+          ws = await _connectTls(uri);
+          currentTransport = TransportMode.tls;
+        } else if (uri.scheme == 'ws' && _isLoopbackHost(uri.host)) {
+          ws = await WebSocket.connect(uri.toString());
+          currentTransport = TransportMode.insecureDev;
+        } else {
           _onFailure(
-            'TLS connection requires a pinned SHA-256 certificate fingerprint in Settings',
+            'Plain ws:// is only permitted for loopback insecure-development servers',
           );
           return;
         }
-
-        final client = HttpClient();
-        client.badCertificateCallback = (cert, host, port) {
-          final valid = verifyCertificateFingerprint(cert.der, _fingerprint!);
-          if (!valid) {
-            final presented = formatFingerprint(cert.der);
-            debugPrint(
-              'Rejecting certificate: fingerprint mismatch. Presented: $presented, Pinned: $_fingerprint',
-            );
-          }
-          return valid;
-        };
-        ws = await WebSocket.connect(uri.toString(), customClient: client);
-      } else if (uri.scheme == 'ws' && _isLoopbackHost(uri.host)) {
-        ws = await WebSocket.connect(uri.toString());
-      } else {
-        _onFailure(
-          'Plain ws:// is only permitted for loopback insecure-development servers',
-        );
-        return;
+        endpoint = uri.toString();
       }
 
+      _activeTransport = currentTransport;
+      _connectedEndpoint = endpoint;
       _channel = IOWebSocketChannel(ws);
       _setStatus(ConnectionStatus.authenticating);
 
@@ -339,7 +425,9 @@ class ConnectionService extends ChangeNotifier {
             if (!receivedWelcome) {
               if (message.type == 'welcome') {
                 receivedWelcome = true;
-                state.setWelcome(message.payload as Welcome);
+                final welcome = message.payload as Welcome;
+                state.setWelcome(welcome);
+                _activeTransport = welcome.transport;
                 return;
               } else {
                 _onFailure('Expected welcome, got ${message.type}');
@@ -429,6 +517,8 @@ class ConnectionService extends ChangeNotifier {
 
   void _onFailure(String error) {
     _cleanupChannel();
+    _activeTransport = null;
+    _connectedEndpoint = null;
     for (final completer in _pendingRequests.values) {
       if (!completer.isCompleted) {
         completer.completeError(error);

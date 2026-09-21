@@ -33,7 +33,8 @@ enum PipelineMode {
 
 enum TransportMode {
   tls('tls'),
-  insecureDev('insecure_dev');
+  insecureDev('insecure_dev'),
+  relay('relay');
 
   const TransportMode(this.wireName);
   final String wireName;
@@ -44,6 +45,8 @@ enum TransportMode {
         return TransportMode.tls;
       case 'insecure_dev':
         return TransportMode.insecureDev;
+      case 'relay':
+        return TransportMode.relay;
       default:
         throw ArgumentError('Unknown transport mode: $value');
     }

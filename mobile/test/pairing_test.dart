@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:agentdesk/models/message.dart';
 import 'package:agentdesk/services/connection_configuration_store.dart';
 import 'package:agentdesk/services/connection_service.dart';
 import 'package:agentdesk/services/pairing_client.dart';
