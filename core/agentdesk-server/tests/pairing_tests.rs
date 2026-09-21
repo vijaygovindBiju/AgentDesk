@@ -48,6 +48,7 @@ async fn setup_pairing_test_server() -> (Server, String, PairingManager, Arc<Vir
         outbound_capacity: 128,
         debug_logging: false,
         config_dir: Some(temp_dir.clone()),
+        relay_url: None,
     };
 
     let server = Server::bind(config, tx_core, clock.clone()).await.unwrap();

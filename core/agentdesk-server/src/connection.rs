@@ -87,6 +87,8 @@ pub struct ConnectionParams {
     pub config_dir: PathBuf,
 }
 
+use tokio_tungstenite::WebSocketStream;
+
 /// Accept and manage a single client WebSocket connection lifecycle.
 pub async fn handle_connection<S>(stream: S, peer_addr: String, params: ConnectionParams)
 where
@@ -97,7 +99,7 @@ where
         peer_addr, params.client_id
     ));
 
-    let mut ws_stream = match tokio_tungstenite::accept_async(stream).await {
+    let ws_stream = match tokio_tungstenite::accept_async(stream).await {
         Ok(ws) => ws,
         Err(e) => {
             logging::info(format!(
@@ -108,6 +110,16 @@ where
         }
     };
 
+    handle_ws_connection(ws_stream, peer_addr, params).await;
+}
+
+pub async fn handle_ws_connection<S>(
+    mut ws_stream: WebSocketStream<S>,
+    peer_addr: String,
+    params: ConnectionParams,
+) where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     // 1. Handshake: First frame MUST be `hello`
     let first_frame = match ws_stream.next().await {
         Some(Ok(msg)) => msg,

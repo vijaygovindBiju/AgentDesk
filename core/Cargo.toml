@@ -6,6 +6,7 @@ members = [
     "agentdesk-sim",
     "agentdesk-server",
     "agentdesk-bench",
+    "agentdesk-relay",
 ]
 
 [workspace.package]
@@ -18,3 +19,4 @@ repository = "https://github.com/vijaygovindBiju/AgentDesk"
 agentdesk-model = { path = "agentdesk-model" }
 agentdesk-core = { path = "agentdesk-core" }
 agentdesk-sim = { path = "agentdesk-sim" }
+agentdesk-relay = { path = "agentdesk-relay" }

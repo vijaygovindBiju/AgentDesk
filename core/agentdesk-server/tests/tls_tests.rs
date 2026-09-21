@@ -110,6 +110,7 @@ async fn setup_tls_server() -> (Server, String, String, std::path::PathBuf) {
         outbound_capacity: 64,
         debug_logging: false,
         config_dir: Some(temp_dir.clone()),
+        relay_url: None,
     };
 
     let server = Server::bind(config, tx_core, clock)

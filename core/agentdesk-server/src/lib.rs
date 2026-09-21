@@ -20,6 +20,7 @@ pub use config::{
 };
 pub use connection::{
     ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, ServerConnectionSink, handle_connection,
+    handle_ws_connection,
 };
 pub use device::{DeviceRegistry, PairedDevice, devices_path, generate_instance_id, instance_id_path};
 pub use logging::{

@@ -14,7 +14,9 @@ use tokio_rustls::TlsAcceptor;
 use agentdesk_core::{Clock, CoreCommand};
 use agentdesk_model::{PipelineMode, TransportMode};
 
-use crate::connection::{ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, handle_connection};
+use crate::connection::{
+    ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, handle_connection, handle_ws_connection,
+};
 use crate::device::DeviceRegistry;
 use crate::logging;
 use crate::pairing::PairingManager;
@@ -31,6 +33,7 @@ pub struct ServerConfig {
     pub outbound_capacity: usize,
     pub debug_logging: bool,
     pub config_dir: Option<PathBuf>,
+    pub relay_url: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -44,6 +47,7 @@ impl Default for ServerConfig {
             outbound_capacity: DEFAULT_OUTBOUND_CAPACITY,
             debug_logging: false,
             config_dir: None,
+            relay_url: None,
         }
     }
 }
@@ -68,7 +72,7 @@ pub struct Server {
     config: ServerConfig,
     core_sender: mpsc::Sender<CoreCommand>,
     clock: Arc<dyn Clock>,
-    next_client_id: AtomicU64,
+    next_client_id: Arc<AtomicU64>,
     shutdown_notify: Arc<tokio::sync::Notify>,
     tls_identity: Option<Arc<TlsIdentity>>,
     tls_acceptor: Option<TlsAcceptor>,
@@ -134,7 +138,7 @@ impl Server {
             config,
             core_sender,
             clock,
-            next_client_id: AtomicU64::new(1),
+            next_client_id: Arc::new(AtomicU64::new(1)),
             shutdown_notify: Arc::new(tokio::sync::Notify::new()),
             tls_identity,
             tls_acceptor,
@@ -176,6 +180,73 @@ impl Server {
     pub async fn run(&self) -> io::Result<()> {
         let expected_token = Arc::new(self.config.token.clone());
         let transport_mode = self.config.transport_mode();
+        if let Some(ref relay_base) = self.config.relay_url {
+            let relay_base = relay_base.clone();
+            let instance_id = {
+                let reg = self.device_registry.read().await;
+                reg.instance_id.clone()
+            };
+            let expected_token_relay = expected_token.clone();
+            let transport_mode_relay = TransportMode::Relay;
+            let clock_relay = self.clock.clone();
+            let core_sender_relay = self.core_sender.clone();
+            let device_registry_relay = self.device_registry.clone();
+            let pairing_manager_relay = self.pairing_manager.clone();
+            let config_dir_relay = self.config_dir.clone();
+            let shutdown_notify_relay = self.shutdown_notify.clone();
+            let next_client_id_relay = self.next_client_id.clone();
+            let outbound_cap = self.config.outbound_capacity;
+            let debug_log = self.config.debug_logging;
+            let pipeline_mode = self.config.pipeline_mode;
+
+            tokio::spawn(async move {
+                let mut backoff = std::time::Duration::from_millis(50);
+                loop {
+                    let relay_target = format!(
+                        "{}/ws?role=host&inst={}&token={}",
+                        relay_base.trim_end_matches('/'),
+                        urlencoding::encode(&instance_id),
+                        urlencoding::encode(&expected_token_relay)
+                    );
+
+                    tokio::select! {
+                        _ = shutdown_notify_relay.notified() => break,
+                        connect_res = tokio_tungstenite::connect_async(&relay_target) => {
+                            match connect_res {
+                                Ok((ws_stream, _)) => {
+                                    logging::info(format!("Connected outbound to relay {}", relay_base));
+                                    backoff = std::time::Duration::from_millis(50);
+                                    let client_id = next_client_id_relay.fetch_add(1, Ordering::SeqCst);
+                                    let params = ConnectionParams {
+                                        client_id,
+                                        expected_token: expected_token_relay.clone(),
+                                        pipeline_mode,
+                                        transport_mode: transport_mode_relay,
+                                        clock: clock_relay.clone(),
+                                        core_sender: core_sender_relay.clone(),
+                                        outbound_capacity: outbound_cap,
+                                        debug_logging: debug_log,
+                                        device_registry: device_registry_relay.clone(),
+                                        pairing_manager: pairing_manager_relay.clone(),
+                                        config_dir: config_dir_relay.clone(),
+                                    };
+                                    handle_ws_connection(ws_stream, format!("relay:{}", relay_base), params).await;
+                                    logging::info("Relay session ended, reconnecting...");
+                                }
+                                Err(e) => {
+                                    logging::info(format!("Relay connection failed to {}: {}", relay_base, e));
+                                    backoff = std::cmp::min(backoff * 2, std::time::Duration::from_secs(30));
+                                    tokio::select! {
+                                        _ = shutdown_notify_relay.notified() => break,
+                                        _ = tokio::time::sleep(backoff) => {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
 
         loop {
             tokio::select! {

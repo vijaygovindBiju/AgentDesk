@@ -57,6 +57,7 @@ pub struct RunOptions {
     pub agent: Option<String>,
     pub prompt: Option<String>,
     pub antigravity: bool,
+    pub relay: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +66,7 @@ pub struct ServiceConfig {
     pub port: u16,
     pub agent: Option<String>,
     pub antigravity: bool,
+    pub relay_url: Option<String>,
 }
 
 impl Default for ServiceConfig {
@@ -74,6 +76,7 @@ impl Default for ServiceConfig {
             port: 8765,
             agent: None,
             antigravity: false,
+            relay_url: None,
         }
     }
 }
@@ -105,6 +108,7 @@ pub fn load_service_config(path: &std::path::Path) -> io::Result<ServiceConfig> 
             }
             "AGENTDESK_AGENT" if !value.is_empty() => config.agent = Some(value.to_string()),
             "AGENTDESK_ANTIGRAVITY" => config.antigravity = value == "1",
+            "AGENTDESK_RELAY" if !value.is_empty() => config.relay_url = Some(value.to_string()),
             _ => {}
         }
     }
@@ -132,8 +136,12 @@ pub fn update_service_config(path: &std::path::Path, config: &ServiceConfig) -> 
                 "0".into()
             },
         ),
+        (
+            "AGENTDESK_RELAY",
+            config.relay_url.clone().unwrap_or_default(),
+        ),
     ];
-    let mut seen = [false; 3];
+    let mut seen = [false; 4];
     let mut output = Vec::new();
     for line in original.lines() {
         let mut replaced = false;
@@ -217,6 +225,7 @@ impl Default for RunOptions {
             agent: None,
             prompt: None,
             antigravity: false,
+            relay: None,
         }
     }
 }
@@ -427,6 +436,13 @@ where
                 "--antigravity" => {
                     opts.antigravity = true;
                     idx += 1;
+                }
+                "--relay" => {
+                    if idx + 1 >= args.len() {
+                        return Err("--relay requires a URL".into());
+                    }
+                    opts.relay = Some(args[idx + 1].clone());
+                    idx += 2;
                 }
                 "-h" | "--help" => return Ok(CliCommand::Help),
                 other => return Err(format!("Unknown argument: '{}'", other)),

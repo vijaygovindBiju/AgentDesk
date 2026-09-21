@@ -59,6 +59,7 @@ async fn setup_test_server(
         outbound_capacity,
         debug_logging: false,
         config_dir: None,
+        relay_url: None,
     };
 
     let server = Server::bind(config, tx_core.clone(), clock.clone())
@@ -652,6 +653,7 @@ async fn phase6_exit_criteria_end_to_end() {
         outbound_capacity: 1024,
         debug_logging: false,
         config_dir: None,
+        relay_url: None,
     };
 
     let server = Server::bind(config, tx_core.clone(), clock.clone())

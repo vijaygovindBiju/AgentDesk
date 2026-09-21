@@ -149,6 +149,7 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         outbound_capacity: agentdesk_server::DEFAULT_OUTBOUND_CAPACITY,
         debug_logging: opts.debug,
         config_dir: opts.config_dir.clone(),
+        relay_url: opts.relay.clone(),
     };
 
     if let Err(e) = server_config.validate() {
