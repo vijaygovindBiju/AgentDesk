@@ -29,6 +29,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     match command {
+        CliCommand::Interactive => {
+            agentdesk_server::interactive::run()?;
+            Ok(())
+        }
         CliCommand::Help => {
             print_help();
             Ok(())
@@ -193,7 +197,8 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
     let server = Server::bind(server_config, core_sender.clone(), clock.clone()).await?;
     let local_addr = server.local_addr();
 
-    // P6.7 / P8.1: Startup prints address, fingerprint, and token
+    // Startup diagnostics expose the endpoint and certificate identity only.
+    // Authentication remains available through the protected token file.
     let scheme = if opts.insecure_dev { "ws" } else { "wss" };
     println!("============================================================");
     println!(" AgentDesk Daemon started");
@@ -212,7 +217,6 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
     if let Some(fp) = server.fingerprint() {
         println!(" Fingerprint (SHA-256): {}", fp);
     }
-    println!(" Token:   {}", token);
     if opts.insecure_dev {
         println!(" Note:    --insecure-dev mode active (loopback plain ws://)");
     }
@@ -257,10 +261,16 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             tokio::select! {
                 adapter_cmd = rx_adapter.recv() => {
                     if let Some(AdapterCommand::Respond { task_id, decision, request_seq, response, now }) = adapter_cmd {
-                        if let Some(ref resp) = response {
-                            let _ = adapter.respond_with_response(&task_id, request_seq, resp, now);
+                        let result = if let Some(ref resp) = response {
+                            adapter.respond_with_response(&task_id, request_seq, resp, now)
                         } else {
-                            let _ = adapter.respond(&task_id, decision, now);
+                            adapter.respond(&task_id, decision, now)
+                        };
+                        if let Err(error) = result {
+                            eprintln!(
+                                "[WARN] Antigravity response delivery failed for task {}: {}",
+                                task_id, error
+                            );
                         }
                     }
                 }

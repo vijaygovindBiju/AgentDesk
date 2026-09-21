@@ -2,10 +2,16 @@
 //! See docs/TODO.md P6.5, P6.6, P6.7.
 
 use agentdesk_model::PipelineMode;
+use std::fs;
+use std::io;
+use std::net::TcpListener;
+use std::net::ToSocketAddrs;
 use std::path::PathBuf;
+use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliCommand {
+    Interactive,
     Run(RunOptions),
     TokenShow(TokenOptions),
     TokenRotate(TokenOptions),
@@ -31,6 +37,149 @@ pub struct RunOptions {
     pub agent: Option<String>,
     pub prompt: Option<String>,
     pub antigravity: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServiceConfig {
+    pub bind: String,
+    pub port: u16,
+    pub agent: Option<String>,
+    pub antigravity: bool,
+}
+
+impl Default for ServiceConfig {
+    fn default() -> Self {
+        Self {
+            bind: "127.0.0.1".into(),
+            port: 8765,
+            agent: None,
+            antigravity: false,
+        }
+    }
+}
+
+pub fn service_env_path(config_dir: &std::path::Path) -> PathBuf {
+    config_dir.join("service.env")
+}
+
+pub fn load_service_config(path: &std::path::Path) -> io::Result<ServiceConfig> {
+    if !path.exists() {
+        return Ok(ServiceConfig::default());
+    }
+    let content = fs::read_to_string(path)?;
+    let mut config = ServiceConfig::default();
+    for line in content.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let value = value.trim().trim_matches('"');
+        match key.trim() {
+            "AGENTDESK_BIND" if !value.is_empty() => config.bind = value.to_string(),
+            "AGENTDESK_PORT" => {
+                config.port = value.parse().map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "AGENTDESK_PORT is not a valid port",
+                    )
+                })?;
+            }
+            "AGENTDESK_AGENT" if !value.is_empty() => config.agent = Some(value.to_string()),
+            "AGENTDESK_ANTIGRAVITY" => config.antigravity = value == "1",
+            _ => {}
+        }
+    }
+    validate_port(config.port).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    Ok(config)
+}
+
+pub fn update_service_config(path: &std::path::Path, config: &ServiceConfig) -> io::Result<()> {
+    validate_port(config.port).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+    if config.bind.trim().is_empty() || config.bind.contains(['\n', '\r', '=']) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid bind address",
+        ));
+    }
+    let original = fs::read_to_string(path).unwrap_or_default();
+    let replacements = [
+        ("AGENTDESK_BIND", config.bind.clone()),
+        ("AGENTDESK_PORT", config.port.to_string()),
+        (
+            "AGENTDESK_ANTIGRAVITY",
+            if config.antigravity {
+                "1".into()
+            } else {
+                "0".into()
+            },
+        ),
+    ];
+    let mut seen = [false; 3];
+    let mut output = Vec::new();
+    for line in original.lines() {
+        let mut replaced = false;
+        for (index, (key, value)) in replacements.iter().enumerate() {
+            if line.starts_with(&format!("{key}=")) {
+                output.push(format!("{key}={value}"));
+                seen[index] = true;
+                replaced = true;
+                break;
+            }
+        }
+        if !replaced {
+            output.push(line.to_string());
+        }
+    }
+    for (index, (key, value)) in replacements.iter().enumerate() {
+        if !seen[index] {
+            output.push(format!("{key}={value}"));
+        }
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension("env.tmp");
+    fs::write(&tmp, format!("{}\n", output.join("\n")))?;
+    fs::rename(tmp, path)?;
+    Ok(())
+}
+
+pub fn validate_port(port: u16) -> Result<(), String> {
+    if port == 0 {
+        Err("port must be between 1 and 65535".into())
+    } else {
+        Ok(())
+    }
+}
+
+pub fn port_available(bind: &str, port: u16) -> bool {
+    let target = if bind.contains(':') && !bind.starts_with('[') {
+        format!("[{bind}]:{port}")
+    } else {
+        format!("{bind}:{port}")
+    };
+    target
+        .to_socket_addrs()
+        .ok()
+        .map(|addresses| {
+            addresses
+                .into_iter()
+                .any(|addr| TcpListener::bind(addr).is_ok())
+        })
+        .unwrap_or(false)
+}
+
+pub fn service_action(action: &str) -> io::Result<bool> {
+    let status = Command::new("systemctl")
+        .args(["--user", action, "agentdesk.service"])
+        .status()?;
+    Ok(status.success())
+}
+
+pub fn service_is_active() -> io::Result<bool> {
+    let status = Command::new("systemctl")
+        .args(["--user", "is-active", "--quiet", "agentdesk.service"])
+        .status()?;
+    Ok(status.success())
 }
 
 impl Default for RunOptions {
@@ -59,7 +208,7 @@ where
 {
     let args: Vec<String> = args.into_iter().map(|s| s.as_ref().to_string()).collect();
     if args.len() <= 1 {
-        return Ok(CliCommand::Help);
+        return Ok(CliCommand::Interactive);
     }
 
     let first = &args[1];
@@ -202,6 +351,7 @@ pub fn print_help() {
     eprintln!(
         "AgentDesk Daemon\n\n\
          USAGE:\n\
+             agentdesk                  Interactive service control\n\
              agentdesk run [OPTIONS]\n\
              agentdesk token <show|rotate> [--config-dir <path>]\n\n\
          RUN OPTIONS:\n\
@@ -224,6 +374,7 @@ pub fn print_help() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn parse_help_command() {
@@ -231,7 +382,7 @@ mod tests {
             parse_args(["agentdesk", "--help"]).unwrap(),
             CliCommand::Help
         );
-        assert_eq!(parse_args(["agentdesk"]).unwrap(), CliCommand::Help);
+        assert_eq!(parse_args(["agentdesk"]).unwrap(), CliCommand::Interactive);
     }
 
     #[test]
@@ -295,5 +446,38 @@ mod tests {
             }
             _ => panic!("expected run command"),
         }
+    }
+
+    #[test]
+    fn service_config_update_preserves_unrelated_values() {
+        let path =
+            std::env::temp_dir().join(format!("agentdesk_service_{}.env", std::process::id()));
+        fs::write(
+            &path,
+            "# keep this\nAGENTDESK_BIND=127.0.0.1\nAGENTDESK_PORT=8765\nOTHER=value\n",
+        )
+        .unwrap();
+        let mut config = load_service_config(&path).unwrap();
+        config.port = 8080;
+        update_service_config(&path, &config).unwrap();
+        let saved = fs::read_to_string(&path).unwrap();
+        assert!(saved.contains("# keep this"));
+        assert!(saved.contains("OTHER=value"));
+        assert!(saved.contains("AGENTDESK_PORT=8080"));
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn invalid_ports_are_rejected() {
+        assert!(validate_port(0).is_err());
+        assert!(validate_port(1).is_ok());
+        assert!(validate_port(u16::MAX).is_ok());
+    }
+
+    #[test]
+    fn occupied_ports_are_not_reported_available() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        assert!(!port_available("127.0.0.1", port));
     }
 }

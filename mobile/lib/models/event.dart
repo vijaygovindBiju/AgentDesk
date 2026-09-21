@@ -93,6 +93,7 @@ enum Operation {
 }
 
 enum QuestionType {
+  yesNo('yes_no'),
   singleChoice('single_choice'),
   multipleChoice('multiple_choice'),
   freeText('free_text');
@@ -102,6 +103,8 @@ enum QuestionType {
 
   static QuestionType? fromJson(String? value) {
     switch (value) {
+      case 'yes_no':
+        return QuestionType.yesNo;
       case 'single_choice':
         return QuestionType.singleChoice;
       case 'multiple_choice':

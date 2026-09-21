@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/connection_service.dart';
 import 'brand_logo.dart';
+import 'structured_request_fixtures_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final ConnectionService connection;
@@ -182,6 +184,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: const Icon(Icons.menu_book_outlined),
             label: const Text('Show Introduction Again'),
           ),
+          if (kDebugMode) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('structured_fixtures_button'),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => StructuredRequestFixtureScreen(
+                      state: widget.connection.state,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.science_outlined),
+              label: const Text('Structured UI Fixtures'),
+            ),
+          ],
         ],
       ),
     );

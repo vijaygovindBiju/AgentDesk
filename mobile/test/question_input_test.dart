@@ -34,6 +34,14 @@ class CapturingConnection extends ConnectionService {
     this.decision = decision;
     this.selectedOptions = selectedOptions;
     this.textInput = textInput;
+    state.applyStateUpdate(
+      StateUpdate(
+        eventId: eventId,
+        state: EntryState.seen,
+        resolution: Resolution.approved,
+        superseded: false,
+      ),
+    );
     return const CommandResult(ok: true);
   }
 }
@@ -126,6 +134,32 @@ void main() {
     expect(connection.decision, Decision.approve);
     expect(connection.selectedOptions, ['Rust']);
     expect(connection.textInput, isNull);
+    expect(
+      connection.state.entryFor('single')?.resolution,
+      Resolution.approved,
+    );
+  });
+
+  testWidgets('renders explicit yes/no options as structured choices', (
+    tester,
+  ) async {
+    final connection = CapturingConnection(state: AgentDeskState());
+    final event = requestEvent(
+      id: 'yes-no',
+      type: QuestionType.yesNo,
+      options: ['Continue', 'Stop'],
+    );
+    await showRequest(tester, connection, event);
+
+    expect(find.text('Continue'), findsOneWidget);
+    expect(find.text('Stop'), findsOneWidget);
+    expect(find.byKey(const Key('approve_button')), findsNothing);
+    await tester.tap(find.byKey(const Key('question_option_Stop')));
+    await tester.tap(find.byKey(const Key('send_question_button')));
+    await tester.pumpAndSettle();
+
+    expect(connection.selectedOptions, ['Stop']);
+    expect(connection.decision, Decision.approve);
   });
 
   testWidgets('renders multi-select options and sends all selections', (
@@ -187,5 +221,36 @@ void main() {
     await tester.tap(find.text('Other / Write your own'));
     await tester.pump();
     expect(find.byKey(const Key('question_text_input')), findsOneWidget);
+  });
+
+  testWidgets('choice plus supplied Other preserves option and write-in text', (
+    tester,
+  ) async {
+    final connection = CapturingConnection(state: AgentDeskState());
+    final event = requestEvent(
+      id: 'other-option',
+      type: QuestionType.singleChoice,
+      options: ['Local', 'Other'],
+      details: const {'allows_write_in': true},
+    );
+    await showRequest(tester, connection, event);
+
+    expect(find.text('Other / Write your own'), findsNothing);
+    await tester.tap(find.byKey(const Key('question_option_Other')));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const Key('question_text_input')),
+      'WASM',
+    );
+    tester.testTextInput.hide();
+    await tester.pump();
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('send_question_button')));
+    await tester.pumpAndSettle();
+
+    expect(connection.decision, Decision.approve);
+    expect(connection.selectedOptions, ['Other']);
+    expect(connection.textInput, 'WASM');
   });
 }

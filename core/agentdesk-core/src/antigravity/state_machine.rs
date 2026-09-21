@@ -44,10 +44,35 @@ pub enum QuestionDetails {
 impl QuestionDetails {
     pub fn question_type(&self) -> QuestionType {
         match self {
-            QuestionDetails::SingleChoice { .. } => QuestionType::SingleChoice,
+            QuestionDetails::SingleChoice { options, .. } => {
+                if Self::is_yes_no_options(options) {
+                    QuestionType::YesNo
+                } else {
+                    QuestionType::SingleChoice
+                }
+            }
             QuestionDetails::MultipleChoice { .. } => QuestionType::MultipleChoice,
             QuestionDetails::FreeText { .. } => QuestionType::FreeText,
         }
+    }
+
+    fn is_yes_no_options(options: &[String]) -> bool {
+        if options.len() != 2 {
+            return false;
+        }
+        let normalized: Vec<String> = options
+            .iter()
+            .map(|option| option.trim().to_ascii_lowercase())
+            .collect();
+        matches!(
+            (normalized[0].as_str(), normalized[1].as_str()),
+            ("yes", "no")
+                | ("no", "yes")
+                | ("y", "n")
+                | ("n", "y")
+                | ("yes, continue", "no, cancel")
+                | ("no, cancel", "yes, continue")
+        )
     }
 
     /// Raw menu rows in screen order (navigation index space).
@@ -716,7 +741,11 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
             || line.contains("Generating...")
         {
             return AntigravityState::Working {
-                details: line.trim().to_string(),
+                details: line
+                    .trim()
+                    .trim_start_matches(|c| spinner_chars.contains(&c))
+                    .trim()
+                    .to_string(),
             };
         }
     }
@@ -1251,6 +1280,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn classifies_explicit_yes_no_controls_without_relabeling_options() {
+        let yes_no = QuestionDetails::SingleChoice {
+            options: vec!["Yes".into(), "No".into()],
+            selected_index: 0,
+            write_in_index: None,
+        };
+        assert_eq!(yes_no.question_type(), QuestionType::YesNo);
+        assert_eq!(yes_no.answer_options(), ["Yes", "No"]);
+
+        let unrelated = QuestionDetails::SingleChoice {
+            options: vec!["Keep".into(), "Delete".into()],
+            selected_index: 0,
+            write_in_index: None,
+        };
+        assert_eq!(unrelated.question_type(), QuestionType::SingleChoice);
+    }
+
+    #[test]
     fn test_detect_command_confirmation() {
         let snapshot = ScreenSnapshot {
             cols: 80,
@@ -1305,5 +1352,24 @@ mod tests {
         assert_eq!(event.kind, "command_confirmation");
         assert_eq!(event.operation, Operation::Test);
         assert!(event.request.is_some());
+    }
+
+    #[test]
+    fn spinner_redraws_share_one_working_state() {
+        let make_snapshot = |spinner: &str| ScreenSnapshot {
+            cols: 80,
+            rows: 24,
+            cursor_row: 5,
+            cursor_col: 0,
+            in_alt_screen: true,
+            cursor_visible: true,
+            lines: vec![format!("{spinner} Generating...")],
+            reversed_lines: vec![],
+        };
+
+        assert_eq!(
+            detect_state(&make_snapshot("⠋")),
+            detect_state(&make_snapshot("⠙"))
+        );
     }
 }

@@ -134,14 +134,18 @@ class _EventScreenState extends State<EventScreen> {
 
   Future<void> _submitQuestion(Event event) async {
     final customText = _textController.text;
+    final request = event.request!;
+    final writeInOption = request.options.firstWhere(
+      (option) => option.trim().toLowerCase() == 'other',
+      orElse: () => _writeInOption,
+    );
     final selected = _selectedOptions
         .where((option) => option != _writeInOption)
         .toList(growable: false);
 
     // A write-in is represented by text_input. The server and core preserve
     // the existing structured protocol and route it as a TextInput response.
-    if (_selectedOptions.contains(_writeInOption) &&
-        customText.trim().isEmpty) {
+    if (_selectedOptions.contains(writeInOption) && customText.trim().isEmpty) {
       setState(() => _inlineError = 'Enter a custom response.');
       return;
     }
@@ -488,6 +492,10 @@ class _EventScreenState extends State<EventScreen> {
             ? QuestionType.singleChoice
             : null);
     final allowsWriteIn = event.details['allows_write_in'] == true;
+    final writeInOption = request.options.firstWhere(
+      (option) => option.trim().toLowerCase() == 'other',
+      orElse: () => _writeInOption,
+    );
 
     if (questionType == null) {
       return Row(
@@ -520,8 +528,12 @@ class _EventScreenState extends State<EventScreen> {
     }
 
     final controls = <Widget>[];
-    if (questionType == QuestionType.singleChoice) {
-      final options = [...request.options, if (allowsWriteIn) _writeInOption];
+    if (questionType == QuestionType.singleChoice ||
+        questionType == QuestionType.yesNo) {
+      final options = [
+        ...request.options,
+        if (allowsWriteIn && writeInOption == _writeInOption) writeInOption,
+      ];
       controls.add(
         RadioGroup<String>(
           groupValue: _selectedOptions.isEmpty ? null : _selectedOptions.first,
@@ -553,7 +565,10 @@ class _EventScreenState extends State<EventScreen> {
         ),
       );
     } else if (questionType == QuestionType.multipleChoice) {
-      final options = [...request.options, if (allowsWriteIn) _writeInOption];
+      final options = [
+        ...request.options,
+        if (allowsWriteIn && writeInOption == _writeInOption) writeInOption,
+      ];
       controls.addAll(
         options.map((option) {
           return CheckboxListTile(
@@ -579,7 +594,7 @@ class _EventScreenState extends State<EventScreen> {
     }
 
     if (questionType == QuestionType.freeText ||
-        _selectedOptions.contains(_writeInOption)) {
+        (allowsWriteIn && _selectedOptions.contains(writeInOption))) {
       controls.add(
         TextField(
           key: const Key('question_text_input'),

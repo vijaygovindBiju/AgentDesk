@@ -135,6 +135,7 @@ pub struct LogRange {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QuestionType {
+    YesNo,
     SingleChoice,
     MultipleChoice,
     FreeText,

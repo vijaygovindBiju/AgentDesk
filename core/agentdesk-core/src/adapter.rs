@@ -36,6 +36,26 @@ pub enum RespondError {
     WrongRequest,
 }
 
+impl std::fmt::Display for RespondError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RespondError::NoSuchTask => write!(f, "no such task"),
+            RespondError::NotBlocked => write!(f, "task is not waiting for a decision"),
+            RespondError::AlreadyConsumed => write!(f, "request already consumed"),
+            RespondError::StateMismatch => {
+                write!(f, "live TUI state does not match the pending request")
+            }
+            RespondError::InvalidResponse => {
+                write!(f, "response is invalid for the current request type")
+            }
+            RespondError::Disconnected => write!(f, "PTY transport is disconnected"),
+            RespondError::WrongRequest => {
+                write!(f, "response targets a superseded request")
+            }
+        }
+    }
+}
+
 pub trait Adapter: Send {
     /// Agents this adapter speaks for. Stable for the adapter's lifetime.
     fn agents(&self) -> &[AgentInfo];

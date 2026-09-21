@@ -876,7 +876,15 @@ The installer:
 
 The installer supports `VERSION`, `INSTALL_DIR`, `AGENTDESK_REPOSITORY`, and `AGENTDESK_RELEASE_BASE_URL`. The release base URL must use HTTPS. It refuses to run as root so the daemon and its runtime files remain owned by the normal user.
 
-Manage the installed service with the commands implemented by systemd:
+The primary daily command is the interactive controller:
+
+```bash
+agentdesk
+```
+
+It can start AgentDesk (including runtime port selection), configure the bind
+address, show status, restart, stop, or exit. Direct systemd commands remain
+available for diagnostics:
 
 ```bash
 systemctl --user status agentdesk.service
@@ -899,7 +907,10 @@ curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/main/unin
   | PURGE_CONFIG=1 bash
 ```
 
-For LAN access, edit `~/.config/agentdesk/service.env`, set `AGENTDESK_BIND` to the intended interface, and restart the service. The daemon's existing token and TLS fingerprint remain the authentication and server-identity controls.
+After installation, run `agentdesk` for the interactive service controller. It shows the current
+configuration, lets you choose a runtime port, and restarts the existing systemd user service
+when the port changes. The daemon's existing token and TLS fingerprint remain the
+authentication and server-identity controls; tokens are never printed by this controller.
 
 ## Release Artifacts
 

@@ -5,12 +5,16 @@
 
 pub mod config;
 pub mod connection;
+pub mod interactive;
 pub mod logging;
 pub mod server;
 pub mod tls;
 pub mod token;
 
-pub use config::{CliCommand, RunOptions, TokenOptions, parse_args, print_help};
+pub use config::{
+    CliCommand, RunOptions, ServiceConfig, TokenOptions, load_service_config, parse_args,
+    print_help, service_env_path, update_service_config,
+};
 pub use connection::{
     ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, ServerConnectionSink, handle_connection,
 };
