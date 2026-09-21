@@ -14,8 +14,9 @@ pub mod tls;
 pub mod token;
 
 pub use config::{
-    CliCommand, RunOptions, ServiceConfig, TokenOptions, load_service_config, parse_args,
-    print_help, service_env_path, update_service_config,
+    CliCommand, DeviceOptions, DeviceRevokeOptions, PairOptions, RunOptions, ServiceConfig,
+    TokenOptions, load_service_config, parse_args, print_help, service_env_path,
+    update_service_config,
 };
 pub use connection::{
     ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, ServerConnectionSink, handle_connection,
@@ -27,7 +28,8 @@ pub use logging::{
 pub use pairing::{
     PairingError, PairingManager, PairingPayload, PairingSession,
     PAIRING_DEFAULT_DURATION_SECS, PAIRING_PROTOCOL_VERSION,
-    detect_lan_ip, render_qr_terminal,
+    detect_lan_ip, load_session_file, pairing_session_path, remove_session_file,
+    render_qr_terminal, save_session_file,
 };
 pub use server::{Server, ServerConfig};
 pub use tls::{

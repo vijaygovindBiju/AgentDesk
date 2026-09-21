@@ -94,7 +94,7 @@ impl Server {
                 io::Error::other(format!("Failed loading/creating device registry: {e}"))
             })?,
         ));
-        let pairing_manager = PairingManager::new();
+        let pairing_manager = PairingManager::with_dir(config_dir.clone());
 
         let (tls_identity, tls_acceptor) = if config.insecure_dev {
             eprintln!(

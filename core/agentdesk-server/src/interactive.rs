@@ -2,6 +2,12 @@ use crate::config::{
     ServiceConfig, load_service_config, port_available, service_action, service_env_path,
     service_is_active, update_service_config, validate_port,
 };
+use crate::device::DeviceRegistry;
+use crate::pairing::{
+    PAIRING_DEFAULT_DURATION_SECS, PairingManager, detect_lan_ip, load_session_file,
+    render_qr_terminal,
+};
+use crate::tls::TlsIdentity;
 use crate::token::default_config_dir;
 use std::io::{self, BufRead, Write};
 
@@ -13,21 +19,26 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         print_header(&config);
         println!("\nWhat do you want to do?");
-        println!("  1) Start AgentDesk");
-        println!("  2) Configure AgentDesk");
-        println!("  3) Status");
-        println!("  4) Restart");
-        println!("  5) Stop");
-        println!("  6) Exit");
+        println!("  1) Pair Phone");
+        println!("  2) Start AgentDesk");
+        println!("  3) Configure AgentDesk");
+        println!("  4) Status");
+        println!("  5) Restart");
+        println!("  6) Stop");
+        println!("  7) Paired Devices");
+        println!("  8) Exit");
         match prompt("Select an option: ")?.as_str() {
             "1" => {
-                config = start_flow(&env_path, config)?;
+                pair_flow(&config_dir, &config, None)?;
             }
             "2" => {
+                config = start_flow(&env_path, config)?;
+            }
+            "3" => {
                 configure_flow(&env_path, &mut config)?;
             }
-            "3" => show_status()?,
-            "4" => {
+            "4" => show_status()?,
+            "5" => {
                 update_service_config(&env_path, &config)?;
                 if !service_action("restart")? {
                     eprintln!("Failed to restart AgentDesk.");
@@ -35,17 +46,150 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
                     println!("AgentDesk restarted on port {}.", config.port);
                 }
             }
-            "5" => {
+            "6" => {
                 if !service_action("stop")? {
                     eprintln!("Failed to stop AgentDesk.");
                 } else {
                     println!("AgentDesk stopped.");
                 }
             }
-            "6" => return Ok(()),
+            "7" => {
+                devices_flow(&config_dir)?;
+            }
+            "8" => return Ok(()),
             _ => println!("Please choose a menu number."),
         }
         println!();
+    }
+}
+
+pub fn pair_flow(
+    config_dir: &std::path::Path,
+    config: &ServiceConfig,
+    relay_url: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let active = service_is_active().unwrap_or(false);
+    let is_listening = !port_available(&config.bind, config.port);
+    if !active && !is_listening {
+        println!("AgentDesk service is not currently running. Starting it now...");
+        let _ = service_action("start");
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        if !service_is_active().unwrap_or(false) && port_available(&config.bind, config.port) {
+            println!("Note: If running standalone, ensure 'agentdesk run' is active in another terminal.");
+        }
+    }
+
+    let reg = DeviceRegistry::load_or_create(config_dir)?;
+    let instance_id = reg.instance_id.clone();
+    let tls_id = TlsIdentity::load_or_generate(config_dir).map_err(|e| io::Error::other(e.to_string()))?;
+    let fingerprint = tls_id.fingerprint.clone();
+
+    let lan_ip = detect_lan_ip()
+        .map(|ip| ip.to_string())
+        .unwrap_or_else(|| {
+            if config.bind != "127.0.0.1" && config.bind != "0.0.0.0" {
+                config.bind.clone()
+            } else {
+                "127.0.0.1".into()
+            }
+        });
+    let lan_address = format!("{}:{}", lan_ip, config.port);
+
+    let pairing_manager = PairingManager::with_dir(config_dir.to_path_buf());
+    let (session, _payload, uri) = pairing_manager.create_session(
+        instance_id.clone(),
+        fingerprint.clone(),
+        Some(lan_address.clone()),
+        relay_url,
+        Some(PAIRING_DEFAULT_DURATION_SECS),
+        chrono::Utc::now(),
+    );
+
+    let qr = render_qr_terminal(&uri).map_err(|e| io::Error::other(e.to_string()))?;
+    println!("\n╭──────────────────────────────────────────────────────────────╮");
+    println!("│                    Pair AgentDesk Phone                      │");
+    println!("╰──────────────────────────────────────────────────────────────╯\n");
+    println!("Scan this QR code with the AgentDesk Android app:\n");
+    println!("{}", qr);
+    println!("  Instance:    {}", instance_id);
+    println!("  LAN Address: {}", lan_address);
+    println!("  Fingerprint: {}", fingerprint);
+    println!("  Expires in:  3 minutes");
+    println!("\nWaiting for phone to scan QR code...\n");
+
+    let start = std::time::Instant::now();
+    let timeout = std::time::Duration::from_secs(PAIRING_DEFAULT_DURATION_SECS as u64);
+
+    while start.elapsed() < timeout {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        if let Some(s) = load_session_file(config_dir) {
+            if s.session_id == session.session_id && s.used {
+                let name = s.paired_device_name.as_deref().unwrap_or("Android phone");
+                let id = s.paired_device_id.as_deref().unwrap_or("unknown");
+                println!("✓ Phone successfully paired!");
+                println!("  Device Name: {}", name);
+                println!("  Device ID:   {}", id);
+                println!("  Connection:  LAN ({}) or Relay", lan_address);
+                return Ok(());
+            }
+        }
+    }
+
+    println!("✗ Pairing session expired after 3 minutes. Please try again.");
+    pairing_manager.clear();
+    Ok(())
+}
+
+pub fn devices_flow(config_dir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    let mut reg = DeviceRegistry::load_or_create(config_dir)?;
+    loop {
+        println!("\n╭──────────────────────────────────────────────╮");
+        println!("│                Paired Devices                │");
+        println!("╰──────────────────────────────────────────────╯\n");
+        let devices = reg.list_devices();
+        if devices.is_empty() {
+            println!("  No paired devices found.");
+            println!("  Use 'Pair Phone' to pair your mobile device.\n");
+            println!("  1) Back");
+            let _ = prompt("Select an option: ")?;
+            return Ok(());
+        }
+
+        for (idx, dev) in devices.iter().enumerate() {
+            let status = if dev.revoked { "REVOKED" } else { "ACTIVE" };
+            println!(
+                "  {}) {} [{}] (ID: {}, Paired: {})",
+                idx + 1,
+                dev.device_name,
+                status,
+                dev.device_id,
+                dev.paired_at.format("%Y-%m-%d %H:%M:%S UTC")
+            );
+        }
+
+        println!("\nOptions:");
+        println!("  1) Revoke a device");
+        println!("  2) Back");
+        match prompt("Select an option: ")?.as_str() {
+            "1" => {
+                let num_str = prompt("Enter device number to revoke: ")?;
+                if let Ok(num) = num_str.parse::<usize>() {
+                    if num >= 1 && num <= devices.len() {
+                        let dev_id = devices[num - 1].device_id.clone();
+                        let dev_name = devices[num - 1].device_name.clone();
+                        reg.revoke_device(&dev_id);
+                        reg.save(config_dir)?;
+                        println!("✓ Revoked device: {}", dev_name);
+                    } else {
+                        println!("Invalid device number.");
+                    }
+                } else {
+                    println!("Invalid input.");
+                }
+            }
+            "2" => return Ok(()),
+            _ => println!("Please choose a menu number."),
+        }
     }
 }
 

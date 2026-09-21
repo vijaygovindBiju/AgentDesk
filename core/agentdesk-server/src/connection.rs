@@ -194,6 +194,11 @@ where
                         pair_req.device_name.clone(),
                     );
                     let _ = reg.save(&params.config_dir);
+                    params.pairing_manager.record_paired_device(
+                        &pair_req.session_id,
+                        &pair_req.device_id,
+                        &pair_req.device_name,
+                    );
                     logging::info(format!(
                         "Successfully paired device '{}' ({}) from {}",
                         pair_req.device_id, pair_req.device_name, peer_addr

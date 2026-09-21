@@ -2,11 +2,14 @@
 //! See docs/SECURITY.md and Sections 4-6, 19, 22.
 
 use std::collections::HashMap;
+use std::fs;
 use std::net::{IpAddr, UdpSocket};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Duration, Utc};
 use qrcode::QrCode;
 use qrcode::render::unicode;
+use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
@@ -167,8 +170,42 @@ impl PairingPayload {
     }
 }
 
-/// Active in-memory pairing session.
-#[derive(Debug, Clone)]
+pub fn pairing_session_path(config_dir: &Path) -> PathBuf {
+    config_dir.join("pairing_session.json")
+}
+
+pub fn save_session_file(config_dir: &Path, session: &PairingSession) -> std::io::Result<()> {
+    fs::create_dir_all(config_dir)?;
+    let target = pairing_session_path(config_dir);
+    let tmp = config_dir.join(format!(".pairing_session_{}.tmp", Uuid::new_v4()));
+    let json = serde_json::to_string_pretty(session)?;
+    fs::write(&tmp, json)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = fs::metadata(&tmp) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o600);
+            let _ = fs::set_permissions(&tmp, perms);
+        }
+    }
+    fs::rename(tmp, target)?;
+    Ok(())
+}
+
+pub fn load_session_file(config_dir: &Path) -> Option<PairingSession> {
+    let target = pairing_session_path(config_dir);
+    let content = fs::read_to_string(target).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+pub fn remove_session_file(config_dir: &Path) {
+    let target = pairing_session_path(config_dir);
+    let _ = fs::remove_file(target);
+}
+
+/// Active pairing session (in-memory and optional file sync).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PairingSession {
     pub session_id: String,
     pub pairing_secret: String,
@@ -176,8 +213,14 @@ pub struct PairingSession {
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub used: bool,
+    #[serde(default)]
+    pub paired_device_id: Option<String>,
+    #[serde(default)]
+    pub paired_device_name: Option<String>,
+    #[serde(default)]
     pub lan_address: Option<String>,
     pub fingerprint: String,
+    #[serde(default)]
     pub relay_url: Option<String>,
 }
 
@@ -185,13 +228,26 @@ pub struct PairingSession {
 #[derive(Debug, Default, Clone)]
 pub struct PairingManager {
     inner: Arc<Mutex<HashMap<String, PairingSession>>>,
+    config_dir: Option<PathBuf>,
 }
 
 impl PairingManager {
     pub fn new() -> Self {
         Self {
             inner: Arc::new(Mutex::new(HashMap::new())),
+            config_dir: None,
         }
+    }
+
+    pub fn with_dir(config_dir: PathBuf) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(HashMap::new())),
+            config_dir: Some(config_dir),
+        }
+    }
+
+    pub fn config_dir(&self) -> Option<&Path> {
+        self.config_dir.as_deref()
     }
 
     /// Create a new short-lived pairing session.
@@ -217,6 +273,8 @@ impl PairingManager {
             created_at,
             expires_at,
             used: false,
+            paired_device_id: None,
+            paired_device_name: None,
             lan_address: lan_address.clone(),
             fingerprint: fingerprint.clone(),
             relay_url: relay_url.clone(),
@@ -239,6 +297,10 @@ impl PairingManager {
         lock.clear();
         lock.insert(session_id, session.clone());
 
+        if let Some(ref dir) = self.config_dir {
+            let _ = save_session_file(dir, &session);
+        }
+
         (session, payload, uri)
     }
 
@@ -251,6 +313,18 @@ impl PairingManager {
         now: DateTime<Utc>,
     ) -> Result<PairingSession, PairingError> {
         let mut lock = self.inner.lock().unwrap();
+
+        // Fallback: check file if session is not currently in memory
+        if !lock.contains_key(session_id) {
+            if let Some(ref dir) = self.config_dir {
+                if let Some(file_sess) = load_session_file(dir) {
+                    if file_sess.session_id == session_id {
+                        lock.insert(session_id.to_string(), file_sess);
+                    }
+                }
+            }
+        }
+
         let session = lock.get_mut(session_id).ok_or(PairingError::WrongSession)?;
 
         if session.used {
@@ -269,12 +343,47 @@ impl PairingManager {
 
         // Single-use: immediately mark used!
         session.used = true;
-        Ok(session.clone())
+        let consumed = session.clone();
+
+        if let Some(ref dir) = self.config_dir {
+            let _ = save_session_file(dir, &consumed);
+        }
+
+        Ok(consumed)
+    }
+
+    /// Record newly paired device information on the session.
+    pub fn record_paired_device(
+        &self,
+        session_id: &str,
+        device_id: &str,
+        device_name: &str,
+    ) {
+        let mut lock = self.inner.lock().unwrap();
+        if let Some(session) = lock.get_mut(session_id) {
+            session.paired_device_id = Some(device_id.to_string());
+            session.paired_device_name = Some(device_name.to_string());
+            if let Some(ref dir) = self.config_dir {
+                let _ = save_session_file(dir, session);
+            }
+        } else if let Some(ref dir) = self.config_dir {
+            if let Some(mut file_sess) = load_session_file(dir) {
+                if file_sess.session_id == session_id {
+                    file_sess.paired_device_id = Some(device_id.to_string());
+                    file_sess.paired_device_name = Some(device_name.to_string());
+                    let _ = save_session_file(dir, &file_sess);
+                    lock.insert(session_id.to_string(), file_sess);
+                }
+            }
+        }
     }
 
     /// Invalidate any active pairing sessions.
     pub fn clear(&self) {
         self.inner.lock().unwrap().clear();
+        if let Some(ref dir) = self.config_dir {
+            remove_session_file(dir);
+        }
     }
 }
 

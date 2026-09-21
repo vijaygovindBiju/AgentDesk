@@ -11,8 +11,10 @@ use agentdesk_core::{
     ThresholdTable,
 };
 use agentdesk_server::{
-    CliCommand, LogLevel, RunOptions, Server, ServerConfig, TokenOptions, default_config_dir,
-    load_or_generate_token, parse_args, print_help, rotate_token, set_log_level, token_path,
+    CliCommand, DeviceOptions, DeviceRegistry, DeviceRevokeOptions, LogLevel, PairOptions,
+    RunOptions, Server, ServerConfig, TokenOptions, default_config_dir, load_or_generate_token,
+    load_service_config, parse_args, print_help, rotate_token, service_env_path, set_log_level,
+    token_path,
 };
 use agentdesk_sim::{Scenario, Simulator};
 
@@ -34,6 +36,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             agentdesk_server::interactive::run()?;
             Ok(())
         }
+        CliCommand::Pair(opts) => {
+            handle_pair(opts)?;
+            Ok(())
+        }
+        CliCommand::DevicesList(opts) => {
+            handle_devices_list(opts)?;
+            Ok(())
+        }
+        CliCommand::DeviceRevoke(opts) => {
+            handle_device_revoke(opts)?;
+            Ok(())
+        }
         CliCommand::Help => {
             print_help();
             Ok(())
@@ -51,6 +65,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         }
     }
+}
+
+fn handle_pair(opts: PairOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = opts.config_dir.unwrap_or_else(default_config_dir);
+    let env_path = service_env_path(&config_dir);
+    let config = load_service_config(&env_path)?;
+    agentdesk_server::interactive::pair_flow(&config_dir, &config, opts.relay)?;
+    Ok(())
+}
+
+fn handle_devices_list(opts: DeviceOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = opts.config_dir.unwrap_or_else(default_config_dir);
+    let reg = DeviceRegistry::load_or_create(&config_dir)?;
+    let devices = reg.list_devices();
+    if devices.is_empty() {
+        println!("No paired devices found.");
+        return Ok(());
+    }
+    println!("{:<20} {:<36} {:<10} {:<20}", "NAME", "DEVICE ID", "STATUS", "PAIRED AT");
+    println!("{}", "-".repeat(88));
+    for dev in devices {
+        let status = if dev.revoked { "REVOKED" } else { "ACTIVE" };
+        println!(
+            "{:<20} {:<36} {:<10} {:<20}",
+            dev.device_name,
+            dev.device_id,
+            status,
+            dev.paired_at.format("%Y-%m-%d %H:%M:%S")
+        );
+    }
+    Ok(())
+}
+
+fn handle_device_revoke(opts: DeviceRevokeOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = opts.config_dir.unwrap_or_else(default_config_dir);
+    let mut reg = DeviceRegistry::load_or_create(&config_dir)?;
+    if reg.revoke_device(&opts.device_id) {
+        reg.save(&config_dir)?;
+        println!("✓ Device '{}' revoked successfully.", opts.device_id);
+    } else {
+        println!("Device '{}' not found or already revoked.", opts.device_id);
+    }
+    Ok(())
 }
 
 fn handle_token_show(opts: TokenOptions) -> Result<(), Box<dyn std::error::Error>> {

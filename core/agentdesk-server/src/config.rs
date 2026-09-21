@@ -12,10 +12,30 @@ use std::process::Command;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliCommand {
     Interactive,
+    Pair(PairOptions),
+    DevicesList(DeviceOptions),
+    DeviceRevoke(DeviceRevokeOptions),
     Run(RunOptions),
     TokenShow(TokenOptions),
     TokenRotate(TokenOptions),
     Help,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PairOptions {
+    pub config_dir: Option<PathBuf>,
+    pub relay: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DeviceOptions {
+    pub config_dir: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceRevokeOptions {
+    pub device_id: String,
+    pub config_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -245,6 +265,80 @@ where
         }
     }
 
+    if first == "pair" {
+        let mut opts = PairOptions::default();
+        let mut idx = 2;
+        while idx < args.len() {
+            match args[idx].as_str() {
+                "--config-dir" => {
+                    if idx + 1 >= args.len() {
+                        return Err("--config-dir requires a path".into());
+                    }
+                    opts.config_dir = Some(PathBuf::from(&args[idx + 1]));
+                    idx += 2;
+                }
+                "--relay" => {
+                    if idx + 1 >= args.len() {
+                        return Err("--relay requires a URL".into());
+                    }
+                    opts.relay = Some(args[idx + 1].clone());
+                    idx += 2;
+                }
+                "-h" | "--help" => return Ok(CliCommand::Help),
+                other => return Err(format!("Unknown option for pair: '{}'", other)),
+            }
+        }
+        return Ok(CliCommand::Pair(opts));
+    }
+
+    if first == "devices" {
+        if args.len() < 3 {
+            return Err("Usage: agentdesk devices <list|revoke <device_id>> [--config-dir <path>]".into());
+        }
+        let sub = &args[2];
+        match sub.as_str() {
+            "list" => {
+                let mut config_dir = None;
+                let mut idx = 3;
+                while idx < args.len() {
+                    if args[idx] == "--config-dir" && idx + 1 < args.len() {
+                        config_dir = Some(PathBuf::from(&args[idx + 1]));
+                        idx += 2;
+                    } else {
+                        return Err(format!("Unknown option for devices list: '{}'", args[idx]));
+                    }
+                }
+                return Ok(CliCommand::DevicesList(DeviceOptions { config_dir }));
+            }
+            "revoke" => {
+                if args.len() < 4 {
+                    return Err("Usage: agentdesk devices revoke <device_id> [--config-dir <path>]".into());
+                }
+                let device_id = args[3].clone();
+                let mut config_dir = None;
+                let mut idx = 4;
+                while idx < args.len() {
+                    if args[idx] == "--config-dir" && idx + 1 < args.len() {
+                        config_dir = Some(PathBuf::from(&args[idx + 1]));
+                        idx += 2;
+                    } else {
+                        return Err(format!("Unknown option for devices revoke: '{}'", args[idx]));
+                    }
+                }
+                return Ok(CliCommand::DeviceRevoke(DeviceRevokeOptions {
+                    device_id,
+                    config_dir,
+                }));
+            }
+            other => {
+                return Err(format!(
+                    "Unknown devices command: '{}'. Expected 'list' or 'revoke'.",
+                    other
+                ));
+            }
+        }
+    }
+
     if first == "run" {
         let mut opts = RunOptions::default();
         let mut idx = 2;
@@ -342,18 +436,24 @@ where
     }
 
     Err(format!(
-        "Unknown command: '{}'. Expected 'run' or 'token'.",
+        "Unknown command: '{}'. Expected 'pair', 'devices', 'run', or 'token'.",
         first
     ))
 }
 
 pub fn print_help() {
     eprintln!(
-        "AgentDesk Daemon\n\n\
+        "AgentDesk Daemon & CLI\n\n\
          USAGE:\n\
-             agentdesk                  Interactive service control\n\
-             agentdesk run [OPTIONS]\n\
-             agentdesk token <show|rotate> [--config-dir <path>]\n\n\
+             agentdesk                              Interactive control & pairing\n\
+             agentdesk pair [OPTIONS]               Generate pairing QR code for phone\n\
+             agentdesk devices list [OPTIONS]       List paired devices\n\
+             agentdesk devices revoke <id> [OPTS]   Revoke a paired device\n\
+             agentdesk run [OPTIONS]                Run server directly\n\
+             agentdesk token <show|rotate> [OPTS]   Show or rotate master token\n\n\
+         PAIR OPTIONS:\n\
+             --config-dir <path>      Override configuration directory\n\
+             --relay <url>            Override relay URL\n\n\
          RUN OPTIONS:\n\
              --scenario <path>        Path to simulator scenario JSON (default: standard scenario)\n\
              --seed <u64>             Deterministic random seed (default: 42)\n\
@@ -395,6 +495,55 @@ mod tests {
             parse_args(["agentdesk", "token", "rotate", "--config-dir", "/tmp/cfg"]).unwrap(),
             CliCommand::TokenRotate(TokenOptions {
                 config_dir: Some(PathBuf::from("/tmp/cfg"))
+            })
+        );
+    }
+
+    #[test]
+    fn parse_pair_commands() {
+        assert_eq!(
+            parse_args(["agentdesk", "pair"]).unwrap(),
+            CliCommand::Pair(PairOptions {
+                config_dir: None,
+                relay: None,
+            })
+        );
+        assert_eq!(
+            parse_args([
+                "agentdesk",
+                "pair",
+                "--config-dir",
+                "/tmp/cfg",
+                "--relay",
+                "wss://relay.example.com",
+            ])
+            .unwrap(),
+            CliCommand::Pair(PairOptions {
+                config_dir: Some(PathBuf::from("/tmp/cfg")),
+                relay: Some("wss://relay.example.com".into()),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_device_commands() {
+        assert_eq!(
+            parse_args(["agentdesk", "devices", "list"]).unwrap(),
+            CliCommand::DevicesList(DeviceOptions { config_dir: None })
+        );
+        assert_eq!(
+            parse_args([
+                "agentdesk",
+                "devices",
+                "revoke",
+                "dev-123",
+                "--config-dir",
+                "/tmp/cfg",
+            ])
+            .unwrap(),
+            CliCommand::DeviceRevoke(DeviceRevokeOptions {
+                device_id: "dev-123".into(),
+                config_dir: Some(PathBuf::from("/tmp/cfg")),
             })
         );
     }
