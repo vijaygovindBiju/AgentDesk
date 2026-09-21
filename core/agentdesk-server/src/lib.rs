@@ -5,8 +5,10 @@
 
 pub mod config;
 pub mod connection;
+pub mod device;
 pub mod interactive;
 pub mod logging;
+pub mod pairing;
 pub mod server;
 pub mod tls;
 pub mod token;
@@ -18,8 +20,14 @@ pub use config::{
 pub use connection::{
     ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, ServerConnectionSink, handle_connection,
 };
+pub use device::{DeviceRegistry, PairedDevice, devices_path, generate_instance_id, instance_id_path};
 pub use logging::{
     LogCapture, LogLevel, current_log_level, debug, info, set_log_capture, set_log_level,
+};
+pub use pairing::{
+    PairingError, PairingManager, PairingPayload, PairingSession,
+    PAIRING_DEFAULT_DURATION_SECS, PAIRING_PROTOCOL_VERSION,
+    detect_lan_ip, render_qr_terminal,
 };
 pub use server::{Server, ServerConfig};
 pub use tls::{

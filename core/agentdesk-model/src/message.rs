@@ -122,6 +122,10 @@ pub enum Body {
     RespondRequest(RespondRequest),
     GetMetrics(Empty),
 
+    // ---- pairing ----
+    PairRequest(PairRequest),
+    PairResponse(PairResponse),
+
     // ---- laptop → phone replies ----
     EventDetails(EventPush),
     EventLogs(EventLogs),
@@ -264,6 +268,23 @@ pub struct RespondRequest {
     pub selected_options: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_input: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PairRequest {
+    pub session_id: String,
+    pub pairing_secret: String,
+    pub device_id: String,
+    pub device_name: String,
+    pub client_version: String,
+    pub schema_version: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PairResponse {
+    pub instance_id: String,
+    pub device_token: String,
+    pub schema_version: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -425,6 +446,25 @@ mod tests {
             ),
             Message::with_request_id("r-6", Body::GetMetrics(Empty {})),
             Message::with_request_id(
+                "r-pair",
+                Body::PairRequest(PairRequest {
+                    session_id: "sess-1".into(),
+                    pairing_secret: "secret-1".into(),
+                    device_id: "dev-1".into(),
+                    device_name: "Pixel 9".into(),
+                    client_version: "0.1.0".into(),
+                    schema_version: 1,
+                }),
+            ),
+            Message::with_request_id(
+                "r-pair-resp",
+                Body::PairResponse(PairResponse {
+                    instance_id: "inst-1".into(),
+                    device_token: "tok-1".into(),
+                    schema_version: 1,
+                }),
+            ),
+            Message::with_request_id(
                 "r-1",
                 Body::EventDetails(EventPush {
                     event: event(),
@@ -464,7 +504,7 @@ mod tests {
         let msgs = all_messages();
         assert_eq!(
             msgs.len(),
-            19,
+            21,
             "catalogue size changed; update COMMUNICATION.md"
         );
         for m in msgs {
@@ -524,6 +564,8 @@ mod tests {
                 "dismiss",
                 "respond_request",
                 "get_metrics",
+                "pair_request",
+                "pair_response",
                 "event_details",
                 "event_logs",
                 "command_result",

@@ -1,6 +1,7 @@
 //! Per-connection WebSocket handling and transport sink.
 //! See docs/COMMUNICATION.md and P6.1 - P6.4.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -14,10 +15,12 @@ use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use agentdesk_core::{ClientId, Clock, CoreCommand, SinkError, TransportSink};
 use agentdesk_model::close_code;
 use agentdesk_model::{
-    Body, ErrorReply, Message, PipelineMode, SCHEMA_VERSION, TransportMode, Welcome,
+    Body, ErrorReply, Message, PairResponse, PipelineMode, SCHEMA_VERSION, TransportMode, Welcome,
 };
 
+use crate::device::DeviceRegistry;
 use crate::logging;
+use crate::pairing::PairingManager;
 use crate::token::verify_token;
 
 /// Default outbound bounded channel capacity per connection.
@@ -79,6 +82,9 @@ pub struct ConnectionParams {
     pub core_sender: mpsc::Sender<CoreCommand>,
     pub outbound_capacity: usize,
     pub debug_logging: bool,
+    pub device_registry: Arc<tokio::sync::RwLock<DeviceRegistry>>,
+    pub pairing_manager: PairingManager,
+    pub config_dir: PathBuf,
 }
 
 /// Accept and manage a single client WebSocket connection lifecycle.
@@ -138,60 +144,151 @@ where
         }
     };
 
-    // Parse Hello message
-    let hello = match serde_json::from_str::<Message>(&text_content) {
-        Ok(Message {
-            body: Body::Hello(h),
-            ..
-        }) => h,
+    // Parse first message: can be Hello or PairRequest
+    let first_msg = match serde_json::from_str::<Message>(&text_content) {
+        Ok(m) => m,
         _ => {
             logging::info(format!(
-                "First frame from {} was not hello, closing 4001",
+                "First frame from {} was not valid JSON message, closing 4001",
                 peer_addr
             ));
             let _ = ws_stream
                 .send(WsMessage::Close(Some(CloseFrame {
                     code: CloseCode::from(close_code::UNAUTHORIZED),
-                    reason: "first frame must be hello".into(),
+                    reason: "first frame must be hello or pair_request".into(),
                 })))
                 .await;
             return;
         }
     };
 
-    // Verify token in constant time
-    if !verify_token(&hello.token, &params.expected_token) {
-        logging::info(format!(
-            "Authentication failed for {} (device: {}), closing 4001",
-            peer_addr, hello.device_id
-        ));
-        let _ = ws_stream
-            .send(WsMessage::Close(Some(CloseFrame {
-                code: CloseCode::from(close_code::UNAUTHORIZED),
-                reason: "invalid authentication token".into(),
-            })))
-            .await;
-        return;
-    }
+    let hello = match first_msg.body {
+        Body::PairRequest(pair_req) => {
+            if pair_req.schema_version != SCHEMA_VERSION {
+                logging::info(format!(
+                    "Pairing schema mismatch from {} (got {}, expected {}), closing 4002",
+                    peer_addr, pair_req.schema_version, SCHEMA_VERSION
+                ));
+                let _ = ws_stream
+                    .send(WsMessage::Close(Some(CloseFrame {
+                        code: CloseCode::from(close_code::SCHEMA_MISMATCH),
+                        reason: format!(
+                            "schema version mismatch: client {}, server {}",
+                            pair_req.schema_version, SCHEMA_VERSION
+                        )
+                        .into(),
+                    })))
+                    .await;
+                return;
+            }
 
-    // Verify schema version
-    if hello.schema_version != SCHEMA_VERSION {
-        logging::info(format!(
-            "Schema mismatch for {} (got {}, expected {}), closing 4002",
-            peer_addr, hello.schema_version, SCHEMA_VERSION
-        ));
-        let _ = ws_stream
-            .send(WsMessage::Close(Some(CloseFrame {
-                code: CloseCode::from(close_code::SCHEMA_MISMATCH),
-                reason: format!(
-                    "schema version mismatch: client {}, server {}",
-                    hello.schema_version, SCHEMA_VERSION
-                )
-                .into(),
-            })))
-            .await;
-        return;
-    }
+            match params.pairing_manager.validate_and_consume(
+                &pair_req.session_id,
+                &pair_req.pairing_secret,
+                params.clock.now(),
+            ) {
+                Ok(session) => {
+                    let mut reg = params.device_registry.write().await;
+                    let dev_token = reg.register_device(
+                        pair_req.device_id.clone(),
+                        pair_req.device_name.clone(),
+                    );
+                    let _ = reg.save(&params.config_dir);
+                    logging::info(format!(
+                        "Successfully paired device '{}' ({}) from {}",
+                        pair_req.device_id, pair_req.device_name, peer_addr
+                    ));
+
+                    let resp = Message::push(Body::PairResponse(PairResponse {
+                        instance_id: session.instance_id,
+                        device_token: dev_token,
+                        schema_version: SCHEMA_VERSION,
+                    }));
+                    if let Ok(text) = serde_json::to_string(&resp) {
+                        let _ = ws_stream.send(WsMessage::Text(text.into())).await;
+                    }
+                    let _ = ws_stream
+                        .send(WsMessage::Close(Some(CloseFrame {
+                            code: CloseCode::Normal,
+                            reason: "pairing complete".into(),
+                        })))
+                        .await;
+                    return;
+                }
+                Err(e) => {
+                    logging::info(format!(
+                        "Pairing rejected from {} for session {}: {}",
+                        peer_addr, pair_req.session_id, e
+                    ));
+                    let _ = ws_stream
+                        .send(WsMessage::Close(Some(CloseFrame {
+                            code: CloseCode::from(close_code::UNAUTHORIZED),
+                            reason: format!("pairing rejected: {}", e).into(),
+                        })))
+                        .await;
+                    return;
+                }
+            }
+        }
+        Body::Hello(h) => {
+            // Verify token in constant time: either master token or valid non-revoked device token
+            let master_ok = verify_token(&h.token, &params.expected_token);
+            let device_ok = if !master_ok {
+                let reg = params.device_registry.read().await;
+                reg.is_authorized(&h.device_id, &h.token)
+            } else {
+                true
+            };
+
+            if !device_ok {
+                logging::info(format!(
+                    "Authentication failed for {} (device: {}), closing 4001",
+                    peer_addr, h.device_id
+                ));
+                let _ = ws_stream
+                    .send(WsMessage::Close(Some(CloseFrame {
+                        code: CloseCode::from(close_code::UNAUTHORIZED),
+                        reason: "invalid authentication token".into(),
+                    })))
+                    .await;
+                return;
+            }
+
+            // Verify schema version
+            if h.schema_version != SCHEMA_VERSION {
+                logging::info(format!(
+                    "Schema mismatch for {} (got {}, expected {}), closing 4002",
+                    peer_addr, h.schema_version, SCHEMA_VERSION
+                ));
+                let _ = ws_stream
+                    .send(WsMessage::Close(Some(CloseFrame {
+                        code: CloseCode::from(close_code::SCHEMA_MISMATCH),
+                        reason: format!(
+                            "schema version mismatch: client {}, server {}",
+                            h.schema_version, SCHEMA_VERSION
+                        )
+                        .into(),
+                    })))
+                    .await;
+                return;
+            }
+
+            h
+        }
+        _ => {
+            logging::info(format!(
+                "First frame from {} was not hello or pair_request, closing 4001",
+                peer_addr
+            ));
+            let _ = ws_stream
+                .send(WsMessage::Close(Some(CloseFrame {
+                    code: CloseCode::from(close_code::UNAUTHORIZED),
+                    reason: "first frame must be hello or pair_request".into(),
+                })))
+                .await;
+            return;
+        }
+    };
 
     logging::info(format!(
         "Authenticated client {} (device: {}, client_version: {})",

@@ -15,7 +15,9 @@ use agentdesk_core::{Clock, CoreCommand};
 use agentdesk_model::{PipelineMode, TransportMode};
 
 use crate::connection::{ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, handle_connection};
+use crate::device::DeviceRegistry;
 use crate::logging;
+use crate::pairing::PairingManager;
 use crate::tls::TlsIdentity;
 use crate::token::{default_config_dir, validate_bind_security};
 
@@ -70,6 +72,9 @@ pub struct Server {
     shutdown_notify: Arc<tokio::sync::Notify>,
     tls_identity: Option<Arc<TlsIdentity>>,
     tls_acceptor: Option<TlsAcceptor>,
+    device_registry: Arc<tokio::sync::RwLock<DeviceRegistry>>,
+    pairing_manager: PairingManager,
+    config_dir: PathBuf,
 }
 
 impl Server {
@@ -83,6 +88,14 @@ impl Server {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, e));
         }
 
+        let config_dir = config.config_dir.clone().unwrap_or_else(default_config_dir);
+        let device_registry = Arc::new(tokio::sync::RwLock::new(
+            DeviceRegistry::load_or_create(&config_dir).map_err(|e| {
+                io::Error::other(format!("Failed loading/creating device registry: {e}"))
+            })?,
+        ));
+        let pairing_manager = PairingManager::new();
+
         let (tls_identity, tls_acceptor) = if config.insecure_dev {
             eprintln!(
                 "===================================================================\n\
@@ -94,7 +107,6 @@ impl Server {
             );
             (None, None)
         } else {
-            let config_dir = config.config_dir.clone().unwrap_or_else(default_config_dir);
             let identity = TlsIdentity::load_or_generate(&config_dir).map_err(|e| {
                 io::Error::other(format!("Failed loading/generating TLS identity: {e}"))
             })?;
@@ -126,6 +138,9 @@ impl Server {
             shutdown_notify: Arc::new(tokio::sync::Notify::new()),
             tls_identity,
             tls_acceptor,
+            device_registry,
+            pairing_manager,
+            config_dir,
         })
     }
 
@@ -139,6 +154,18 @@ impl Server {
 
     pub fn fingerprint(&self) -> Option<&str> {
         self.tls_identity.as_ref().map(|id| id.fingerprint.as_str())
+    }
+
+    pub fn device_registry(&self) -> Arc<tokio::sync::RwLock<DeviceRegistry>> {
+        self.device_registry.clone()
+    }
+
+    pub fn pairing_manager(&self) -> &PairingManager {
+        &self.pairing_manager
+    }
+
+    pub fn config_dir(&self) -> &std::path::Path {
+        &self.config_dir
     }
 
     pub fn shutdown(&self) {
@@ -170,6 +197,9 @@ impl Server {
                                 core_sender: self.core_sender.clone(),
                                 outbound_capacity: self.config.outbound_capacity,
                                 debug_logging: self.config.debug_logging,
+                                device_registry: self.device_registry.clone(),
+                                pairing_manager: self.pairing_manager.clone(),
+                                config_dir: self.config_dir.clone(),
                             };
                             if let Some(acceptor) = &self.tls_acceptor {
                                 let acceptor = acceptor.clone();
