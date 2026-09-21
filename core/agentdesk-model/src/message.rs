@@ -51,6 +51,11 @@ pub enum CommandError {
     NoSuchEvent,
     NotARequest,
     AlreadyResolved,
+    /// A previous response is still in-flight to the adapter; cannot accept another yet.
+    PendingDelivery,
+    /// The adapter channel was full and the command could not be enqueued.
+    /// The request has been reset to Unresolved so the user can retry.
+    DeliveryFailed,
     Invalid,
 }
 

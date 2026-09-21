@@ -33,7 +33,7 @@ pub use antigravity::{
 };
 pub use classifier::{Classification, Matched, RULES, Rule, classify};
 pub use clock::{Clock, SystemClock, VirtualClock};
-pub use core_task::{AdapterCommand, ClientId, CoreCommand, CoreHandle, CoreTask};
+pub use core_task::{AdapterCommand, AdapterOutcome, ClientId, CoreCommand, CoreHandle, CoreTask};
 pub use event_store::EventStore;
 pub use log_store::{
     DEFAULT_PAGE_CAP, DEFAULT_PIN_AFTER, DEFAULT_PIN_BEFORE, DEFAULT_RING_CAPACITY, LogPage,

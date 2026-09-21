@@ -34,7 +34,10 @@ async fn setup_test_server(
     let token = generate_token();
 
     let (tx_core, rx_core) = mpsc::channel(256);
-    let (tx_adapter, _rx_adapter) = mpsc::channel(64);
+    let (tx_adapter, mut rx_adapter) = mpsc::channel(64);
+    tokio::spawn(async move {
+        while let Some(_cmd) = rx_adapter.recv().await {}
+    });
 
     let core = CoreTask::with_seed(
         mode,

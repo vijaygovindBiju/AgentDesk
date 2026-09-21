@@ -6,8 +6,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use agentdesk_core::{
-    AcpAdapter, AcpConfig, Adapter, AdapterCommand, AntigravityConfig, AntigravityPtyAdapter,
-    Clock, CoreCommand, CoreTask, LogStoreConfig, SystemClock, ThresholdTable,
+    AcpAdapter, AcpConfig, Adapter, AdapterCommand, AdapterOutcome, AntigravityConfig,
+    AntigravityPtyAdapter, Clock, CoreCommand, CoreTask, LogStoreConfig, SystemClock,
+    ThresholdTable,
 };
 use agentdesk_server::{
     CliCommand, LogLevel, RunOptions, Server, ServerConfig, TokenOptions, default_config_dir,
@@ -260,18 +261,21 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             // Check if any adapter responses arrived
             tokio::select! {
                 adapter_cmd = rx_adapter.recv() => {
-                    if let Some(AdapterCommand::Respond { task_id, decision, request_seq, response, now }) = adapter_cmd {
+                    if let Some(AdapterCommand::Respond { event_id, task_id, decision, request_seq, response, now }) = adapter_cmd {
                         let result = if let Some(ref resp) = response {
                             adapter.respond_with_response(&task_id, request_seq, resp, now)
                         } else {
                             adapter.respond(&task_id, decision, now)
                         };
-                        if let Err(error) = result {
-                            eprintln!(
-                                "[WARN] Antigravity response delivery failed for task {}: {}",
-                                task_id, error
-                            );
-                        }
+                        let outcome = match result {
+                            Ok(()) => AdapterOutcome::Delivered { event_id, decision },
+                            Err(e) => AdapterOutcome::DeliveryFailed {
+                                event_id,
+                                reason: e.to_string(),
+                            },
+                        };
+                        // Report outcome back to core. If core is gone, we're shutting down.
+                        let _ = adapter_sender.send(CoreCommand::AdapterResponse(outcome)).await;
                     }
                 }
                 _ = tokio::time::sleep(Duration::from_millis(50)) => {}

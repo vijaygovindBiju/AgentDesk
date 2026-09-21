@@ -80,12 +80,19 @@ fn run_headless_simulation(mode: PipelineMode) -> (Vec<Message>, agentdesk_core:
                     while let Ok(cmd) = rx_adapter.try_recv() {
                         match cmd {
                             AdapterCommand::Respond {
+                                event_id,
                                 task_id,
                                 decision,
                                 now,
                                 ..
                             } => {
                                 sim.respond(&task_id, decision, now).unwrap();
+                                core.step(CoreCommand::AdapterResponse(
+                                    agentdesk_core::AdapterOutcome::Delivered {
+                                        event_id,
+                                        decision,
+                                    },
+                                ));
                             }
                         }
                     }

@@ -8,8 +8,8 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 
 use agentdesk_model::{
-    AgentInfo, Body, CommandError, CommandResult, Decision, ErrorReply, EventPush, EventRef,
-    GetEventLogs, Message, PipelineMode, RawLine, RequestResponse, Snapshot, TaskId,
+    AgentInfo, Body, CommandError, CommandResult, Decision, ErrorReply, EventPush,
+    EventRef, GetEventLogs, Message, PipelineMode, RawLine, RequestResponse, Snapshot, TaskId,
 };
 
 use crate::adapter::AdapterOutput;
@@ -28,6 +28,8 @@ pub type ClientId = u64;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdapterCommand {
     Respond {
+        /// The queue event_id this response answers — needed to report the outcome back.
+        event_id: agentdesk_model::EventId,
         task_id: TaskId,
         decision: Decision,
         /// `agent_seq` of the request event being answered.
@@ -35,6 +37,15 @@ pub enum AdapterCommand {
         response: Option<RequestResponse>,
         now: DateTime<Utc>,
     },
+}
+
+/// Outcome reported back from the adapter loop after attempting PTY delivery.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdapterOutcome {
+    /// PTY write succeeded; adapter accepted the response.
+    Delivered { event_id: agentdesk_model::EventId, decision: Decision },
+    /// PTY write or validation failed; request should be reopened.
+    DeliveryFailed { event_id: agentdesk_model::EventId, reason: String },
 }
 
 /// Incoming messages handled by the Core task inbox.
@@ -57,6 +68,8 @@ pub enum CoreCommand {
     Disconnect { client_id: ClientId },
     /// Push a fresh snapshot of all live entries and events to the client.
     SendSnapshot { client_id: ClientId },
+    /// Delivery outcome from the adapter loop: confirms or rolls back PendingDelivery.
+    AdapterResponse(AdapterOutcome),
     /// Shutdown the core actor loop.
     Shutdown,
 }
@@ -207,6 +220,9 @@ impl CoreTask {
             }
             CoreCommand::Client { client_id, message } => {
                 self.handle_client_message(client_id, message, now);
+            }
+            CoreCommand::AdapterResponse(outcome) => {
+                self.handle_adapter_response(outcome, now);
             }
         }
     }
@@ -389,7 +405,10 @@ impl CoreTask {
                     .get(&req.event_id)
                     .map(|e| (e.task_id.clone(), Some(e.agent_seq)))
                     .unwrap_or((None, None));
-                let res = self.queue.respond_request(&req.event_id, req.decision);
+
+                // Transition Unresolved → PendingDelivery.
+                // AlreadyResolved, PendingDelivery, NotARequest all returned to client.
+                let res = self.queue.respond_request(&req.event_id);
 
                 match res {
                     Ok(state_update) => {
@@ -400,26 +419,84 @@ impl CoreTask {
                         {
                             self.broadcast(Message::push(Body::ScoreUpdate(sc)));
                         }
-                        self.broadcast(Message::push(Body::StateUpdate(state_update)));
+                        // Broadcast PendingDelivery state only when adapter responder is present (awaiting PTY confirmation).
+                        if self.adapter_responder.is_some() {
+                            self.broadcast(Message::push(Body::StateUpdate(state_update)));
+                        }
 
-                        // Deliver to adapter responder so simulator unblocks (P4.7)
-                        if let (Some(tid), Some(tx)) = (task_id, &self.adapter_responder) {
-                            let _ = tx.try_send(AdapterCommand::Respond {
+                        // Deliver to adapter. Use the blocking send path so a full channel
+                        // returns an explicit error rather than silently dropping the command.
+                        let event_id = req.event_id;
+                        let decision = req.decision;
+                        let delivery_result = if let (Some(tid), Some(tx)) =
+                            (task_id, &self.adapter_responder)
+                        {
+                            match tx.try_send(AdapterCommand::Respond {
+                                event_id,
                                 task_id: tid,
-                                decision: req.decision,
+                                decision,
                                 request_seq,
                                 response: Some(req_response),
                                 now,
-                            });
-                        }
+                            }) {
+                                Ok(()) => Ok(()),
+                                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                                    Err("adapter command channel full")
+                                }
+                                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                                    Err("adapter command channel closed")
+                                }
+                            }
+                        } else {
+                            // No adapter responder (e.g. simulator mode): treat as immediate success.
+                            if let Ok(update) = self.queue.mark_delivered(&event_id, decision) {
+                                if let Some(sc) = self.queue.update_entry_score(
+                                    &event_id,
+                                    &self.event_store,
+                                    now,
+                                ) {
+                                    self.broadcast(Message::push(Body::ScoreUpdate(sc)));
+                                }
+                                self.broadcast(Message::push(Body::StateUpdate(update)));
+                            }
+                            Ok(())
+                        };
 
-                        self.send_to(
-                            client_id,
-                            Message {
-                                request_id: req_id,
-                                body: Body::CommandResult(CommandResult::ok()),
-                            },
-                        );
+                        match delivery_result {
+                            Ok(()) => {
+                                // AdapterResponse will complete the transition; tell the phone
+                                // the command was accepted (PendingDelivery).
+                                self.send_to(
+                                    client_id,
+                                    Message {
+                                        request_id: req_id,
+                                        body: Body::CommandResult(CommandResult::ok()),
+                                    },
+                                );
+                            }
+                            Err(_reason) => {
+                                // Channel full / closed: roll back to Unresolved and tell the phone.
+                                if let Ok(reopen) = self.queue.mark_delivery_failed(&event_id) {
+                                    if let Some(sc) = self.queue.update_entry_score(
+                                        &event_id,
+                                        &self.event_store,
+                                        now,
+                                    ) {
+                                        self.broadcast(Message::push(Body::ScoreUpdate(sc)));
+                                    }
+                                    self.broadcast(Message::push(Body::StateUpdate(reopen)));
+                                }
+                                self.send_to(
+                                    client_id,
+                                    Message {
+                                        request_id: req_id,
+                                        body: Body::CommandResult(CommandResult::err(
+                                            CommandError::DeliveryFailed,
+                                        )),
+                                    },
+                                );
+                            }
+                        }
                     }
                     Err(err) => {
                         self.send_to(
@@ -513,6 +590,39 @@ impl CoreTask {
         }
     }
 
+    /// Handle delivery outcome from the adapter loop.
+    /// Transitions PendingDelivery → Approved/Denied (on success) or back to Unresolved (on failure).
+    fn handle_adapter_response(&mut self, outcome: AdapterOutcome, now: DateTime<Utc>) {
+        match outcome {
+            AdapterOutcome::Delivered { event_id, decision } => {
+                if let Ok(update) = self.queue.mark_delivered(&event_id, decision) {
+                    if let Some(sc) =
+                        self.queue
+                            .update_entry_score(&event_id, &self.event_store, now)
+                    {
+                        self.broadcast(Message::push(Body::ScoreUpdate(sc)));
+                    }
+                    self.broadcast(Message::push(Body::StateUpdate(update)));
+                }
+            }
+            AdapterOutcome::DeliveryFailed { event_id, reason } => {
+                eprintln!(
+                    "[WARN] Adapter delivery failed for event {}: {}; reopening request",
+                    event_id, reason
+                );
+                if let Ok(update) = self.queue.mark_delivery_failed(&event_id) {
+                    if let Some(sc) =
+                        self.queue
+                            .update_entry_score(&event_id, &self.event_store, now)
+                    {
+                        self.broadcast(Message::push(Body::ScoreUpdate(sc)));
+                    }
+                    self.broadcast(Message::push(Body::StateUpdate(update)));
+                }
+            }
+        }
+    }
+
     /// Run the core task asynchronously until a Shutdown command is received or channel is closed.
     pub async fn run(mut self, mut receiver: tokio::sync::mpsc::Receiver<CoreCommand>) {
         while let Some(cmd) = receiver.recv().await {
@@ -560,6 +670,7 @@ mod tests {
     use agentdesk_model::RespondRequest;
     use agentdesk_model::{Details, Empty, Operation, RawAgentEvent, RequestInfo};
     use chrono::Duration;
+    use uuid::Uuid as TestUuid;
 
     fn make_raw(kind: &str, task_id: Option<&str>, lines: Vec<String>) -> RawAgentEvent {
         RawAgentEvent {
@@ -754,10 +865,19 @@ mod tests {
             message: respond_msg,
         });
 
-        // Check that adapter responder received the decision! (P4.7)
+        // After respond_request, state is PendingDelivery (not yet Approved)
+        let entry = core.queue.get(&event_id).unwrap();
+        assert_eq!(
+            entry.resolution,
+            Some(agentdesk_model::Resolution::PendingDelivery),
+            "Must be PendingDelivery until adapter confirms"
+        );
+
+        // Adapter must have received the command
         let cmd = rx_adapter.try_recv().expect("adapter must receive command");
-        match cmd {
+        let (cmd_event_id, cmd_decision) = match cmd {
             AdapterCommand::Respond {
+                event_id,
                 task_id,
                 decision,
                 now,
@@ -766,15 +886,358 @@ mod tests {
                 assert_eq!(task_id, "task-auth");
                 assert_eq!(decision, Decision::Approve);
                 assert_eq!(now, clock.now());
+                (event_id, decision)
             }
-        }
+        };
+        assert_eq!(cmd_event_id, event_id);
 
-        // Check entry in queue is resolved
+        // Simulate adapter loop confirming delivery
+        core.step(CoreCommand::AdapterResponse(AdapterOutcome::Delivered {
+            event_id: cmd_event_id,
+            decision: cmd_decision,
+        }));
+
+        // Now the entry should be Approved
         let entry = core.queue.get(&event_id).unwrap();
         assert_eq!(
             entry.resolution,
+            Some(agentdesk_model::Resolution::Approved),
+            "Must be Approved after adapter confirms delivery"
+        );
+    }
+
+    #[tokio::test]
+    async fn delivery_failure_reopens_request() {
+        let clock = Arc::new(VirtualClock::at_epoch());
+        let (tx_adapter, mut rx_adapter) = tokio::sync::mpsc::channel(16);
+
+        let mut core = CoreTask::new(
+            PipelineMode::Agentdesk,
+            clock.clone(),
+            LogStoreConfig::default(),
+            ThresholdTable::default(),
+            Some(tx_adapter),
+        );
+        core.step(CoreCommand::Connect {
+            client_id: 1,
+            sink: Box::new(VecSink::new()),
+        });
+
+        let mut raw = make_raw("approval_required", Some("task-fail"), vec![]);
+        raw.request = Some(RequestInfo {
+            prompt: "Allow?".into(),
+            options: vec!["approve".into(), "deny".into()],
+            question_type: None,
+        });
+        core.step(CoreCommand::Adapter(AdapterOutput::Event(raw)));
+        let event_id = core.queue.ordered_snapshot()[0].event_id;
+
+        // Phone responds
+        core.step(CoreCommand::Client {
+            client_id: 1,
+            message: Message::with_request_id(
+                "r-1",
+                Body::RespondRequest(RespondRequest {
+                    event_id,
+                    decision: Decision::Approve,
+                    selected_options: None,
+                    text_input: None,
+                }),
+            ),
+        });
+
+        // PendingDelivery before adapter confirms
+        assert_eq!(
+            core.queue.get(&event_id).unwrap().resolution,
+            Some(agentdesk_model::Resolution::PendingDelivery)
+        );
+
+        let _ = rx_adapter.try_recv().unwrap(); // drain
+
+        // Adapter reports PTY write failed
+        core.step(CoreCommand::AdapterResponse(AdapterOutcome::DeliveryFailed {
+            event_id,
+            reason: "PTY transport closed".into(),
+        }));
+
+        // Request is reopened: back to Unresolved
+        assert_eq!(
+            core.queue.get(&event_id).unwrap().resolution,
+            Some(agentdesk_model::Resolution::Unresolved),
+            "Request must be reopened (Unresolved) after delivery failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn adapter_channel_full_returns_delivery_failed_and_reopens() {
+        let clock = Arc::new(VirtualClock::at_epoch());
+        // Channel of capacity 1 with 1 item already queued guarantees full immediately
+        let (tx_adapter, _rx_adapter) = tokio::sync::mpsc::channel(1);
+        let _ = tx_adapter.try_send(AdapterCommand::Respond {
+            event_id: TestUuid::new_v4(),
+            task_id: "blocking-item".into(),
+            decision: Decision::Approve,
+            request_seq: None,
+            response: None,
+            now: clock.now(),
+        });
+
+        let mut core = CoreTask::new(
+            PipelineMode::Agentdesk,
+            clock.clone(),
+            LogStoreConfig::default(),
+            ThresholdTable::default(),
+            Some(tx_adapter),
+        );
+        core.step(CoreCommand::Connect {
+            client_id: 1,
+            sink: Box::new(VecSink::new()),
+        });
+
+        let mut raw = make_raw("approval_required", Some("task-full"), vec![]);
+        raw.request = Some(RequestInfo {
+            prompt: "Allow?".into(),
+            options: vec!["approve".into(), "deny".into()],
+            question_type: None,
+        });
+        core.step(CoreCommand::Adapter(AdapterOutput::Event(raw)));
+        let event_id = core.queue.ordered_snapshot()[0].event_id;
+
+        // Phone responds — channel is full immediately
+        core.step(CoreCommand::Client {
+            client_id: 1,
+            message: Message::with_request_id(
+                "r-full",
+                Body::RespondRequest(RespondRequest {
+                    event_id,
+                    decision: Decision::Approve,
+                    selected_options: None,
+                    text_input: None,
+                }),
+            ),
+        });
+
+        // Request must NOT be falsely approved — must be Unresolved (rolled back)
+        assert_eq!(
+            core.queue.get(&event_id).unwrap().resolution,
+            Some(agentdesk_model::Resolution::Unresolved),
+            "Channel-full must roll back to Unresolved, not falsely Approved"
+        );
+    }
+
+    #[tokio::test]
+    async fn duplicate_response_while_pending_is_rejected() {
+        let clock = Arc::new(VirtualClock::at_epoch());
+        let (tx_adapter, _rx_adapter) = tokio::sync::mpsc::channel(16);
+
+        let mut core = CoreTask::new(
+            PipelineMode::Agentdesk,
+            clock.clone(),
+            LogStoreConfig::default(),
+            ThresholdTable::default(),
+            Some(tx_adapter),
+        );
+        core.step(CoreCommand::Connect {
+            client_id: 1,
+            sink: Box::new(VecSink::new()),
+        });
+
+        let mut raw = make_raw("approval_required", Some("task-dup"), vec![]);
+        raw.request = Some(RequestInfo {
+            prompt: "Allow?".into(),
+            options: vec!["approve".into(), "deny".into()],
+            question_type: None,
+        });
+        core.step(CoreCommand::Adapter(AdapterOutput::Event(raw)));
+        let event_id = core.queue.ordered_snapshot()[0].event_id;
+
+        let respond = || Message::with_request_id(
+            "r-dup",
+            Body::RespondRequest(RespondRequest {
+                event_id,
+                decision: Decision::Approve,
+                selected_options: None,
+                text_input: None,
+            }),
+        );
+
+        // First response: accepted → PendingDelivery
+        core.step(CoreCommand::Client { client_id: 1, message: respond() });
+        assert_eq!(
+            core.queue.get(&event_id).unwrap().resolution,
+            Some(agentdesk_model::Resolution::PendingDelivery)
+        );
+
+        // Duplicate while still pending: must be rejected
+        core.step(CoreCommand::Client { client_id: 1, message: respond() });
+        // Still PendingDelivery, not double-delivered
+        assert_eq!(
+            core.queue.get(&event_id).unwrap().resolution,
+            Some(agentdesk_model::Resolution::PendingDelivery),
+            "Duplicate response while pending must be rejected"
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_response_on_resolved_request_rejected() {
+        let clock = Arc::new(VirtualClock::at_epoch());
+        let (tx_adapter, _rx_adapter) = tokio::sync::mpsc::channel(16);
+
+        let mut core = CoreTask::new(
+            PipelineMode::Agentdesk,
+            clock.clone(),
+            LogStoreConfig::default(),
+            ThresholdTable::default(),
+            Some(tx_adapter),
+        );
+        core.step(CoreCommand::Connect {
+            client_id: 1,
+            sink: Box::new(VecSink::new()),
+        });
+
+        let mut raw = make_raw("approval_required", Some("task-stale"), vec![]);
+        raw.request = Some(RequestInfo {
+            prompt: "Allow?".into(),
+            options: vec!["approve".into(), "deny".into()],
+            question_type: None,
+        });
+        core.step(CoreCommand::Adapter(AdapterOutput::Event(raw)));
+        let event_id = core.queue.ordered_snapshot()[0].event_id;
+
+        let respond = || Message::with_request_id(
+            "r-stale",
+            Body::RespondRequest(RespondRequest {
+                event_id,
+                decision: Decision::Approve,
+                selected_options: None,
+                text_input: None,
+            }),
+        );
+
+        // First response accepted
+        core.step(CoreCommand::Client { client_id: 1, message: respond() });
+        // Simulate delivery
+        core.step(CoreCommand::AdapterResponse(AdapterOutcome::Delivered {
+            event_id,
+            decision: Decision::Approve,
+        }));
+        assert_eq!(
+            core.queue.get(&event_id).unwrap().resolution,
             Some(agentdesk_model::Resolution::Approved)
         );
+
+        // Stale second response: must return AlreadyResolved, not change state
+        core.step(CoreCommand::Client { client_id: 1, message: respond() });
+        assert_eq!(
+            core.queue.get(&event_id).unwrap().resolution,
+            Some(agentdesk_model::Resolution::Approved),
+            "Stale response must not change already-resolved state"
+        );
+    }
+
+    #[test]
+    fn unknown_event_id_returns_no_such_event() {
+        let clock = Arc::new(VirtualClock::at_epoch());
+        let mut core = CoreTask::new(
+            PipelineMode::Agentdesk,
+            clock.clone(),
+            LogStoreConfig::default(),
+            ThresholdTable::default(),
+            None,
+        );
+        core.step(CoreCommand::Connect {
+            client_id: 1,
+            sink: Box::new(VecSink::new()),
+        });
+
+        let unknown_id = TestUuid::new_v4();
+        core.step(CoreCommand::Client {
+            client_id: 1,
+            message: Message::with_request_id(
+                "r-unknown",
+                Body::RespondRequest(RespondRequest {
+                    event_id: unknown_id,
+                    decision: Decision::Approve,
+                    selected_options: None,
+                    text_input: None,
+                }),
+            ),
+        });
+
+        // No queue changes, no panic
+        assert_eq!(core.queue.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn no_adapter_responder_resolves_immediately() {
+        // In simulator mode (no adapter responder), respond_request resolves to Approved immediately.
+        let clock = Arc::new(VirtualClock::at_epoch());
+        let mut core = CoreTask::new(
+            PipelineMode::Agentdesk,
+            clock.clone(),
+            LogStoreConfig::default(),
+            ThresholdTable::default(),
+            None, // no adapter responder
+        );
+        core.step(CoreCommand::Connect {
+            client_id: 1,
+            sink: Box::new(VecSink::new()),
+        });
+
+        let mut raw = make_raw("approval_required", Some("task-sim"), vec![]);
+        raw.request = Some(RequestInfo {
+            prompt: "Allow?".into(),
+            options: vec!["approve".into(), "deny".into()],
+            question_type: None,
+        });
+        core.step(CoreCommand::Adapter(AdapterOutput::Event(raw)));
+        let event_id = core.queue.ordered_snapshot()[0].event_id;
+
+        core.step(CoreCommand::Client {
+            client_id: 1,
+            message: Message::with_request_id(
+                "r-sim",
+                Body::RespondRequest(RespondRequest {
+                    event_id,
+                    decision: Decision::Deny,
+                    selected_options: None,
+                    text_input: None,
+                }),
+            ),
+        });
+
+        // With no adapter responder, should resolve immediately to Denied
+        assert_eq!(
+            core.queue.get(&event_id).unwrap().resolution,
+            Some(agentdesk_model::Resolution::Denied),
+            "With no adapter responder, must resolve immediately"
+        );
+    }
+
+    #[tokio::test]
+    async fn adapter_outcome_for_unknown_event_is_ignored() {
+        // If the agent exits between PendingDelivery and AdapterResponse,
+        // the event_id may no longer be in the queue (e.g. task superseded).
+        // The AdapterResponse must not panic.
+        let clock = Arc::new(VirtualClock::at_epoch());
+        let mut core = CoreTask::new(
+            PipelineMode::Agentdesk,
+            clock.clone(),
+            LogStoreConfig::default(),
+            ThresholdTable::default(),
+            None,
+        );
+
+        let unknown_id = TestUuid::new_v4();
+        // Must not panic
+        core.step(CoreCommand::AdapterResponse(AdapterOutcome::Delivered {
+            event_id: unknown_id,
+            decision: Decision::Approve,
+        }));
+        core.step(CoreCommand::AdapterResponse(AdapterOutcome::DeliveryFailed {
+            event_id: unknown_id,
+            reason: "process gone".into(),
+        }));
     }
 
     #[test]

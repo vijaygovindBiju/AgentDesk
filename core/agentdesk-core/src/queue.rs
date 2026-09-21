@@ -152,12 +152,14 @@ impl PriorityQueue {
         }
     }
 
-    /// Deliver human decision to a request event: `unresolved -> approved | denied`.
-    /// Returns error if not a request or if already resolved.
+    /// Deliver human decision to a request event: `unresolved -> pending_delivery`.
+    /// Returns error if not a request, already resolved/pending, etc.
+    /// The final Approved/Denied transition happens via `mark_delivered` once the
+    /// adapter confirms PTY delivery. The decision is not recorded here; pass it
+    /// to `mark_delivered` when the adapter confirms.
     pub fn respond_request(
         &mut self,
         event_id: &EventId,
-        decision: Decision,
     ) -> Result<StateUpdate, CommandError> {
         let entry = self
             .entries
@@ -169,12 +171,9 @@ impl PriorityQueue {
             Some(Resolution::Approved) | Some(Resolution::Denied) => {
                 Err(CommandError::AlreadyResolved)
             }
+            Some(Resolution::PendingDelivery) => Err(CommandError::PendingDelivery),
             Some(Resolution::Unresolved) => {
-                let res = match decision {
-                    Decision::Approve => Resolution::Approved,
-                    Decision::Deny => Resolution::Denied,
-                };
-                entry.resolution = Some(res);
+                entry.resolution = Some(Resolution::PendingDelivery);
                 Ok(StateUpdate {
                     event_id: *event_id,
                     state: entry.state,
@@ -183,6 +182,58 @@ impl PriorityQueue {
                 })
             }
         }
+    }
+
+    /// Confirm adapter delivery: `pending_delivery -> approved | denied`.
+    /// Called when the adapter loop reports successful PTY write.
+    pub fn mark_delivered(
+        &mut self,
+        event_id: &EventId,
+        decision: Decision,
+    ) -> Result<StateUpdate, CommandError> {
+        let entry = self
+            .entries
+            .get_mut(event_id)
+            .ok_or(CommandError::NoSuchEvent)?;
+
+        if entry.resolution != Some(Resolution::PendingDelivery) {
+            return Err(CommandError::AlreadyResolved);
+        }
+
+        entry.resolution = Some(match decision {
+            Decision::Approve => Resolution::Approved,
+            Decision::Deny => Resolution::Denied,
+        });
+        Ok(StateUpdate {
+            event_id: *event_id,
+            state: entry.state,
+            resolution: entry.resolution,
+            superseded: entry.superseded,
+        })
+    }
+
+    /// Adapter delivery failed: reset `pending_delivery -> unresolved`.
+    /// The request is reopened so the user can retry.
+    pub fn mark_delivery_failed(
+        &mut self,
+        event_id: &EventId,
+    ) -> Result<StateUpdate, CommandError> {
+        let entry = self
+            .entries
+            .get_mut(event_id)
+            .ok_or(CommandError::NoSuchEvent)?;
+
+        if entry.resolution != Some(Resolution::PendingDelivery) {
+            return Err(CommandError::AlreadyResolved);
+        }
+
+        entry.resolution = Some(Resolution::Unresolved);
+        Ok(StateUpdate {
+            event_id: *event_id,
+            state: entry.state,
+            resolution: entry.resolution,
+            superseded: entry.superseded,
+        })
     }
 
     /// Escalate a working event: raises `escalation_level`.
@@ -382,24 +433,77 @@ mod tests {
         // Idempotent ack: seen -> seen (Ok(None))
         assert!(queue.ack(&id).unwrap().is_none());
 
-        // Respond request: unresolved -> approved
-        let resp_update = queue.respond_request(&id, Decision::Approve).unwrap();
-        assert_eq!(resp_update.resolution, Some(Resolution::Approved));
-        // State remains Seen (orthogonal)
+        // Respond request: unresolved -> pending_delivery (two-step lifecycle)
+        let resp_update = queue.respond_request(&id).unwrap();
+        assert_eq!(resp_update.resolution, Some(Resolution::PendingDelivery));
+        // State remains Seen (orthogonal to resolution)
         assert_eq!(resp_update.state, EntryState::Seen);
 
-        // Repeated respond -> already_resolved
-        let err = queue.respond_request(&id, Decision::Deny).unwrap_err();
-        assert_eq!(err, CommandError::AlreadyResolved);
+        // Duplicate respond while pending -> PendingDelivery error
+        let err = queue.respond_request(&id).unwrap_err();
+        assert_eq!(err, CommandError::PendingDelivery);
 
-        // Dismiss: seen -> dismissed
+        // Adapter confirms delivery: pending_delivery -> approved
+        let delivered = queue.mark_delivered(&id, Decision::Approve).unwrap();
+        assert_eq!(delivered.resolution, Some(Resolution::Approved));
+        assert_eq!(delivered.state, EntryState::Seen);
+
+        // After approval, further respond attempts fail with AlreadyResolved
+        let err2 = queue.respond_request(&id).unwrap_err();
+        assert_eq!(err2, CommandError::AlreadyResolved);
+
+        // Dismiss: seen -> dismissed (resolution preserved)
         let dis_update = queue.dismiss(&id).unwrap().unwrap();
         assert_eq!(dis_update.state, EntryState::Dismissed);
-        // Resolution is preserved even when dismissed!
         assert_eq!(dis_update.resolution, Some(Resolution::Approved));
 
         // Idempotent dismiss -> Ok(None)
         assert!(queue.dismiss(&id).unwrap().is_none());
+    }
+
+    #[test]
+    fn state_machine_delivery_failed_reopens_request() {
+        let mut queue = PriorityQueue::new();
+        let id = Uuid::new_v4();
+        queue.insert(QueueEntry::new(id, Category::Request, 1, 70));
+
+        // Transition to pending
+        let pending = queue.respond_request(&id).unwrap();
+        assert_eq!(pending.resolution, Some(Resolution::PendingDelivery));
+
+        // Adapter reports failure -> resets to Unresolved
+        let reopen = queue.mark_delivery_failed(&id).unwrap();
+        assert_eq!(reopen.resolution, Some(Resolution::Unresolved));
+
+        // Request is actionable again
+        let retry = queue.respond_request(&id).unwrap();
+        assert_eq!(retry.resolution, Some(Resolution::PendingDelivery));
+
+        // This time delivery succeeds
+        let done = queue.mark_delivered(&id, Decision::Deny).unwrap();
+        assert_eq!(done.resolution, Some(Resolution::Denied));
+    }
+
+    #[test]
+    fn mark_delivered_on_non_pending_returns_error() {
+        let mut queue = PriorityQueue::new();
+        let id = Uuid::new_v4();
+        queue.insert(QueueEntry::new(id, Category::Request, 1, 70));
+
+        // Can't deliver without being pending first
+        let err = queue.mark_delivered(&id, Decision::Approve).unwrap_err();
+        assert_eq!(err, CommandError::AlreadyResolved);
+    }
+
+    #[test]
+    fn mark_delivery_failed_on_non_pending_returns_error() {
+        let mut queue = PriorityQueue::new();
+        let id = Uuid::new_v4();
+        queue.insert(QueueEntry::new(id, Category::Request, 1, 70));
+
+        // Can't fail delivery without being pending first
+        let err = queue.mark_delivery_failed(&id).unwrap_err();
+        assert_eq!(err, CommandError::AlreadyResolved);
     }
 
     #[test]
@@ -422,7 +526,7 @@ mod tests {
         let entry = QueueEntry::new(id, Category::Error, 1, 70);
         queue.insert(entry);
 
-        let err = queue.respond_request(&id, Decision::Approve).unwrap_err();
+        let err = queue.respond_request(&id).unwrap_err();
         assert_eq!(err, CommandError::NotARequest);
     }
 
@@ -438,7 +542,7 @@ mod tests {
         );
         assert_eq!(
             queue
-                .respond_request(&missing, Decision::Approve)
+                .respond_request(&missing)
                 .unwrap_err(),
             CommandError::NoSuchEvent
         );

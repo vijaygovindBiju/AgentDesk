@@ -17,11 +17,25 @@ pub enum EntryState {
 
 /// Task-outcome state for `Category::Request` entries only. A dismissed
 /// request that is still `Unresolved` is still blocking the agent.
+///
+/// Lifecycle (forward-only except for the failure reopen):
+/// ```text
+/// Unresolved
+///   → PendingDelivery  (phone response accepted; adapter command enqueued)
+///   → Approved | Denied (adapter confirmed PTY delivery)
+///   → Unresolved        (adapter reported DeliveryFailed; request reopened)
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Resolution {
+    /// No human response yet. The agent is blocked waiting.
     Unresolved,
+    /// Phone response received and adapter command sent. Awaiting PTY delivery confirmation.
+    /// The request is NOT yet resolved; a second response is still rejected as `PendingDelivery`.
+    PendingDelivery,
+    /// PTY delivery confirmed; agent received the decision.
     Approved,
+    /// PTY delivery confirmed; agent received the denial.
     Denied,
 }
 
