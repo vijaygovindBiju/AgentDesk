@@ -157,8 +157,9 @@ This rule prevents arbitrary agent output, repository content, or tool output fr
 | Secure mobile configuration | Token uses OS-backed secure storage; other connection metadata uses app preferences | ✅ Implemented |
 | Physical Android support | Tested connection and storage flows on Android devices in addition to emulator workflows | ✅ Implemented |
 | Loopback development mode | `--insecure-dev` enables `ws://` only on loopback for local emulator testing | ✅ Implemented |
+| Device pairing and revocation | QR pairing, per-device credentials, and device registry | ✅ Implemented |
+| Dual-mode remote connectivity | Transparent direct LAN with automatic relay fallback | ✅ Implemented |
 | Persistence and offline synchronization | Durable event store, offline command queue, and replay | 📋 Planned |
-| Device pairing and revocation | QR pairing, per-device credentials, and device registry | 📋 Planned |
 | Background notifications | Mobile notifications when the app is not foregrounded | 📋 Planned |
 | Generic mobile “start work” command | Starting arbitrary new tasks from the phone | 📋 Planned |
 
@@ -206,29 +207,31 @@ before distributing it as a production-signed app.
 A normal user must not be asked to install Flutter, Android SDK tools, ADB,
 Gradle, or source code to obtain the phone application.
 
-### Current connection and setup status
+### Pairing and Remote Connectivity
 
-The intended production flow is:
+The user workflow is automated with zero manual configuration required:
 
 ```text
-Install Linux application
-  → Start AgentDesk
-  → Install Android APK
-  → Pair phone with laptop
-  → Confirm secure connection
-  → Start supported coding agent
-  → Supervise from phone
+INSTALL
+   ↓
+agentdesk
+   ↓
+Pair phone (or `agentdesk pair`)
+   ↓
+QR appears on laptop
+   ↓
+Scan QR with AgentDesk Android
+   ↓
+Paired
+   ↓
+If same LAN:
+    direct laptop ↔ phone connection (pinned TLS)
+
+If different networks:
+    laptop ↔ AgentDesk relay ↔ phone
 ```
 
-The current source release does not yet implement the complete production flow:
-
-- there is no QR-code or automatic pairing flow;
-- the phone currently requires manual server URL, device ID, authentication token, and TLS fingerprint configuration;
-- there is no published desktop package or Android release APK;
-- the current app does not provide a generic project-selection/start-work flow; `start_work` is explicitly not implemented;
-- the active agent/session and project are currently selected by the daemon's launch configuration or adapter, not by a normal-user setup wizard.
-
-These are distribution and product gaps, not instructions for normal users to install development tooling. The source-build workflow below is for developers and contributors only.
+The user does **not** need to manually enter IP addresses, ports, WebSocket URLs, tokens, or certificate fingerprints during normal pairing. Developer and manual configuration remain available in Settings.
 
 ## Attention Model
 
@@ -966,9 +969,21 @@ flutter run
 
 Use `ws://127.0.0.1:8765` for this emulator-only setup. The client will reject remote plaintext URLs, and the daemon rejects `--insecure-dev` with a non-loopback bind address.
 
-### Useful daemon options
+### Useful daemon and pairing commands
 
 ```text
+agentdesk pair [OPTIONS]
+  Generate QR code in terminal for instant Android pairing.
+  --port <u16>             Daemon port; default 8765
+  --relay <url>            Relay URL (e.g. wss://relay.agentdesk.io)
+  --ip <addr>              Explicit LAN IP address override
+
+agentdesk devices list
+  List all authorized paired devices.
+
+agentdesk devices revoke <device_id>
+  Revoke pairing authorization for a specific device.
+
 agentdesk run [OPTIONS]
   --scenario <path>        Simulator scenario JSON
   --seed <u64>             Deterministic simulator seed; default 42
@@ -977,6 +992,7 @@ agentdesk run [OPTIONS]
   --port <u16>             Bind port; default 8765
   --token <str>            Override the configured token
   --config-dir <path>      Override token/certificate directory
+  --relay <url>            Outbound relay endpoint (e.g. wss://relay.agentdesk.io)
   --debug                  Enable opt-in payload debug logging
   --agent <cmd>            Run an ACP agent command
   --antigravity            Run the Antigravity PTY adapter
