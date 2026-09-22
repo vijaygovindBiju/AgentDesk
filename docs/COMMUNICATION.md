@@ -23,13 +23,25 @@ Every frame:
 
 ## Message catalogue
 
-### Handshake
+### Pairing Handshake
+
+During initial QR setup, the phone opens a temporary WebSocket connection to exchange the ephemeral QR pairing secret for a persistent per-device token:
+
+| Direction | Type | Payload |
+|-----------|------|---------|
+| phone → laptop | `pair_request` | `{ session_id, pairing_secret, device_id, device_name, client_version, schema_version }` |
+| laptop → phone | `pair_response` | `{ instance_id, device_token, schema_version }` |
+
+If the session ID, pairing secret, or expiration is invalid, or if the session has already been used, the connection is closed with code `4001`. Upon successful pairing, `pair_response` is delivered, the connection is closed cleanly, and the phone stores the persistent `device_token` in secure OS storage before connecting via the normal `hello` handshake.
+
+### Session Handshake
 
 | Direction | Type | Payload |
 |-----------|------|---------|
 | phone → laptop | `hello` | `{ token, device_id, client_version, schema_version }` |
-| laptop → phone | `welcome` | `{ daemon_version, schema_version, pipeline_mode, transport, server_time }` — `pipeline_mode ∈ raw_lines \| raw_events \| agentdesk`, `transport ∈ tls \| insecure_dev` |
+| laptop → phone | `welcome` | `{ daemon_version, schema_version, pipeline_mode, transport, server_time }` — `pipeline_mode ∈ raw_lines \| raw_events \| agentdesk`, `transport ∈ tls \| insecure_dev \| relay` |
 | laptop → phone | `snapshot` | `{ entries: [QueueEntry…], events: [Event…] }` |
+
 
 `hello` must be the first frame. Anything else before it, or a wrong token, closes the socket with code `4001`. Schema mismatch closes with `4002`. `snapshot` follows `welcome` immediately and contains all live (non-dismissed, non-superseded) entries and their events.
 

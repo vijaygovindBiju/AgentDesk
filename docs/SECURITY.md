@@ -87,16 +87,24 @@ Intended for `adb reverse` / emulator testing without certificates. It is not a 
 - Constant-time comparison for the token.
 - Configuration validation occurs before connecting. Missing URL, token, device ID, or a required TLS fingerprint produces a configuration-required state and does not initiate a reconnect loop.
 
-## Known limitations of the MVP
+## QR Pairing Protocol & Credential Lifecycle
 
-- Fingerprint and token are entered manually; usability of that flow is not a goal yet.
-- One token = one trust domain; losing a phone means rotating the token for everyone (there is only one device anyway).
-- No replay protection beyond TLS; acceptable because commands are idempotent or single-shot (`already_resolved`).
-- Self-signed certificate is per-laptop; moving the daemon means re-pinning.
+### 1. Ephemeral Bootstrap Secret
+- The pairing QR code encodes a standard, versioned URI:
+  `agentdesk://pair?v=1&inst=<instance_id>&sess=<session_id>&sec=<ephemeral_secret>&fp=<fingerprint>[&lan=<lan_address>][&relay=<relay_url>]`
+- **Zero Permanent Secrets in QR**: The permanent daemon master token and persistent device credentials are **never** placed into the QR payload.
+- **Short-Lived & Single-Use**: Pairing sessions expire after 180 seconds (`PAIRING_DEFAULT_DURATION_SECS`). Once validated, `used` is set to `true`, and subsequent attempts with the same session or secret are immediately rejected.
+- **Replay Protection**: The `PairingManager` tracks active sessions and revokes older sessions upon fresh session generation. Replay attempts fail with `PairingError::Replayed`.
+- **Constant-Time Verification**: Verification of the 64-character ephemeral hex secret against the active session uses `subtle::ConstantTimeEq`.
 
-## Future work
+### 2. Device Identity & Registry
+- **Instance Identifier**: Generated on first initialization as `agentdesk-inst-<hex>` and persisted in `instance_id` (0600 permissions).
+- **Paired Devices Registry**: Saved at `devices.json` (0600 permissions). Each paired device is assigned a cryptographically random 256-bit token.
+- **Constant-Time Device Authentication**: Incoming `hello` frames identify the device via `device_id` and `token`. The token is checked against registered devices using constant-time comparison.
+- **Device Revocation**: Devices can be revoked via `agentdesk devices revoke <device_id>` or interactive CLI menu 7. Revoked devices are immediately denied (`CloseCode 4001 Unauthorized`) on subsequent connection attempts.
 
-- QR pairing carrying address + token + fingerprint; per-device tokens.
-- Device registry with revocation; per-device permissions (read-only vs. can-approve).
-- Certificate rotation with overlap.
-- If internet access is ever added: a relay with end-to-end encryption, not port forwarding.
+### 3. Remote Relay Security Boundaries
+- **Zero Raw PTY Exposure**: The relay only forwards authorized JSON protocol messages (`Message` envelope). Terminal streams, PTY bytes, shell execution, prompts, and filesystem operations are strictly local to the laptop.
+- **Authentication**: Daemons register with the relay using their instance ID and shared token (`/ws?role=host&inst=...&token=...`). Mobile clients connect with `/ws?role=client&inst=...`.
+- **Stateless/Ephemeral Routing**: The relay does not persist agent logs, task state, or source code. Disconnection of either peer cleanly tears down the paired session.
+- **TLS Only**: Remote connections mandate TLS (`wss://`). Insecure mode (`--insecure-dev`) is strictly restricted to loopback interfaces (`127.0.0.1`).

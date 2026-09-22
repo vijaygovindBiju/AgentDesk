@@ -55,10 +55,61 @@ AgentDesk/
 │   ├── agentdesk-model/       Event model, message envelope. No I/O, no async.
 │   ├── agentdesk-core/        Processor, classifier, queue, log store, watchdog, metrics.
 │   ├── agentdesk-sim/         Seeded simulated agent adapter.
-│   ├── agentdesk-server/      TLS WebSocket transport + `agentdesk` binary.
+│   ├── agentdesk-relay/       Authenticated WebSocket router for remote connectivity.
+│   ├── agentdesk-server/      TLS WebSocket transport, pairing manager, device registry, and `agentdesk` binary.
 │   └── agentdesk-bench/       Headless measurement runner (3 modes → JSON report).
 └── mobile/                    Flutter app
 ```
+
+## Dual-Mode Transport Architecture
+
+AgentDesk provides two transport modes determined automatically:
+
+### Mode A: Local LAN (Direct WSS)
+
+When laptop and phone are reachable on the same local network:
+
+```text
+          ┌──────────────┐
+          │    Laptop    │
+          │  AgentDesk   │
+          └──────┬───────┘
+                 │
+                WSS (pinned TLS)
+                 │
+          ┌──────▼───────┐
+          │    Phone     │
+          │   Flutter    │
+          └──────────────┘
+```
+
+### Mode B: Remote Relay (Dual Outbound WSS)
+
+When laptop and phone are on different networks (e.g. laptop on office Wi-Fi, phone on cellular 5G):
+
+```text
+                 ┌──────────────────────┐
+                 │   AgentDesk Relay    │
+                 │                      │
+                 │ authenticated router │
+                 └──────────┬───────────┘
+                            │
+                  ┌─────────┴─────────┐
+                  │                   │
+                 WSS                 WSS
+                  │                   │
+                  ▼                   ▼
+          ┌──────────────┐     ┌──────────────┐
+          │    Laptop    │     │    Phone     │
+          │              │     │              │
+          │ AgentDesk    │     │ Flutter      │
+          │              │     │              │
+          │ Coding Agent │     │ Control UI   │
+          └──────────────┘     └──────────────┘
+```
+
+Both laptop daemon and mobile client make outbound TLS WebSocket connections to the relay (`/ws?role=host&inst=...&token=...` and `/ws?role=client&inst=...`), eliminating any requirement for public laptop IPs, port forwarding, or firewall rules. The relay solely forwards structured protocol frames without inspecting, interpreting, or logging agent internals.
+
 
 Why separate crates: `model` is pure data and is mirrored into Dart; `core` is fully testable with no network; `sim` and `server` are the swappable ends; `bench` links `core + sim` with a fake client and never touches a socket.
 
