@@ -491,7 +491,8 @@ class _EventScreenState extends State<EventScreen> {
         (request.options.isNotEmpty && !isApprovalOptions
             ? QuestionType.singleChoice
             : null);
-    final allowsWriteIn = event.details['allows_write_in'] == true;
+    final allowsWriteIn =
+        questionType != null && event.details['allows_write_in'] != false;
     final writeInOption = request.options.firstWhere(
       (option) => option.trim().toLowerCase() == 'other',
       orElse: () => _writeInOption,

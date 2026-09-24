@@ -223,11 +223,15 @@ impl Simulator {
                     options,
                     question_type: qtype,
                 };
+                let mut details = task_detail();
+                if qtype.is_some() {
+                    details.insert("allows_write_in".to_string(), serde_json::json!(true));
+                }
                 out.push(self.event(
                     ti,
                     &kind,
                     message.unwrap_or_else(|| prompt.clone()),
-                    task_detail(),
+                    details,
                     vec![],
                     Some(req),
                 ));
