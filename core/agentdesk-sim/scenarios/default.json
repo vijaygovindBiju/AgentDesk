@@ -7,6 +7,29 @@
   ],
   "tasks": [
     {
+      "task_id": "task-architecture",
+      "agent_id": "sim-backend",
+      "title": "Configure authentication strategy",
+      "operation": "edit",
+      "start_offset_ms": 0,
+      "steps": [
+        { "type": "started", "message": "Planning authentication architecture" },
+        {
+          "type": "request",
+          "kind": "input_required",
+          "prompt": "Which authentication architecture should Antigravity implement?",
+          "options": [
+            "1. JSON Web Tokens (JWT) with Ed25519 signatures",
+            "2. Server-side sessions with Redis store",
+            "3. OAuth2 / OpenID Connect provider integration",
+            "4. Mutual TLS client certificate authentication"
+          ],
+          "message": "Antigravity is requesting your architecture decision",
+          "on_deny_kind": "cancelled_by_user"
+        }
+      ]
+    },
+    {
       "task_id": "task-auth",
       "agent_id": "sim-backend",
       "title": "Implement authentication",

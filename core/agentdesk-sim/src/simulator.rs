@@ -204,10 +204,24 @@ impl Simulator {
                 message,
                 on_deny_kind,
             } => {
+                let qtype = if options.is_empty() {
+                    None
+                } else if options.len() == 2
+                    && options[0].eq_ignore_ascii_case("approve")
+                    && options[1].eq_ignore_ascii_case("deny")
+                {
+                    None
+                } else if options.len() == 2
+                    && (options[0].eq_ignore_ascii_case("yes") || options[0].eq_ignore_ascii_case("y"))
+                {
+                    Some(agentdesk_model::QuestionType::YesNo)
+                } else {
+                    Some(agentdesk_model::QuestionType::SingleChoice)
+                };
                 let req = RequestInfo {
                     prompt: prompt.clone(),
                     options,
-                    question_type: None,
+                    question_type: qtype,
                 };
                 out.push(self.event(
                     ti,
