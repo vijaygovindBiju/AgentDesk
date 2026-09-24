@@ -84,11 +84,28 @@ pub fn pair_flow(
     let tls_id = TlsIdentity::load_or_generate(config_dir).map_err(|e| io::Error::other(e.to_string()))?;
     let fingerprint = tls_id.fingerprint.clone();
 
-    let resolved_relay = relay_url
+    let mut resolved_relay = relay_url
         .or_else(|| config.relay_url.clone())
         .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
         .or_else(|| std::env::var("AGENTDESK_RELAY").ok())
         .unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
+
+    if resolved_relay == crate::config::DEFAULT_RELAY_URL {
+        if crate::tunnel::is_cloudflared_installed() {
+            match crate::tunnel::ensure_tunnel(config_dir, 8766) {
+                Ok(tunnel_url) => {
+                    resolved_relay = tunnel_url.clone();
+                    let mut updated = config.clone();
+                    updated.relay_url = Some(tunnel_url);
+                    let env_path = crate::config::service_env_path(config_dir);
+                    let _ = crate::config::update_service_config(&env_path, &updated);
+                }
+                Err(e) => {
+                    eprintln!("Warning: failed to launch automatic tunnel: {}", e);
+                }
+            }
+        }
+    }
 
     let pairing_manager = PairingManager::with_dir(config_dir.to_path_buf());
     let (session, _payload, uri) = pairing_manager.create_session(
@@ -208,11 +225,18 @@ fn print_header(config: &ServiceConfig) {
     println!("\n╭──────────────────────────────────────────────╮");
     println!("│                 AgentDesk                    │");
     println!("╰──────────────────────────────────────────────╯");
-    println!("\nCurrent configuration:");
-    println!(
-        "  Relay: {}",
-        config.relay_url.as_deref().unwrap_or(crate::config::DEFAULT_RELAY_URL)
-    );
+    let relay_display = if let Some(state) = crate::tunnel::load_active_tunnel(&crate::token::default_config_dir()) {
+        format!("{} (Auto-Tunnel Active)", state.relay_url)
+    } else {
+        config.relay_url.clone().unwrap_or_else(|| {
+            if crate::tunnel::is_cloudflared_installed() {
+                "Auto-Tunnel (Cloudflare on demand)".to_string()
+            } else {
+                crate::config::DEFAULT_RELAY_URL.to_string()
+            }
+        })
+    };
+    println!("  Relay: {}", relay_display);
     println!("  Local Port: {}", config.port);
     println!("  Transport: Outbound WSS / Relay Only");
     println!(

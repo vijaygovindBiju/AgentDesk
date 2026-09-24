@@ -15,6 +15,7 @@ pub mod status;
 pub mod tls;
 pub mod token;
 pub mod tui;
+pub mod tunnel;
 
 pub use config::{
     CliCommand, DeviceOptions, DeviceRevokeOptions, PairOptions, RunOptions, ServiceConfig,

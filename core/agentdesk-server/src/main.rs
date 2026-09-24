@@ -157,7 +157,7 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         None => load_or_generate_token(&token_file)?,
     };
 
-    let relay_url = opts
+    let mut relay_url = opts
         .relay
         .clone()
         .or_else(|| {
@@ -167,6 +167,14 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
         .or_else(|| std::env::var("AGENTDESK_RELAY").ok())
         .or_else(|| Some(agentdesk_server::DEFAULT_RELAY_URL.to_string()));
+
+    if relay_url.as_deref() == Some(agentdesk_server::DEFAULT_RELAY_URL) {
+        if agentdesk_server::tunnel::is_cloudflared_installed() {
+            if let Ok(tunnel_url) = agentdesk_server::tunnel::ensure_tunnel(&config_dir, 8766) {
+                relay_url = Some(tunnel_url);
+            }
+        }
+    }
 
     let server_config = ServerConfig {
         bind_addr: opts.bind.clone(),
