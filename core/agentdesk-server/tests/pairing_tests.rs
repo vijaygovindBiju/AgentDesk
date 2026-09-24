@@ -72,14 +72,15 @@ async fn test_valid_pairing_and_subsequent_connection() {
     let (session, payload, uri) = pairing_mgr.create_session(
         instance_id.clone(),
         "AA:BB:CC".into(),
-        Some("127.0.0.1:8765".into()),
-        None,
+        Some("wss://relay.agentdesk.net".into()),
         Some(180),
         clock.now(),
     );
 
-    // Verify permanent token is NOT in payload or URI
+    // Verify permanent token and LAN addresses are NOT in payload or URI
     assert!(!uri.contains(&_master_token));
+    assert!(!uri.contains("&lan="));
+    assert!(uri.contains("&relay="));
     assert_ne!(payload.pairing_secret, _master_token);
 
     // 2. Phone connects and initiates pairing with PairRequest
@@ -159,7 +160,6 @@ async fn test_pairing_replay_is_rejected() {
         instance_id,
         "AA:BB".into(),
         None,
-        None,
         Some(180),
         clock.now(),
     );
@@ -223,7 +223,6 @@ async fn test_pairing_expired_is_rejected() {
         instance_id,
         "AA:BB".into(),
         None,
-        None,
         Some(10), // 10 seconds validity
         clock.now(),
     );
@@ -272,7 +271,6 @@ async fn test_revoked_device_is_rejected() {
     let (session, payload, _) = pairing_mgr.create_session(
         instance_id,
         "AA:BB".into(),
-        None,
         None,
         Some(180),
         clock.now(),

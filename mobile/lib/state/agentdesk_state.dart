@@ -1,15 +1,43 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import '../models/models.dart';
 
 class AgentDeskState extends ChangeNotifier {
   final Map<String, Event> _events = {};
   final Map<String, QueueEntry> _queue = {};
+  final Set<String> _finishedEventIds = {};
 
   Welcome? _welcome;
   Welcome? get welcome => _welcome;
 
   Map<String, Event> get events => Map.unmodifiable(_events);
   Map<String, QueueEntry> get queue => Map.unmodifiable(_queue);
+
+  bool isFinished(String eventId) => _finishedEventIds.contains(eventId);
+
+  int get activeWorkingCount {
+    return _queue.values
+        .where((e) => e.tier == 3 && _shouldDisplay(e) && !isFinished(e.eventId))
+        .length;
+  }
+
+  int get finishedWorkingCount {
+    return _queue.values
+        .where((e) => e.tier == 3 && isFinished(e.eventId))
+        .length;
+  }
+
+  void dismissAllFinishedWorking() {
+    bool changed = false;
+    for (final entry in _queue.values) {
+      if (entry.tier == 3 &&
+          isFinished(entry.eventId) &&
+          entry.state != EntryState.dismissed) {
+        _queue[entry.eventId] = entry.copyWith(state: EntryState.dismissed);
+        changed = true;
+      }
+    }
+    if (changed) notifyListeners();
+  }
 
   /// Return all entries to display, ordered by (tier asc, score desc, seq desc).
   List<QueueEntry> get entries {
@@ -18,8 +46,9 @@ class AgentDeskState extends ChangeNotifier {
     return list;
   }
 
-  static bool _shouldDisplay(QueueEntry entry) {
+  bool _shouldDisplay(QueueEntry entry) {
     if (entry.isLive) return true;
+    
     // Dismissed requests that are still unresolved remain visible in Requests tier.
     if (entry.tier == 0 &&
         entry.state == EntryState.dismissed &&
@@ -27,6 +56,13 @@ class AgentDeskState extends ChangeNotifier {
         !entry.superseded) {
       return true;
     }
+
+    // Hide working entries (tier==3) that are both finished AND dismissed.
+    // This implies that dismissed working entries that are NOT finished should remain visible.
+    if (entry.tier == 3 && entry.state == EntryState.dismissed && !entry.superseded) {
+      return !isFinished(entry.eventId);
+    }
+    
     return false;
   }
 
@@ -55,6 +91,20 @@ class AgentDeskState extends ChangeNotifier {
     for (final event in snapshot.events) {
       _events[event.eventId] = event;
     }
+    
+    _finishedEventIds.clear();
+    for (final event in _events.values) {
+      if (event.category == Category.working) {
+        bool hasFinished = _events.values.any((e) =>
+            (e.category == Category.completed || e.category == Category.error) &&
+            e.agentId == event.agentId &&
+            e.taskId == event.taskId);
+        if (hasFinished) {
+          _finishedEventIds.add(event.eventId);
+        }
+      }
+    }
+    
     notifyListeners();
   }
 
@@ -66,6 +116,18 @@ class AgentDeskState extends ChangeNotifier {
       _events[eventId] = eventPush.event;
     }
     _queue[eventPush.entry.eventId] = eventPush.entry;
+
+    if (eventPush.event.category == Category.completed ||
+        eventPush.event.category == Category.error) {
+      for (final e in _events.values) {
+        if (e.category == Category.working &&
+            e.agentId == eventPush.event.agentId &&
+            e.taskId == eventPush.event.taskId) {
+          _finishedEventIds.add(e.eventId);
+        }
+      }
+    }
+    
     notifyListeners();
   }
 
@@ -102,6 +164,7 @@ class AgentDeskState extends ChangeNotifier {
   void clear() {
     _events.clear();
     _queue.clear();
+    _finishedEventIds.clear();
     _welcome = null;
     notifyListeners();
   }

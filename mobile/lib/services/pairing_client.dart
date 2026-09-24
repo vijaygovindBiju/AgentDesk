@@ -2,20 +2,19 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/io.dart';
 import '../models/message.dart';
-import 'fingerprint.dart';
 
 /// The QR payload structure carried in the terminal QR code.
-/// Format: `agentdesk://pair?v=1&inst=...&sess=...&sec=...&fp=...[&lan=...][&relay=...]`
+/// Format: `agentdesk://pair?v=1&inst=...&sess=...&sec=...&fp=...&relay=...`
 class PairingPayload {
   final int version;
   final String instanceId;
   final String sessionId;
   final String pairingSecret;
   final String fingerprint;
-  final String? lanAddress;
-  final String? relayUrl;
+  final String relayUrl;
 
   const PairingPayload({
     required this.version,
@@ -23,8 +22,7 @@ class PairingPayload {
     required this.sessionId,
     required this.pairingSecret,
     required this.fingerprint,
-    this.lanAddress,
-    this.relayUrl,
+    required this.relayUrl,
   });
 
   static PairingPayload? tryParse(String rawUri) {
@@ -80,8 +78,10 @@ class PairingPayload {
       throw const FormatException('Missing fingerprint in pairing URI');
     }
 
-    final lan = params['lan']?.trim();
     final relay = params['relay']?.trim();
+    final resolvedRelay = (relay != null && relay.isNotEmpty)
+        ? relay
+        : 'wss://relay.agentdesk.io';
 
     return PairingPayload(
       version: version,
@@ -89,8 +89,7 @@ class PairingPayload {
       sessionId: sessionId,
       pairingSecret: sec,
       fingerprint: fp,
-      lanAddress: lan?.isEmpty ?? true ? null : lan,
-      relayUrl: relay?.isEmpty ?? true ? null : relay,
+      relayUrl: resolvedRelay,
     );
   }
 
@@ -99,13 +98,8 @@ class PairingPayload {
       ..write('&inst=${Uri.encodeComponent(instanceId)}')
       ..write('&sess=${Uri.encodeComponent(sessionId)}')
       ..write('&sec=${Uri.encodeComponent(pairingSecret)}')
-      ..write('&fp=${Uri.encodeComponent(fingerprint)}');
-    if (lanAddress != null && lanAddress!.isNotEmpty) {
-      buffer.write('&lan=${Uri.encodeComponent(lanAddress!)}');
-    }
-    if (relayUrl != null && relayUrl!.isNotEmpty) {
-      buffer.write('&relay=${Uri.encodeComponent(relayUrl!)}');
-    }
+      ..write('&fp=${Uri.encodeComponent(fingerprint)}')
+      ..write('&relay=${Uri.encodeComponent(relayUrl)}');
     return buffer.toString();
   }
 }
@@ -114,7 +108,6 @@ class PairingResult {
   final bool success;
   final String? instanceId;
   final String? deviceToken;
-  final String? lanAddress;
   final String? fingerprint;
   final String? relayUrl;
   final String? error;
@@ -122,9 +115,8 @@ class PairingResult {
   const PairingResult.success({
     required this.instanceId,
     required this.deviceToken,
-    this.lanAddress,
     required this.fingerprint,
-    this.relayUrl,
+    required this.relayUrl,
   })  : success = true,
         error = null;
 
@@ -132,7 +124,6 @@ class PairingResult {
       : success = false,
         instanceId = null,
         deviceToken = null,
-        lanAddress = null,
         fingerprint = null,
         relayUrl = null;
 }
@@ -146,32 +137,41 @@ class PairingClient {
     required String deviceName,
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    final lan = payload.lanAddress;
-    if (lan == null || lan.isEmpty) {
+    final relay = payload.relayUrl.trim();
+    if (relay.isEmpty) {
       return const PairingResult.failure(
-        'No connection endpoint provided in pairing QR code',
+        'No relay URL provided in pairing QR code',
       );
     }
 
-    final targetUrl = 'wss://$lan';
-    final uri = Uri.parse(targetUrl);
-
+    final cleanRelay = relay.replaceAll(RegExp(r'/+$'), '');
+    final relayUri = Uri.parse(
+      '$cleanRelay/ws?role=pair&inst=${Uri.encodeComponent(payload.instanceId)}&sess=${Uri.encodeComponent(payload.sessionId)}&sec=${Uri.encodeComponent(payload.pairingSecret)}',
+    );
     try {
-      final client = HttpClient();
-      client.badCertificateCallback = (cert, host, port) {
-        return verifyCertificateFingerprint(cert.der, payload.fingerprint);
-      };
-
-      final ws = await WebSocket.connect(
-        uri.toString(),
-        customClient: client,
-      ).timeout(
-        timeout,
-        onTimeout: () {
-          throw TimeoutException('Connection timed out connecting to $targetUrl');
-        },
+      debugPrint('Attempting remote pairing via relay: $relayUri...');
+      final ws = await WebSocket.connect(relayUri.toString()).timeout(timeout);
+      return await _performPairingExchange(
+        ws: ws,
+        payload: payload,
+        deviceId: deviceId,
+        deviceName: deviceName,
+        timeout: timeout,
       );
+    } catch (e) {
+      debugPrint('Relay pairing failed or unreachable ($e)');
+      return PairingResult.failure('Relay pairing failed: $e');
+    }
+  }
 
+  Future<PairingResult> _performPairingExchange({
+    required WebSocket ws,
+    required PairingPayload payload,
+    required String deviceId,
+    required String deviceName,
+    required Duration timeout,
+  }) async {
+    try {
       final channel = IOWebSocketChannel(ws);
       final completer = Completer<PairingResult>();
 
@@ -202,7 +202,6 @@ class PairingClient {
                   PairingResult.success(
                     instanceId: resp.instanceId,
                     deviceToken: resp.deviceToken,
-                    lanAddress: payload.lanAddress,
                     fingerprint: payload.fingerprint,
                     relayUrl: payload.relayUrl,
                   ),
@@ -267,17 +266,8 @@ class PairingClient {
       await subscription.cancel();
       await channel.sink.close();
       return result;
-    } on SocketException catch (e) {
-      return PairingResult.failure(
-        'Could not reach laptop at ${payload.lanAddress}. '
-        'Ensure both your phone and laptop are connected to the same Wi-Fi network. ($e)',
-      );
-    } on HandshakeException catch (e) {
-      return PairingResult.failure(
-        'TLS security check failed. The laptop certificate did not match the QR code fingerprint. ($e)',
-      );
     } catch (e) {
-      return PairingResult.failure('Pairing failed: $e');
+      return PairingResult.failure('Pairing message exchange failed: $e');
     }
   }
 }

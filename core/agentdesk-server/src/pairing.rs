@@ -3,7 +3,6 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::net::{IpAddr, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Duration, Utc};
@@ -44,7 +43,7 @@ impl std::fmt::Display for PairingError {
 impl std::error::Error for PairingError {}
 
 /// The QR payload structure carried in the terminal QR code.
-/// Format: `agentdesk://pair?v=1&inst=...&sess=...&sec=...&fp=...[&lan=...][&relay=...]`
+/// Format: `agentdesk://pair?v=1&inst=...&sess=...&sec=...&fp=...&relay=...`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PairingPayload {
     pub version: u32,
@@ -52,27 +51,21 @@ pub struct PairingPayload {
     pub session_id: String,
     pub pairing_secret: String,
     pub fingerprint: String,
-    pub lan_address: Option<String>,
-    pub relay_url: Option<String>,
+    pub relay_url: String,
 }
 
 impl PairingPayload {
     pub fn to_uri(&self) -> String {
-        let mut uri = format!(
-            "agentdesk://pair?v={}&inst={}&sess={}&sec={}&fp={}",
+        let clean_fp = self.fingerprint.replace([':', ' '], "");
+        format!(
+            "agentdesk://pair?v={}&inst={}&sess={}&sec={}&fp={}&relay={}",
             self.version,
             urlencoding::encode(&self.instance_id),
             urlencoding::encode(&self.session_id),
             urlencoding::encode(&self.pairing_secret),
-            urlencoding::encode(&self.fingerprint),
-        );
-        if let Some(ref lan) = self.lan_address {
-            uri.push_str(&format!("&lan={}", urlencoding::encode(lan)));
-        }
-        if let Some(ref relay) = self.relay_url {
-            uri.push_str(&format!("&relay={}", urlencoding::encode(relay)));
-        }
-        uri
+            clean_fp,
+            urlencoding::encode(&self.relay_url),
+        )
     }
 
     pub fn from_uri(uri_str: &str) -> Result<Self, String> {
@@ -91,7 +84,6 @@ impl PairingPayload {
         let mut session_id = None;
         let mut pairing_secret = None;
         let mut fingerprint = None;
-        let mut lan_address = None;
         let mut relay_url = None;
 
         for pair in query.split('&') {
@@ -135,9 +127,7 @@ impl PairingPayload {
                     }
                 }
                 "lan" => {
-                    if !val.trim().is_empty() {
-                        lan_address = Some(val.into_owned());
-                    }
+                    // Deprecated & ignored: AgentDesk is relay-only. LAN endpoints are never used.
                 }
                 "relay" => {
                     if !val.trim().is_empty() {
@@ -157,6 +147,7 @@ impl PairingPayload {
             pairing_secret.ok_or_else(|| "missing pairing_secret in pairing payload".to_string())?;
         let fingerprint =
             fingerprint.ok_or_else(|| "missing fingerprint in pairing payload".to_string())?;
+        let relay_url = relay_url.unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
 
         Ok(Self {
             version,
@@ -164,7 +155,6 @@ impl PairingPayload {
             session_id,
             pairing_secret,
             fingerprint,
-            lan_address,
             relay_url,
         })
     }
@@ -217,8 +207,6 @@ pub struct PairingSession {
     pub paired_device_id: Option<String>,
     #[serde(default)]
     pub paired_device_name: Option<String>,
-    #[serde(default)]
-    pub lan_address: Option<String>,
     pub fingerprint: String,
     #[serde(default)]
     pub relay_url: Option<String>,
@@ -255,7 +243,6 @@ impl PairingManager {
         &self,
         instance_id: String,
         fingerprint: String,
-        lan_address: Option<String>,
         relay_url: Option<String>,
         duration_secs: Option<i64>,
         now: DateTime<Utc>,
@@ -265,6 +252,7 @@ impl PairingManager {
         let duration = duration_secs.unwrap_or(PAIRING_DEFAULT_DURATION_SECS);
         let created_at = now;
         let expires_at = created_at + Duration::seconds(duration);
+        let resolved_relay = relay_url.unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
 
         let session = PairingSession {
             session_id: session_id.clone(),
@@ -275,9 +263,8 @@ impl PairingManager {
             used: false,
             paired_device_id: None,
             paired_device_name: None,
-            lan_address: lan_address.clone(),
             fingerprint: fingerprint.clone(),
-            relay_url: relay_url.clone(),
+            relay_url: Some(resolved_relay.clone()),
         };
 
         let payload = PairingPayload {
@@ -286,8 +273,7 @@ impl PairingManager {
             session_id: session_id.clone(),
             pairing_secret,
             fingerprint,
-            lan_address,
-            relay_url,
+            relay_url: resolved_relay,
         };
 
         let uri = payload.to_uri();
@@ -389,29 +375,14 @@ impl PairingManager {
 
 /// Render a terminal-friendly compact QR code string.
 pub fn render_qr_terminal(content: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let code = QrCode::new(content.as_bytes())?;
+    let code = QrCode::with_error_correction_level(content.as_bytes(), qrcode::EcLevel::L)?;
     let rendered = code
         .render::<unicode::Dense1x2>()
         .dark_color(unicode::Dense1x2::Dark)
         .light_color(unicode::Dense1x2::Light)
-        .quiet_zone(true)
+        .quiet_zone(false)
         .build();
     Ok(rendered)
-}
-
-/// Detect the most likely LAN IP address of this machine for pairing.
-pub fn detect_lan_ip() -> Option<IpAddr> {
-    // Attempt connecting a UDP socket to a public address (no packet is sent)
-    // to discover which local interface the kernel routes traffic through.
-    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
-    socket.connect("8.8.8.8:80").ok()?;
-    let local_addr = socket.local_addr().ok()?;
-    let ip = local_addr.ip();
-    if !ip.is_loopback() {
-        Some(ip)
-    } else {
-        None
-    }
 }
 
 #[cfg(test)]
@@ -425,16 +396,25 @@ mod tests {
             instance_id: "inst-123".into(),
             session_id: "sess-456".into(),
             pairing_secret: generate_token(),
-            fingerprint: "AA:BB:CC:DD".into(),
-            lan_address: Some("192.168.1.50:8765".into()),
-            relay_url: Some("wss://relay.agentdesk.net".into()),
+            fingerprint: "AABBCCDD".into(),
+            relay_url: "wss://relay.agentdesk.net".into(),
         };
 
         let uri = payload.to_uri();
         assert!(uri.starts_with("agentdesk://pair?"));
+        assert!(!uri.contains("&lan="));
+        assert!(uri.contains("&relay="));
 
         let parsed = PairingPayload::from_uri(&uri).unwrap();
         assert_eq!(payload, parsed);
+    }
+
+    #[test]
+    fn payload_ignores_legacy_lan_parameter() {
+        let legacy_uri = "agentdesk://pair?v=1&inst=inst-1&sess=s-1&sec=0000000000000000000000000000000000000000000000000000000000000000&fp=AA:BB&lan=192.168.1.100:8765&relay=wss%3A%2F%2Frelay.custom.io";
+        let parsed = PairingPayload::from_uri(legacy_uri).unwrap();
+        assert_eq!(parsed.relay_url, "wss://relay.custom.io");
+        assert_eq!(parsed.instance_id, "inst-1");
     }
 
     #[test]
@@ -469,8 +449,7 @@ mod tests {
         let (session, payload, _uri) = manager.create_session(
             instance_id.into(),
             fp.into(),
-            Some("10.0.0.5:8765".into()),
-            None,
+            Some("wss://relay.test.io".into()),
             Some(60), // 60 seconds
             now,
         );
@@ -499,7 +478,6 @@ mod tests {
             instance_id.into(),
             fp.into(),
             None,
-            None,
             Some(10),
             now,
         );
@@ -512,7 +490,7 @@ mod tests {
 
     #[test]
     fn render_qr_code_succeeds() {
-        let uri = "agentdesk://pair?v=1&inst=inst-1&sess=sess-1&sec=0000000000000000000000000000000000000000000000000000000000000000&fp=AA:BB";
+        let uri = "agentdesk://pair?v=1&inst=inst-1&sess=sess-1&sec=0000000000000000000000000000000000000000000000000000000000000000&fp=AA:BB&relay=wss%3A%2F%2Frelay.agentdesk.io";
         let qr = render_qr_terminal(uri).unwrap();
         assert!(!qr.is_empty());
         assert!(qr.contains('\n'));

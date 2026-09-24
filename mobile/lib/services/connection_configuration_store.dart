@@ -8,7 +8,6 @@ class ConnectionConfiguration {
     this.deviceId,
     this.fingerprint,
     this.instanceId,
-    this.lanAddress,
     this.relayUrl,
   });
 
@@ -16,7 +15,6 @@ class ConnectionConfiguration {
   final String? deviceId;
   final String? fingerprint;
   final String? instanceId;
-  final String? lanAddress;
   final String? relayUrl;
 
   bool get isPaired => instanceId != null && instanceId!.isNotEmpty;
@@ -35,7 +33,6 @@ class SharedPreferencesConnectionConfigurationStore
   static const _deviceIdKey = 'agentdesk.connection.device_id';
   static const _fingerprintKey = 'agentdesk.connection.fingerprint';
   static const _instanceIdKey = 'agentdesk.connection.instance_id';
-  static const _lanAddressKey = 'agentdesk.connection.lan_address';
   static const _relayUrlKey = 'agentdesk.connection.relay_url';
 
   Future<SharedPreferences> get _preferences => SharedPreferences.getInstance();
@@ -48,7 +45,6 @@ class SharedPreferencesConnectionConfigurationStore
       deviceId: preferences.getString(_deviceIdKey),
       fingerprint: preferences.getString(_fingerprintKey),
       instanceId: preferences.getString(_instanceIdKey),
-      lanAddress: preferences.getString(_lanAddressKey),
       relayUrl: preferences.getString(_relayUrlKey),
     );
   }
@@ -67,11 +63,6 @@ class SharedPreferencesConnectionConfigurationStore
       preferences,
       _instanceIdKey,
       configuration.instanceId,
-    );
-    await _writeOptional(
-      preferences,
-      _lanAddressKey,
-      configuration.lanAddress,
     );
     await _writeOptional(
       preferences,

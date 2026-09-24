@@ -60,6 +60,8 @@ pub struct RunOptions {
     pub relay: Option<String>,
 }
 
+pub const DEFAULT_RELAY_URL: &str = "wss://relay.agentdesk.io";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServiceConfig {
     pub bind: String,
@@ -87,7 +89,13 @@ pub fn service_env_path(config_dir: &std::path::Path) -> PathBuf {
 
 pub fn load_service_config(path: &std::path::Path) -> io::Result<ServiceConfig> {
     if !path.exists() {
-        return Ok(ServiceConfig::default());
+        let mut config = ServiceConfig::default();
+        if let Ok(url) = std::env::var("AGENTDESK_RELAY_URL").or_else(|_| std::env::var("AGENTDESK_RELAY")) {
+            if !url.trim().is_empty() {
+                config.relay_url = Some(url.trim().to_string());
+            }
+        }
+        return Ok(config);
     }
     let content = fs::read_to_string(path)?;
     let mut config = ServiceConfig::default();
@@ -108,8 +116,17 @@ pub fn load_service_config(path: &std::path::Path) -> io::Result<ServiceConfig> 
             }
             "AGENTDESK_AGENT" if !value.is_empty() => config.agent = Some(value.to_string()),
             "AGENTDESK_ANTIGRAVITY" => config.antigravity = value == "1",
-            "AGENTDESK_RELAY" if !value.is_empty() => config.relay_url = Some(value.to_string()),
+            "AGENTDESK_RELAY" | "AGENTDESK_RELAY_URL" if !value.is_empty() => {
+                config.relay_url = Some(value.to_string())
+            }
             _ => {}
+        }
+    }
+    if config.relay_url.is_none() {
+        if let Ok(url) = std::env::var("AGENTDESK_RELAY_URL").or_else(|_| std::env::var("AGENTDESK_RELAY")) {
+            if !url.trim().is_empty() {
+                config.relay_url = Some(url.trim().to_string());
+            }
         }
     }
     validate_port(config.port).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;

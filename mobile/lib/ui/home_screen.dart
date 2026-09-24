@@ -5,6 +5,7 @@ import '../services/connection_service.dart';
 import '../state/agentdesk_state.dart';
 import 'event_screen.dart';
 import 'settings_screen.dart';
+import 'qr_scan_screen.dart';
 import 'brand_logo.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -43,13 +44,6 @@ class HomeScreen extends StatelessWidget {
       'empty': 'No completed tasks yet',
       'color': Colors.green,
     },
-    {
-      'tier': 3,
-      'category': Category.working,
-      'title': 'Working',
-      'empty': 'No active background tasks',
-      'color': Colors.blue,
-    },
   ];
 
   Color _categoryColor(Category category) {
@@ -79,6 +73,15 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  void _openQrScanner(BuildContext context) {
+    metrics.recordTap();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => QRScanScreen(connection: connection),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -98,6 +101,12 @@ class HomeScreen extends StatelessWidget {
           appBar: AppBar(
             title: const BrandLogo(size: 34, showWordmark: true),
             actions: [
+              IconButton(
+                key: const Key('home_scan_qr_button'),
+                icon: const Icon(Icons.qr_code_scanner),
+                tooltip: 'Scan QR Code to Pair',
+                onPressed: () => _openQrScanner(context),
+              ),
               // Connection status indicator chip
               InkWell(
                 onTap: () {
@@ -162,6 +171,64 @@ class HomeScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             children: [
+              if (!isConnected)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Card(
+                    elevation: 3,
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.qr_code_scanner,
+                                  size: 32,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Connect to Laptop',
+                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Run "agentdesk pair" in your laptop terminal, then scan the QR code to pair.',
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          FilledButton.icon(
+                            key: const Key('home_banner_scan_button'),
+                            onPressed: () => _openQrScanner(context),
+                            icon: const Icon(Icons.qr_code_scanner),
+                            label: const Text('Scan QR Code to Pair'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               for (final def in tierDefs)
                 _buildTierSection(
                   context,
@@ -170,8 +237,18 @@ class HomeScreen extends StatelessWidget {
                   emptyCopy: def['empty'] as String,
                   accentColor: def['color'] as MaterialColor,
                 ),
+              // Agent status indicator (replaces the old Working card list)
+              _buildAgentStatusBar(context),
             ],
           ),
+          floatingActionButton: isConnected
+              ? null
+              : FloatingActionButton.extended(
+                  key: const Key('home_fab_scan_button'),
+                  onPressed: () => _openQrScanner(context),
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Scan QR Code'),
+                ),
         );
       },
     );
@@ -366,6 +443,98 @@ class HomeScreen extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Compact agent status indicator — replaces the old Working card list.
+  /// Shows a single bar: "⚡ Agent Working (3 tasks)" or "✅ Agent Idle".
+  Widget _buildAgentStatusBar(BuildContext context) {
+    final activeCount = state.activeWorkingCount;
+    final isWorking = activeCount > 0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isWorking
+              ? Colors.blue.shade50
+              : Colors.green.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isWorking
+                ? Colors.blue.shade200
+                : Colors.green.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Status icon
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: isWorking
+                    ? Colors.blue.shade600
+                    : Colors.green.shade600,
+                shape: BoxShape.circle,
+                boxShadow: isWorking
+                    ? [
+                        BoxShadow(
+                          color: Colors.blue.shade300,
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Status text
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isWorking ? 'Agent Working' : 'Agent Idle',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isWorking
+                          ? Colors.blue.shade900
+                          : Colors.green.shade900,
+                    ),
+                  ),
+                  if (isWorking)
+                    Text(
+                      '$activeCount active task${activeCount == 1 ? '' : 's'}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                    )
+                  else
+                    Text(
+                      'Ready for input',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // Icon
+            Icon(
+              isWorking ? Icons.bolt : Icons.check_circle_outline,
+              color: isWorking
+                  ? Colors.blue.shade600
+                  : Colors.green.shade600,
+              size: 24,
+            ),
+          ],
         ),
       ),
     );

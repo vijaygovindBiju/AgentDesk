@@ -100,7 +100,6 @@ class _QRScanScreenState extends State<QRScanScreen> {
           instanceId: result.instanceId!,
           deviceToken: result.deviceToken!,
           deviceId: deviceId,
-          lanAddress: result.lanAddress ?? payload.lanAddress ?? '',
           fingerprint: result.fingerprint!,
           relayUrl: result.relayUrl ?? payload.relayUrl,
           autoConnect: widget.autoConnect,

@@ -175,6 +175,20 @@ impl Scenario {
             .expect("default scenario is valid")
     }
 
+    /// An empty scenario with zero scripted tasks for real interactive agent sessions.
+    pub fn empty() -> Self {
+        Self {
+            name: "Interactive".into(),
+            description: "Interactive coding agent supervision session".into(),
+            agents: vec![AgentSpec {
+                agent_id: "antigravity".into(),
+                name: "Antigravity CLI".into(),
+                project: "AgentDesk".into(),
+            }],
+            tasks: Vec::new(),
+        }
+    }
+
     pub fn validate(&self) -> Result<(), ScenarioError> {
         let mut agents = HashSet::new();
         for a in &self.agents {

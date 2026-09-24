@@ -61,54 +61,44 @@ AgentDesk/
 └── mobile/                    Flutter app
 ```
 
-## Dual-Mode Transport Architecture
+## Remote-First Transport Architecture
 
-AgentDesk provides two transport modes determined automatically:
+AgentDesk is designed to be remote-first and does NOT depend on a shared Local Area Network (LAN). The connection works seamlessly when:
+- Laptop and phone are on completely different Wi-Fi networks (e.g. laptop on office/campus Wi-Fi, phone on home Wi-Fi)
+- Laptop is on Ethernet/Wi-Fi and phone is on mobile data (4G/5G)
+- Normal firewalls/NATs allow standard outbound HTTPS/WSS traffic
 
-### Mode A: Local LAN (Direct WSS)
+### Primary Transport: Secure Remote Relay (Dual Outbound WSS/TLS)
 
-When laptop and phone are reachable on the same local network:
-
-```text
-          ┌──────────────┐
-          │    Laptop    │
-          │  AgentDesk   │
-          └──────┬───────┘
-                 │
-                WSS (pinned TLS)
-                 │
-          ┌──────▼───────┐
-          │    Phone     │
-          │   Flutter    │
-          └──────────────┘
-```
-
-### Mode B: Remote Relay (Dual Outbound WSS)
-
-When laptop and phone are on different networks (e.g. laptop on office Wi-Fi, phone on cellular 5G):
+The production connection mechanism uses dual outbound TLS WebSocket connections:
 
 ```text
-                 ┌──────────────────────┐
-                 │   AgentDesk Relay    │
-                 │                      │
-                 │ authenticated router │
-                 └──────────┬───────────┘
-                            │
-                  ┌─────────┴─────────┐
-                  │                   │
-                 WSS                 WSS
-                  │                   │
-                  ▼                   ▼
-          ┌──────────────┐     ┌──────────────┐
-          │    Laptop    │     │    Phone     │
-          │              │     │              │
-          │ AgentDesk    │     │ Flutter      │
-          │              │     │              │
-          │ Coding Agent │     │ Control UI   │
-          └──────────────┘     └──────────────┘
+                    INTERNET
+                       │
+             ┌─────────┴─────────┐
+             │   AgentDesk Relay │
+             │     WSS/TLS       │
+             └─────────┬─────────┘
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+          LAPTOP                PHONE
+       any network            any network
+             │                   │
+        AgentDesk             Flutter
+             │                   │
+        Coding Agent         Control UI
 ```
 
-Both laptop daemon and mobile client make outbound TLS WebSocket connections to the relay (`/ws?role=host&inst=...&token=...` and `/ws?role=client&inst=...`), eliminating any requirement for public laptop IPs, port forwarding, or firewall rules. The relay solely forwards structured protocol frames without inspecting, interpreting, or logging agent internals.
+1. **Laptop Outbound WSS**: The laptop daemon establishes a persistent outbound TLS WebSocket connection to the relay (`/ws?role=host&inst=...&token=...`). It acts as a host trunk, synchronizing authorized device tokens and ephemeral pairing sessions. No inbound ports, router configuration, port forwarding, or public IP are needed.
+2. **Phone Outbound WSS**: The Flutter client connects outbound to the relay (`/ws?role=client&inst=...&device_id=...&token=...`) with its paired credentials.
+3. **Remote QR Pairing**: QR codes carry the instance identity, relay endpoint, and single-use ephemeral pairing credentials (`agentdesk://pair?v=1&inst=...&sess=...&sec=...&relay=...`). The phone exchanges pairing credentials directly through the relay over WSS without touching a local IP.
+4. **Structured Protocol Isolation**: The relay exclusively routes structured AgentDesk envelopes (`input_required`, `input_response`, `event`, `snapshot`, etc.). Raw PTY bytes, shell output, and terminal screen buffers never touch the relay.
+5. **Host Persistence**: Mobile client disconnections (network drop, backgrounding) do not disconnect the host trunk. The mobile app reconnects automatically with exponential backoff and jitter.
+
+### Internet-Only Public Relay Model
+
+AgentDesk is an outbound-only, relay-based product. There are no LAN transports, no USB transports, and no direct phone-to-laptop socket connections. Both the laptop daemon and the mobile client connect outbound to the public relay over WSS/TLS. No incoming router ports or firewall holes are ever required on the laptop or phone.
 
 
 Why separate crates: `model` is pure data and is mirrored into Dart; `core` is fully testable with no network; `sim` and `server` are the swappable ends; `bench` links `core + sim` with a fake client and never touches a socket.
@@ -234,6 +224,44 @@ Metrics are collected in all three so the bench can compare them on the same see
 - **Log viewer**: tail-first paged log view driven by `get_event_logs { offset, limit }`.
 - **Debug screen**: client-side metrics (`summaries_rendered`, `taps`, `log_pages_requested`), insecure-dev warning banner, and laptop daemon metrics.
 - **Settings screen**: connection URL, auth token, device ID, and certificate fingerprint. URL/device ID/fingerprint persist in ordinary preferences; the token is stored only through the secure-storage abstraction. Incomplete configuration is shown as `configurationRequired`, rather than as a failed network connection.
+
+## Desktop Terminal Workspace & Agent Discovery
+
+When launched interactively via `agentdesk`, AgentDesk serves as a real coding-agent terminal emulator and supervision host:
+
+```text
+agentdesk
+   ↓
+Agent Discovery (real PATH inspection: agy, claude, codex, gemini)
+   ↓
+Agent Selection Screen (bullet list, paths, versions, Ready vs Unsupported)
+   ↓
+Desktop Workspace:
+   ├── Minimal Top Bar (AgentDesk mark, agent picker, cwd, connection, phone attention badge)
+   ├── Real PTY Shell ($SHELL / PtySession / VT100 ANSI screen)
+   └── Background AgentDesk Daemon (supervision, relay, mobile phone control, security)
+```
+
+### Components
+
+1. **Agent Discovery (`discovery.rs`)**:
+   - Inspects host `PATH` using platform-appropriate executable lookups (`which` / direct binary checks).
+   - Detects known coding agents (`agy`, `claude`, `codex`, `gemini`).
+   - Retrieves CLI `--version` output dynamically.
+   - Honestly marks agent availability: `Ready` (adapters implemented: Antigravity PTY, Gemini ACP) vs `Unsupported` (detected binary but no adapter yet implemented in AgentDesk).
+   - Persists user preferences (`preferences.json`) remembering the last selected agent and working directory.
+
+2. **Real POSIX PTY Shell Session (`terminal_session.rs`)**:
+   - Spawns the user's configured `$SHELL` inside a real pseudo-terminal (`libc::openpty`).
+   - Passes through raw POSIX keycodes (`Ctrl+C` -> `0x03`, `Ctrl+D` -> `0x04`, `Ctrl+Z` -> `0x1A`, arrows, tab, escape sequences).
+   - Full 2D VT100/ANSI screen emulation with true SGR styling (bold, italic, colors, reverse) directly mapped to Ratatui terminal buffers.
+   - Synchronizes dynamic terminal geometry resizing with `libc::ioctl(TIOCSWINSZ)`.
+
+3. **Workspace Overlays & Keyboard Shortcuts**:
+   - `F2` / `Ctrl+A`: Agent Switcher overlay.
+   - `F3` / `Ctrl+P`: Project / Directory selector overlay.
+   - `F4` / `Ctrl+Q`: Attention queue & mobile sync inspector overlay.
+   - `F1` / `?`: Help guide.
 
 ## Things deliberately not built in the MVP
 

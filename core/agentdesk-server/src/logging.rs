@@ -64,6 +64,16 @@ pub fn current_log_level() -> LogLevel {
     }
 }
 
+static SUPPRESS_STDERR: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_suppress_stderr(suppress: bool) {
+    SUPPRESS_STDERR.store(suppress, Ordering::SeqCst);
+}
+
+pub fn is_stderr_suppressed() -> bool {
+    SUPPRESS_STDERR.load(Ordering::SeqCst)
+}
+
 pub fn set_log_capture(capture: Option<LogCapture>) {
     if let Ok(mut lock) = GLOBAL_CAPTURE.lock() {
         *lock = capture;
@@ -77,7 +87,9 @@ pub fn info(msg: impl AsRef<str>) {
     if let Some(cap) = GLOBAL_CAPTURE.lock().ok().and_then(|l| l.clone()) {
         cap.push(formatted.clone());
     }
-    eprintln!("{}", formatted);
+    if !is_stderr_suppressed() {
+        eprintln!("{}", formatted);
+    }
 }
 
 /// Emit a debug-level log message (opt-in). Never logs the secret token.
@@ -90,7 +102,9 @@ pub fn debug(msg: impl AsRef<str>) {
     if let Some(cap) = GLOBAL_CAPTURE.lock().ok().and_then(|l| l.clone()) {
         cap.push(formatted.clone());
     }
-    eprintln!("{}", formatted);
+    if !is_stderr_suppressed() {
+        eprintln!("{}", formatted);
+    }
 }
 
 #[cfg(test)]

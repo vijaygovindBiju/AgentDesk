@@ -4,7 +4,7 @@ use crate::config::{
 };
 use crate::device::DeviceRegistry;
 use crate::pairing::{
-    PAIRING_DEFAULT_DURATION_SECS, PairingManager, detect_lan_ip, load_session_file,
+    PAIRING_DEFAULT_DURATION_SECS, PairingManager, load_session_file,
     render_qr_terminal,
 };
 use crate::tls::TlsIdentity;
@@ -84,23 +84,17 @@ pub fn pair_flow(
     let tls_id = TlsIdentity::load_or_generate(config_dir).map_err(|e| io::Error::other(e.to_string()))?;
     let fingerprint = tls_id.fingerprint.clone();
 
-    let lan_ip = detect_lan_ip()
-        .map(|ip| ip.to_string())
-        .unwrap_or_else(|| {
-            if config.bind != "127.0.0.1" && config.bind != "0.0.0.0" {
-                config.bind.clone()
-            } else {
-                "127.0.0.1".into()
-            }
-        });
-    let lan_address = format!("{}:{}", lan_ip, config.port);
+    let resolved_relay = relay_url
+        .or_else(|| config.relay_url.clone())
+        .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
+        .or_else(|| std::env::var("AGENTDESK_RELAY").ok())
+        .unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
 
     let pairing_manager = PairingManager::with_dir(config_dir.to_path_buf());
     let (session, _payload, uri) = pairing_manager.create_session(
         instance_id.clone(),
         fingerprint.clone(),
-        Some(lan_address.clone()),
-        relay_url,
+        Some(resolved_relay.clone()),
         Some(PAIRING_DEFAULT_DURATION_SECS),
         chrono::Utc::now(),
     );
@@ -112,8 +106,7 @@ pub fn pair_flow(
     println!("Scan this QR code with the AgentDesk Android app:\n");
     println!("{}", qr);
     println!("  Instance:    {}", instance_id);
-    println!("  LAN Address: {}", lan_address);
-    println!("  Fingerprint: {}", fingerprint);
+    println!("  Relay:       {}", resolved_relay);
     println!("  Expires in:  3 minutes");
     println!("\nWaiting for phone to scan QR code...\n");
 
@@ -129,7 +122,7 @@ pub fn pair_flow(
                 println!("✓ Phone successfully paired!");
                 println!("  Device Name: {}", name);
                 println!("  Device ID:   {}", id);
-                println!("  Connection:  LAN ({}) or Relay", lan_address);
+                println!("  Connection:  Remote Relay ({})", resolved_relay);
                 return Ok(());
             }
         }
@@ -198,9 +191,12 @@ fn print_header(config: &ServiceConfig) {
     println!("│                 AgentDesk                    │");
     println!("╰──────────────────────────────────────────────╯");
     println!("\nCurrent configuration:");
-    println!("  Address: {}", config.bind);
-    println!("  Port: {}", config.port);
-    println!("  Protocol: WSS");
+    println!(
+        "  Relay: {}",
+        config.relay_url.as_deref().unwrap_or(crate::config::DEFAULT_RELAY_URL)
+    );
+    println!("  Local Port: {}", config.port);
+    println!("  Transport: Outbound WSS / Relay Only");
     println!(
         "  Agent: {}",
         if config.antigravity {
@@ -271,7 +267,7 @@ fn configure_flow(
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("\nWhat do you want to configure?");
     println!("  1) Port");
-    println!("  2) Bind address");
+    println!("  2) Relay URL");
     println!("  3) Back");
     match prompt("Select an option: ")?.as_str() {
         "1" => {
@@ -283,13 +279,13 @@ fn configure_flow(
             println!("Port saved. Restart AgentDesk to apply it.");
         }
         "2" => {
-            let bind = prompt("Enter bind address: ")?;
-            if bind.trim().is_empty() || bind.contains(['\n', '\r', '=']) {
-                return Err("invalid bind address".into());
+            let relay = prompt("Enter relay URL (e.g. wss://relay.agentdesk.io): ")?;
+            if relay.trim().is_empty() || relay.contains(['\n', '\r']) {
+                return Err("invalid relay URL".into());
             }
-            config.bind = bind;
+            config.relay_url = Some(relay.trim().to_string());
             update_service_config(env_path, config)?;
-            println!("Bind address saved. Restart AgentDesk to apply it.");
+            println!("Relay URL saved. Restart AgentDesk to apply it.");
         }
         "3" => {}
         _ => println!("Please choose a menu number."),

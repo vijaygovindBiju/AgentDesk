@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match command {
         CliCommand::Interactive => {
-            agentdesk_server::interactive::run()?;
+            agentdesk_server::run_tui(None).await?;
             Ok(())
         }
         CliCommand::Pair(opts) => {
@@ -71,7 +71,8 @@ fn handle_pair(opts: PairOptions) -> Result<(), Box<dyn std::error::Error>> {
     let config_dir = opts.config_dir.unwrap_or_else(default_config_dir);
     let env_path = service_env_path(&config_dir);
     let config = load_service_config(&env_path)?;
-    agentdesk_server::interactive::pair_flow(&config_dir, &config, opts.relay)?;
+    let relay = opts.relay.or(config.relay_url.clone());
+    agentdesk_server::interactive::pair_flow(&config_dir, &config, relay)?;
     Ok(())
 }
 
@@ -140,6 +141,16 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         None => load_or_generate_token(&token_file)?,
     };
 
+    let relay_url = opts
+        .relay
+        .clone()
+        .or_else(|| {
+            let env_path = service_env_path(&config_dir);
+            load_service_config(&env_path).ok().and_then(|c| c.relay_url)
+        })
+        .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
+        .or_else(|| std::env::var("AGENTDESK_RELAY").ok());
+
     let server_config = ServerConfig {
         bind_addr: opts.bind.clone(),
         port: opts.port,
@@ -149,7 +160,7 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         outbound_capacity: agentdesk_server::DEFAULT_OUTBOUND_CAPACITY,
         debug_logging: opts.debug,
         config_dir: opts.config_dir.clone(),
-        relay_url: opts.relay.clone(),
+        relay_url,
     };
 
     if let Err(e) = server_config.validate() {

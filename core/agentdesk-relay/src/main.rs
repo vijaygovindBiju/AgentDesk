@@ -1,4 +1,5 @@
 use std::env;
+use std::path::PathBuf;
 use agentdesk_relay::{DEFAULT_RELAY_PORT, RelayConfig, RelayServer};
 
 #[tokio::main]
@@ -36,16 +37,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     std::process::exit(1);
                 }
             }
+            "--cert" => {
+                if i + 1 < args.len() {
+                    config.tls_cert = Some(PathBuf::from(&args[i + 1]));
+                    i += 2;
+                } else {
+                    eprintln!("Error: --cert requires a certificate path");
+                    std::process::exit(1);
+                }
+            }
+            "--key" => {
+                if i + 1 < args.len() {
+                    config.tls_key = Some(PathBuf::from(&args[i + 1]));
+                    i += 2;
+                } else {
+                    eprintln!("Error: --key requires a private key path");
+                    std::process::exit(1);
+                }
+            }
+            "--insecure-dev" => {
+                config.insecure_dev = true;
+                i += 1;
+            }
             "-h" | "--help" => {
                 println!(
                     "AgentDesk Relay Server\n\n\
                      USAGE:\n\
                          agentdesk-relay [OPTIONS]\n\n\
                      OPTIONS:\n\
-                         --bind <addr>    Bind address (default: 0.0.0.0)\n\
-                         --port <port>    Bind port (default: 8766)\n\
-                         --token <token>  Optional host authentication token\n\
-                         -h, --help       Show help\n"
+                         --bind <addr>        Bind address (default: 0.0.0.0)\n\
+                         --port <port>        Bind port (default: 8766)\n\
+                         --token <token>      Optional host authentication token\n\
+                         --cert <path>        Path to TLS certificate (PEM)\n\
+                         --key <path>         Path to TLS private key (PEM)\n\
+                         --insecure-dev       Run insecure plain ws:// mode (development only)\n\
+                         -h, --help           Show help\n"
                 );
                 return Ok(());
             }

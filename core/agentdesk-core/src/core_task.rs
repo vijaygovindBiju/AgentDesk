@@ -575,6 +575,16 @@ impl CoreTask {
                     );
                 }
             }
+            Body::StartTask(ref task) => {
+                self.broadcast(Message::push(Body::StartTask(task.clone())));
+                self.send_to(
+                    client_id,
+                    Message {
+                        request_id: req_id,
+                        body: Body::CommandResult(CommandResult::ok()),
+                    },
+                );
+            }
             _ => {
                 self.send_to(
                     client_id,

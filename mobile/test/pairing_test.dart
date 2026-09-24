@@ -47,7 +47,7 @@ class FakePairingClient extends PairingClient {
 
 void main() {
   group('PairingPayload URI parsing', () {
-    test('round trips valid URI with lan and relay', () {
+    test('round trips valid URI with relay', () {
       const payload = PairingPayload(
         version: 1,
         instanceId: 'inst-laptop-1',
@@ -55,12 +55,13 @@ void main() {
         pairingSecret:
             '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
         fingerprint: 'AA:BB:CC:DD',
-        lanAddress: '192.168.1.100:8765',
         relayUrl: 'wss://relay.agentdesk.net',
       );
 
       final uri = payload.toUriString();
       expect(uri, startsWith('agentdesk://pair?'));
+      expect(uri, isNot(contains('&lan=')));
+      expect(uri, contains('relay=wss%3A%2F%2Frelay.agentdesk.net'));
 
       final parsed = PairingPayload.parse(uri);
       expect(parsed.version, 1);
@@ -68,8 +69,15 @@ void main() {
       expect(parsed.sessionId, 'sess-uuid-1');
       expect(parsed.pairingSecret, payload.pairingSecret);
       expect(parsed.fingerprint, 'AA:BB:CC:DD');
-      expect(parsed.lanAddress, '192.168.1.100:8765');
       expect(parsed.relayUrl, 'wss://relay.agentdesk.net');
+    });
+
+    test('ignores legacy lan query parameter and parses relay', () {
+      const legacyUri =
+          'agentdesk://pair?v=1&inst=inst-laptop-1&sess=sess-123&sec=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&fp=11:22:33:44:55:66&lan=192.168.1.50:8765&relay=wss%3A%2F%2Frelay.example.com';
+      final parsed = PairingPayload.parse(legacyUri);
+      expect(parsed.relayUrl, 'wss://relay.example.com');
+      expect(parsed.instanceId, 'inst-laptop-1');
     });
 
     test('rejects invalid scheme', () {
@@ -112,8 +120,8 @@ void main() {
         result: const PairingResult.success(
           instanceId: 'inst-laptop-1',
           deviceToken: 'dev-token-999',
-          lanAddress: '192.168.1.50:8765',
           fingerprint: '11:22:33:44:55:66',
+          relayUrl: 'wss://relay.example.com',
         ),
       );
 
@@ -134,7 +142,7 @@ void main() {
       await tester.pumpAndSettle();
 
       const sampleUri =
-          'agentdesk://pair?v=1&inst=inst-laptop-1&sess=sess-123&sec=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&fp=11:22:33:44:55:66&lan=192.168.1.50:8765';
+          'agentdesk://pair?v=1&inst=inst-laptop-1&sess=sess-123&sec=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&fp=11:22:33:44:55:66&relay=wss%3A%2F%2Frelay.example.com';
 
       await tester.enterText(
         find.byKey(const Key('simulated_qr_input')),
@@ -146,7 +154,7 @@ void main() {
       // Verify credentials were saved to stores and connection updated
       expect(connection.isPaired, isTrue);
       expect(connection.instanceId, 'inst-laptop-1');
-      expect(connection.url, 'wss://192.168.1.50:8765');
+      expect(connection.relayUrl, 'wss://relay.example.com');
       expect(connection.token, 'dev-token-999');
       expect(await tokenStore.readToken(), 'dev-token-999');
     });
@@ -166,8 +174,8 @@ void main() {
         instanceId: 'inst-macbook-pro',
         deviceToken: 'token-abc',
         deviceId: 'pixel-8',
-        lanAddress: '10.0.0.42:8765',
         fingerprint: 'AA:BB:CC',
+        relayUrl: 'wss://relay.example.com',
         autoConnect: false,
       );
 

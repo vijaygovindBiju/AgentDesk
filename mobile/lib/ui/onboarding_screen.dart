@@ -174,7 +174,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   const SizedBox(height: 20),
-                  if (isLast && widget.connection != null) ...[
+                  if (widget.connection != null) ...[
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -185,30 +185,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        key: const Key('onboarding_primary_button'),
-                        onPressed: _isSaving ? null : _next,
-                        child: const Text('Start Using AgentDesk'),
-                      ),
-                    ),
-                  ] else ...[
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        key: const Key('onboarding_primary_button'),
-                        onPressed: _isSaving ? null : _next,
-                        child: Text(
-                          isLast
-                              ? 'Start Using AgentDesk'
-                              : _page == 0
-                              ? 'Get Started'
-                              : 'Next',
-                        ),
-                      ),
-                    ),
                   ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      key: const Key('onboarding_primary_button'),
+                      onPressed: _isSaving ? null : _next,
+                      child: Text(
+                        isLast
+                            ? 'Start Using AgentDesk'
+                            : _page == 0
+                            ? 'Get Started'
+                            : 'Next',
+                      ),
+                    ),
+                  ),
                   if (!isLast)
                     TextButton(
                       onPressed: _isSaving ? null : _finish,

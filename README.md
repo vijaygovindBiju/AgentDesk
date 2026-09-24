@@ -158,7 +158,9 @@ This rule prevents arbitrary agent output, repository content, or tool output fr
 | Physical Android support | Tested connection and storage flows on Android devices in addition to emulator workflows | ✅ Implemented |
 | Loopback development mode | `--insecure-dev` enables `ws://` only on loopback for local emulator testing | ✅ Implemented |
 | Device pairing and revocation | QR pairing, per-device credentials, and device registry | ✅ Implemented |
-| Dual-mode remote connectivity | Transparent direct LAN with automatic relay fallback | ✅ Implemented |
+| Remote connectivity | Outbound WSS/TLS over Public Relay only (no LAN or USB dependencies) | ✅ Implemented |
+| Desktop Terminal Workspace | Interactive terminal emulator hosting `$SHELL` inside a real PTY with VT100/ANSI rendering, SGR styles, and cursor navigation | ✅ Implemented |
+| Automatic Agent Discovery | PATH inspection detecting installed coding agents (`agy`, `claude`, `codex`, `gemini`) with honest availability status | ✅ Implemented |
 | Persistence and offline synchronization | Durable event store, offline command queue, and replay | 📋 Planned |
 | Background notifications | Mobile notifications when the app is not foregrounded | 📋 Planned |
 | Generic mobile “start work” command | Starting arbitrary new tasks from the phone | 📋 Planned |
@@ -207,9 +209,9 @@ before distributing it as a production-signed app.
 A normal user must not be asked to install Flutter, Android SDK tools, ADB,
 Gradle, or source code to obtain the phone application.
 
-### Pairing and Remote Connectivity
+### Pairing and Remote-First Connectivity
 
-The user workflow is automated with zero manual configuration required:
+The user workflow is automated with zero manual network configuration required:
 
 ```text
 INSTALL
@@ -222,16 +224,12 @@ QR appears on laptop
    ↓
 Scan QR with AgentDesk Android
    ↓
-Paired
+Connected via Relay (Outbound WSS/TLS)
    ↓
-If same LAN:
-    direct laptop ↔ phone connection (pinned TLS)
-
-If different networks:
-    laptop ↔ AgentDesk relay ↔ phone
+Works seamlessly across any network (Wi-Fi, 4G/5G, Ethernet, hotspot)
 ```
 
-The user does **not** need to manually enter IP addresses, ports, WebSocket URLs, tokens, or certificate fingerprints during normal pairing. Developer and manual configuration remain available in Settings.
+The user does **not** need to understand LAN, local IP addresses, router configuration, port forwarding, NAT, firewalls, WebSocket endpoints, TLS certificates, or authentication tokens. Developer and manual configuration remain available in Settings.
 
 ## Attention Model
 
@@ -512,7 +510,7 @@ The security model currently does not include device pairing, per-device permiss
 
 ## Current Status and Scope
 
-The repository contains a complete, tested MVP for the local simulator-to-phone path and the secure LAN transport:
+The repository contains a complete, tested MVP for the local simulator-to-phone path and the secure relay transport:
 
 - deterministic simulator and three-mode benchmark;
 - in-memory event, queue, task, log, and metrics pipeline;
@@ -617,7 +615,7 @@ end users to install Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK
 Node/npm, compilers, build tools, or source code as a workaround. The
 source-build workflow is for developers and contributors only.
 
-Do not use `--insecure-dev` for a LAN or production deployment. It enables plaintext `ws://` only on loopback.
+Do not use `--insecure-dev` for production deployment. It enables plaintext `ws://` only on loopback.
 
 ### For Developers
 
@@ -709,16 +707,15 @@ cargo run -p agentdesk-server --bin agentdesk -- \
 The daemon prints the connection address and token. In TLS mode it also prints the SHA-256 certificate fingerprint. Do not commit or publish these values.
 
 #### 7. Run the Flutter application
-
-For an emulator using `--insecure-dev`, forward the daemon port before starting Flutter:
+ 
+Start the Flutter mobile app:
 
 ```sh
-adb reverse tcp:8765 tcp:8765
 cd ../mobile
 flutter run
 ```
 
-For a physical Android device on a LAN, use the daemon's `wss://` address, token, device ID, and certificate fingerprint. USB ADB forwarding is not the documented LAN transport; the device and laptop must be able to reach the configured server address.
+Scan the QR code displayed by `agentdesk pair` or inside the desktop terminal workspace. Both laptop and phone connect outbound to the public relay over WSS/TLS without requiring shared Wi-Fi, port forwarding, or USB cables.
 
 #### 8. Run an experimental real adapter
 
@@ -946,11 +943,9 @@ cargo run -p agentdesk-server --bin agentdesk -- \
 
 The daemon prints the `wss://` address, token, and SHA-256 certificate fingerprint. Enter those values in the mobile client's connection settings.
 
-For an Android emulator using local development mode, forward the loopback port:
+For local insecure development on loopback:
 
 ```sh
-adb reverse tcp:8765 tcp:8765
-
 cd core
 cargo run -p agentdesk-server --bin agentdesk -- \
   run \
@@ -967,7 +962,7 @@ cd mobile
 flutter run
 ```
 
-Use `ws://127.0.0.1:8765` for this emulator-only setup. The client will reject remote plaintext URLs, and the daemon rejects `--insecure-dev` with a non-loopback bind address.
+Use `ws://127.0.0.1:8765` for this local loopback development setup. The client will reject remote plaintext URLs, and the daemon rejects `--insecure-dev` with a non-loopback bind address. In production, both laptop and phone pair and connect through the public relay over outbound WSS/TLS.
 
 ### Useful daemon and pairing commands
 
@@ -976,7 +971,6 @@ agentdesk pair [OPTIONS]
   Generate QR code in terminal for instant Android pairing.
   --port <u16>             Daemon port; default 8765
   --relay <url>            Relay URL (e.g. wss://relay.agentdesk.io)
-  --ip <addr>              Explicit LAN IP address override
 
 agentdesk devices list
   List all authorized paired devices.

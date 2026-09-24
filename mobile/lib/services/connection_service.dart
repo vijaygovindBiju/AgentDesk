@@ -45,7 +45,6 @@ class ConnectionService extends ChangeNotifier {
   String _deviceId = 'flutter-client-1';
   String? _fingerprint;
   String? _instanceId;
-  String? _lanAddress;
   String? _relayUrl;
   TransportMode? _activeTransport;
   String? _connectedEndpoint;
@@ -55,7 +54,6 @@ class ConnectionService extends ChangeNotifier {
   String get deviceId => _deviceId;
   String? get fingerprint => _fingerprint;
   String? get instanceId => _instanceId;
-  String? get lanAddress => _lanAddress;
   String? get relayUrl => _relayUrl;
   TransportMode? get activeTransport => _activeTransport;
   String? get connectedEndpoint => _connectedEndpoint;
@@ -106,7 +104,6 @@ class ConnectionService extends ChangeNotifier {
           : stored.deviceId!.trim();
       _fingerprint = _blankToNull(stored.fingerprint);
       _instanceId = stored.instanceId?.trim();
-      _lanAddress = stored.lanAddress?.trim();
       _relayUrl = stored.relayUrl?.trim();
       _token = token?.trim() ?? '';
       _setConfigurationStatus();
@@ -141,7 +138,6 @@ class ConnectionService extends ChangeNotifier {
         deviceId: normalizedDeviceId.isEmpty ? null : normalizedDeviceId,
         fingerprint: normalizedFingerprint,
         instanceId: _instanceId,
-        lanAddress: _lanAddress,
         relayUrl: _relayUrl,
       ),
     );
@@ -164,15 +160,13 @@ class ConnectionService extends ChangeNotifier {
     required String instanceId,
     required String deviceToken,
     required String deviceId,
-    required String lanAddress,
     required String fingerprint,
-    String? relayUrl,
+    required String relayUrl,
     bool autoConnect = true,
   }) async {
-    final url = 'wss://$lanAddress';
+    final url = relayUrl.trim();
     _instanceId = instanceId.trim();
-    _lanAddress = lanAddress.trim();
-    _relayUrl = relayUrl?.trim();
+    _relayUrl = url;
     _url = url;
     _token = deviceToken.trim();
     _deviceId = deviceId.trim();
@@ -185,7 +179,6 @@ class ConnectionService extends ChangeNotifier {
         deviceId: _deviceId,
         fingerprint: _fingerprint,
         instanceId: _instanceId,
-        lanAddress: _lanAddress,
         relayUrl: _relayUrl,
       ),
     );
@@ -200,7 +193,6 @@ class ConnectionService extends ChangeNotifier {
   Future<void> unpair() async {
     disconnect();
     _instanceId = null;
-    _lanAddress = null;
     _relayUrl = null;
     _token = '';
     _fingerprint = null;
@@ -266,16 +258,8 @@ class ConnectionService extends ChangeNotifier {
     if (_deviceId.trim().isEmpty) return 'Device identifier is required.';
 
     if (isPaired) {
-      if ((_lanAddress == null || _lanAddress!.trim().isEmpty) &&
-          (_relayUrl == null || _relayUrl!.trim().isEmpty)) {
-        return 'Paired device has no LAN address or relay URL.';
-      }
-      if (_lanAddress != null && _lanAddress!.trim().isNotEmpty) {
-        final raw = _lanAddress!.trim();
-        final isPlainWs = raw.startsWith('ws://');
-        if (!isPlainWs && (_fingerprint == null || _fingerprint!.trim().isEmpty)) {
-          return 'Direct LAN connection requires a pinned SHA-256 certificate fingerprint in Settings.';
-        }
+      if (_relayUrl == null || _relayUrl!.trim().isEmpty) {
+        return 'Paired device has no relay URL.';
       }
       return null;
     }
@@ -339,39 +323,23 @@ class ConnectionService extends ChangeNotifier {
       String? endpoint;
 
       if (isPaired) {
-        // Dual-mode connection strategy:
-        // Priority 1: Direct LAN connection
-        if (_lanAddress != null && _lanAddress!.trim().isNotEmpty) {
-          final lanAddress = _lanAddress!.trim();
-          final rawUri = lanAddress.startsWith('ws://') || lanAddress.startsWith('wss://')
-              ? Uri.parse(lanAddress)
-              : Uri.parse('wss://$lanAddress');
-
-          try {
-            debugPrint('Attempting direct LAN connection to $rawUri...');
-            if (rawUri.scheme == 'wss') {
-              ws = await _connectTls(rawUri).timeout(const Duration(milliseconds: 2500));
-            } else if (rawUri.scheme == 'ws' && _isLoopbackHost(rawUri.host)) {
-              ws = await WebSocket.connect(rawUri.toString()).timeout(const Duration(milliseconds: 2500));
-            }
-            if (ws != null) {
-              currentTransport = TransportMode.tls;
-              endpoint = rawUri.toString();
-              debugPrint('Direct LAN connection established');
-            }
-          } catch (e) {
-            debugPrint('Direct LAN connection failed or timed out ($e)');
-            ws = null;
-          }
-        }
-
-        // Priority 2: Relay fallback
-        if (ws == null && _relayUrl != null && _relayUrl!.trim().isNotEmpty && _instanceId != null) {
+        // Relay connection is the only transport
+        if (_relayUrl != null && _relayUrl!.trim().isNotEmpty && _instanceId != null) {
           final cleanRelay = _relayUrl!.trim().replaceAll(RegExp(r'/+$'), '');
-          final relayUri = Uri.parse('$cleanRelay/ws?role=client&inst=$_instanceId');
+          final relayUri = Uri.parse(
+            '$cleanRelay/ws?role=client&inst=$_instanceId&device_id=$_deviceId&token=$_token',
+          );
           try {
-            debugPrint('Attempting relay fallback connection to $relayUri...');
-            ws = await WebSocket.connect(relayUri.toString()).timeout(const Duration(seconds: 5));
+            debugPrint('Attempting relay connection to $relayUri...');
+            if (relayUri.scheme == 'wss' && _fingerprint != null && _fingerprint!.trim().isNotEmpty) {
+              try {
+                ws = await WebSocket.connect(relayUri.toString()).timeout(const Duration(seconds: 5));
+              } catch (_) {
+                ws = await _connectTls(relayUri).timeout(const Duration(seconds: 5));
+              }
+            } else {
+              ws = await WebSocket.connect(relayUri.toString()).timeout(const Duration(seconds: 5));
+            }
             currentTransport = TransportMode.relay;
             endpoint = relayUri.toString();
             debugPrint('Relay connection established');
@@ -382,10 +350,7 @@ class ConnectionService extends ChangeNotifier {
         }
 
         if (ws == null) {
-          final errorMsg = _lanAddress != null && _relayUrl != null
-              ? 'Could not connect via direct LAN or Relay.'
-              : 'Connection failed: no reachable endpoint.';
-          _onFailure(errorMsg);
+          _onFailure('Could not connect to AgentDesk Relay.');
           return;
         }
       } else {
@@ -649,6 +614,25 @@ class ConnectionService extends ChangeNotifier {
     );
     if (res.type == 'error') {
       return CommandResult(ok: false, error: CommandError.invalid);
+    }
+    return res.payload as CommandResult;
+  }
+
+  Future<CommandResult> startTask({
+    required String prompt,
+    String? workspace,
+    String? agentId,
+  }) async {
+    final res = await sendRequest(
+      'start_task',
+      StartTask(
+        prompt: prompt,
+        workspace: workspace,
+        agentId: agentId,
+      ),
+    );
+    if (res.type == 'error') {
+      return const CommandResult(ok: false, error: CommandError.invalid);
     }
     return res.payload as CommandResult;
   }

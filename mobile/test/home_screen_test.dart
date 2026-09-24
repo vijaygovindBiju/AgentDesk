@@ -42,7 +42,7 @@ Event testEvent({
 
 void main() {
   group('P7.T4 - Widget tests', () {
-    testWidgets('home shows the four tiers in fixed order', (tester) async {
+    testWidgets('home shows the three tiers and agent status', (tester) async {
       final state = AgentDeskState();
       final connection = ConnectionService(state: state);
       final metrics = ClientMetrics();
@@ -58,16 +58,18 @@ void main() {
       expect(find.text('Requests'), findsOneWidget);
       expect(find.text('Errors'), findsOneWidget);
       expect(find.text('Completed'), findsOneWidget);
-      expect(find.text('Working'), findsOneWidget);
+
+      // Agent status indicator shows idle state
+      expect(find.text('Agent Idle'), findsOneWidget);
+      expect(find.text('Ready for input'), findsOneWidget);
 
       // Verify empty-state copy
       expect(find.text('No pending approval requests'), findsOneWidget);
       expect(find.text('No active errors'), findsOneWidget);
       expect(find.text('No completed tasks yet'), findsOneWidget);
-      expect(find.text('No active background tasks'), findsOneWidget);
     });
 
-    testWidgets('shows escalation badge for escalated working entry',
+    testWidgets('shows agent working status for working entry',
         (tester) async {
       final state = AgentDeskState();
       final connection = ConnectionService(state: state);
@@ -99,9 +101,10 @@ void main() {
         ),
       ));
 
-      expect(find.text('Compiling large crate'), findsOneWidget);
-      expect(find.byKey(const Key('escalation_badge_work-1')), findsOneWidget);
-      expect(find.text('Unusually long (L1)'), findsOneWidget);
+      // Working entries are no longer shown as individual cards.
+      // Instead, the agent status bar shows the agent is working.
+      expect(find.text('Agent Working'), findsOneWidget);
+      expect(find.text('1 active task'), findsOneWidget);
     });
 
     testWidgets('shows still blocking indicator for dismissed-but-unresolved request',

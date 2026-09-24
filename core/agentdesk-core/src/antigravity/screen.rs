@@ -239,6 +239,10 @@ impl Screen {
                     self.cursor_col = min(self.saved_cursor.1, self.cols.saturating_sub(1));
                     self.parser_state = ParserState::Ground;
                 }
+                b'\\' => {
+                    // String Terminator (ST)
+                    self.parser_state = ParserState::Ground;
+                }
                 b'M' => {
                     // Reverse index (scroll down if at top)
                     self.pending_wrap = false;
@@ -291,8 +295,10 @@ impl Screen {
             },
             ParserState::Osc => {
                 // String terminator: BEL (0x07) or ST (\x1b\)
-                if b == 0x07 || b == 0x1b {
+                if b == 0x07 {
                     self.parser_state = ParserState::Ground;
+                } else if b == 0x1b {
+                    self.parser_state = ParserState::Escape;
                 }
             }
         }
@@ -666,6 +672,18 @@ impl Screen {
         }
         let s: String = grid[r].iter().map(|c| c.ch).collect();
         s.trim_end().to_string()
+    }
+
+    /// Return reference to a specific cell in the active grid.
+    pub fn cell(&self, row: u16, col: u16) -> Option<&Cell> {
+        let grid = self.grid();
+        grid.get(row as usize).and_then(|r| r.get(col as usize))
+    }
+
+    /// Return slice of cells for a specific row in the active grid.
+    pub fn row_cells(&self, row: u16) -> Option<&[Cell]> {
+        let grid = self.grid();
+        grid.get(row as usize).map(|r| r.as_slice())
     }
 
     /// Return plain text of all screen rows.

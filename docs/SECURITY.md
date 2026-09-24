@@ -50,7 +50,7 @@ Single trust level in the MVP: a holder of the token can do everything. Per-devi
 - token check still enforced,
 - prominent startup warning and `transport: "insecure_dev"` in `welcome` so the phone shows a banner.
 
-Intended for `adb reverse` / emulator testing without certificates. It is not a supported deployment mode and must never be the default.
+Intended for local emulator / loopback testing without certificates. It is not a supported deployment mode and must never be the default.
 
 ### 5. Agent Control & Subprocess Execution Boundary
 
@@ -91,7 +91,7 @@ Intended for `adb reverse` / emulator testing without certificates. It is not a 
 
 ### 1. Ephemeral Bootstrap Secret
 - The pairing QR code encodes a standard, versioned URI:
-  `agentdesk://pair?v=1&inst=<instance_id>&sess=<session_id>&sec=<ephemeral_secret>&fp=<fingerprint>[&lan=<lan_address>][&relay=<relay_url>]`
+  `agentdesk://pair?v=1&inst=<instance_id>&sess=<session_id>&sec=<ephemeral_secret>&fp=<fingerprint>&relay=<relay_url>`
 - **Zero Permanent Secrets in QR**: The permanent daemon master token and persistent device credentials are **never** placed into the QR payload.
 - **Short-Lived & Single-Use**: Pairing sessions expire after 180 seconds (`PAIRING_DEFAULT_DURATION_SECS`). Once validated, `used` is set to `true`, and subsequent attempts with the same session or secret are immediately rejected.
 - **Replay Protection**: The `PairingManager` tracks active sessions and revokes older sessions upon fresh session generation. Replay attempts fail with `PairingError::Replayed`.

@@ -773,4 +773,16 @@ impl<T: PtyTransport> Adapter for AntigravityPtyAdapter<T> {
     fn is_finished(&self) -> bool {
         matches!(self.lifecycle, AntigravityLifecycle::Exited { .. })
     }
+
+    fn screen(&self) -> Option<&Screen> {
+        Some(&self.screen)
+    }
+
+    fn send_raw_input(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        self.transport.send_input(bytes)
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16) -> std::io::Result<()> {
+        self.resize(cols, rows)
+    }
 }

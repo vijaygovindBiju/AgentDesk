@@ -737,11 +737,12 @@ while True:
 
 #[test]
 fn test_gemini_live_e2e() {
-    if std::process::Command::new("which")
-        .arg("gemini")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    if std::env::var("GEMINI_API_KEY").is_ok()
+        && std::process::Command::new("which")
+            .arg("gemini")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     {
         let config = AcpConfig {
             command: "gemini".into(),

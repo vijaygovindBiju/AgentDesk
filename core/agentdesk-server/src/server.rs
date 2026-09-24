@@ -15,11 +15,12 @@ use agentdesk_core::{Clock, CoreCommand};
 use agentdesk_model::{PipelineMode, TransportMode};
 
 use crate::connection::{
-    ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, handle_connection, handle_ws_connection,
+    ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, handle_connection, handle_relay_trunk_connection,
 };
 use crate::device::DeviceRegistry;
 use crate::logging;
 use crate::pairing::PairingManager;
+use crate::status::StatusTracker;
 use crate::tls::TlsIdentity;
 use crate::token::{default_config_dir, validate_bind_security};
 
@@ -47,7 +48,7 @@ impl Default for ServerConfig {
             outbound_capacity: DEFAULT_OUTBOUND_CAPACITY,
             debug_logging: false,
             config_dir: None,
-            relay_url: None,
+            relay_url: Some(crate::config::DEFAULT_RELAY_URL.to_string()),
         }
     }
 }
@@ -79,6 +80,7 @@ pub struct Server {
     device_registry: Arc<tokio::sync::RwLock<DeviceRegistry>>,
     pairing_manager: PairingManager,
     config_dir: PathBuf,
+    status_tracker: Arc<StatusTracker>,
 }
 
 impl Server {
@@ -106,7 +108,7 @@ impl Server {
                  * WARNING: --insecure-dev IS ENABLED!                             *\n\
                  * WebSocket transport is unencrypted plain ws://.                 *\n\
                  * Strictly bound to 127.0.0.1 loopback only.                      *\n\
-                 * Intended only for emulator / adb reverse development testing.   *\n\
+                 * Intended only for local loopback development testing.           *\n\
                  ==================================================================="
             );
             (None, None)
@@ -132,6 +134,12 @@ impl Server {
             config.transport_mode()
         ));
 
+        let status_tracker = Arc::new(StatusTracker::new(
+            config_dir.clone(),
+            config.bind_addr.clone(),
+            config.port,
+        ));
+
         Ok(Self {
             listener,
             local_addr,
@@ -145,11 +153,16 @@ impl Server {
             device_registry,
             pairing_manager,
             config_dir,
+            status_tracker,
         })
     }
 
     pub fn local_addr(&self) -> SocketAddr {
         self.local_addr
+    }
+
+    pub fn status_tracker(&self) -> Arc<StatusTracker> {
+        self.status_tracker.clone()
     }
 
     pub fn tls_identity(&self) -> Option<&TlsIdentity> {
@@ -192,6 +205,7 @@ impl Server {
             let core_sender_relay = self.core_sender.clone();
             let device_registry_relay = self.device_registry.clone();
             let pairing_manager_relay = self.pairing_manager.clone();
+            let status_tracker_relay = self.status_tracker.clone();
             let config_dir_relay = self.config_dir.clone();
             let shutdown_notify_relay = self.shutdown_notify.clone();
             let next_client_id_relay = self.next_client_id.clone();
@@ -229,8 +243,15 @@ impl Server {
                                         device_registry: device_registry_relay.clone(),
                                         pairing_manager: pairing_manager_relay.clone(),
                                         config_dir: config_dir_relay.clone(),
+                                        status_tracker: status_tracker_relay.clone(),
                                     };
-                                    handle_ws_connection(ws_stream, format!("relay:{}", relay_base), params).await;
+                                    handle_relay_trunk_connection(
+                                        ws_stream,
+                                        format!("relay:{}", relay_base),
+                                        params,
+                                        instance_id.clone(),
+                                    )
+                                    .await;
                                     logging::info("Relay session ended, reconnecting...");
                                 }
                                 Err(e) => {
@@ -271,6 +292,7 @@ impl Server {
                                 device_registry: self.device_registry.clone(),
                                 pairing_manager: self.pairing_manager.clone(),
                                 config_dir: self.config_dir.clone(),
+                                status_tracker: self.status_tracker.clone(),
                             };
                             if let Some(acceptor) = &self.tls_acceptor {
                                 let acceptor = acceptor.clone();

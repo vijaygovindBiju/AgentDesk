@@ -122,6 +122,7 @@ pub enum Body {
     Dismiss(EventRef),
     RespondRequest(RespondRequest),
     GetMetrics(Empty),
+    StartTask(StartTask),
 
     // ---- pairing ----
     PairRequest(PairRequest),
@@ -272,11 +273,25 @@ pub struct RespondRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartTask {
+    pub prompt: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+}
+
+fn default_client_version() -> String {
+    "0.1.0".to_string()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PairRequest {
     pub session_id: String,
     pub pairing_secret: String,
     pub device_id: String,
     pub device_name: String,
+    #[serde(default = "default_client_version")]
     pub client_version: String,
     pub schema_version: u32,
 }

@@ -492,6 +492,7 @@ class PairRequest {
   final String deviceName;
   final String sessionId;
   final String pairingSecret;
+  final String clientVersion;
   final int schemaVersion;
 
   const PairRequest({
@@ -499,6 +500,7 @@ class PairRequest {
     required this.deviceName,
     required this.sessionId,
     required this.pairingSecret,
+    this.clientVersion = '0.1.0',
     this.schemaVersion = 1,
   });
 
@@ -508,6 +510,7 @@ class PairRequest {
       deviceName: json['device_name'] as String,
       sessionId: json['session_id'] as String,
       pairingSecret: json['pairing_secret'] as String,
+      clientVersion: json['client_version'] as String? ?? '0.1.0',
       schemaVersion: json['schema_version'] as int? ?? 1,
     );
   }
@@ -517,6 +520,7 @@ class PairRequest {
     'device_name': deviceName,
     'session_id': sessionId,
     'pairing_secret': pairingSecret,
+    'client_version': clientVersion,
     'schema_version': schemaVersion,
   };
 }
@@ -544,6 +548,32 @@ class PairResponse {
     'instance_id': instanceId,
     'device_token': deviceToken,
     'schema_version': schemaVersion,
+  };
+}
+
+class StartTask {
+  final String prompt;
+  final String? workspace;
+  final String? agentId;
+
+  const StartTask({
+    required this.prompt,
+    this.workspace,
+    this.agentId,
+  });
+
+  factory StartTask.fromJson(Map<String, dynamic> json) {
+    return StartTask(
+      prompt: json['prompt'] as String,
+      workspace: json['workspace'] as String?,
+      agentId: json['agent_id'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'prompt': prompt,
+    if (workspace != null) 'workspace': workspace,
+    if (agentId != null) 'agent_id': agentId,
   };
 }
 
@@ -580,6 +610,9 @@ class Message {
     if (rawPayload is Map) {
       final payloadMap = rawPayload.cast<String, dynamic>();
       switch (type) {
+        case 'start_task':
+          parsedPayload = StartTask.fromJson(payloadMap);
+          break;
         case 'pair_request':
           parsedPayload = PairRequest.fromJson(payloadMap);
           break;

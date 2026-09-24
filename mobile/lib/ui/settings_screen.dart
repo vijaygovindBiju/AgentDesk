@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../models/models.dart';
 import '../services/connection_service.dart';
 import 'brand_logo.dart';
 import 'qr_scan_screen.dart';
@@ -190,12 +189,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    if (widget.connection.lanAddress != null)
-                      Text(
-                        'LAN Address: ${widget.connection.lanAddress}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
                     if (widget.connection.relayUrl != null &&
                         widget.connection.relayUrl!.isNotEmpty)
                       Text(
@@ -208,17 +201,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Row(
                         children: [
                           Icon(
-                            widget.connection.activeTransport == TransportMode.relay
-                                ? Icons.cloud_done
-                                : Icons.wifi,
+                            Icons.cloud_done,
                             size: 16,
                             color: Colors.green.shade700,
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            widget.connection.activeTransport == TransportMode.relay
-                                ? 'Connected via Relay'
-                                : 'Connected via Direct LAN',
+                            'Connected via Relay',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: Colors.green.shade700,
                                   fontWeight: FontWeight.bold,

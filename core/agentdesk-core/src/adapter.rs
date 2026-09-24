@@ -97,4 +97,19 @@ pub trait Adapter: Send {
 
     /// True once no further output can ever be produced.
     fn is_finished(&self) -> bool;
+
+    /// If this adapter is backed by an interactive VT100 Screen, return reference to it.
+    fn screen(&self) -> Option<&crate::antigravity::Screen> {
+        None
+    }
+
+    /// If this adapter supports interactive terminal input from the host, forward raw bytes.
+    fn send_raw_input(&mut self, _bytes: &[u8]) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    /// Dynamically resize the adapter's terminal geometry if supported.
+    fn resize(&mut self, _cols: u16, _rows: u16) -> std::io::Result<()> {
+        Ok(())
+    }
 }
