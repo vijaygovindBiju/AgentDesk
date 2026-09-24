@@ -568,3 +568,50 @@ fn test_stale_resolved_request_handling() {
     // Resolved request must no longer block or appear in active requests
     assert_eq!(state.requests().len(), 0);
 }
+
+#[test]
+fn test_paired_devices_revoke_and_removal() {
+    use agentdesk_server::device::DeviceRegistry;
+
+    let temp_dir = std::env::temp_dir().join(format!("agentdesk_test_dev_rm_{}", uuid::Uuid::new_v4()));
+    let mut reg = DeviceRegistry::load_or_create(&temp_dir).unwrap();
+    let dev_id = "phone-pixel-9";
+    let dev_token = reg.register_device(dev_id.into(), "Pixel 9 Pro".into());
+    reg.save(&temp_dir).unwrap();
+
+    let mut state = TuiState::default();
+    state.refresh_devices(&temp_dir);
+    assert_eq!(state.paired_devices.len(), 1);
+    assert_eq!(state.paired_devices[0].device_name, "Pixel 9 Pro");
+    assert!(!state.paired_devices[0].revoked);
+    assert!(reg.is_authorized(dev_id, &dev_token));
+
+    // Render devices view with active device
+    let backend = TestBackend::new(100, 30);
+    let mut terminal = Terminal::new(backend).unwrap();
+    state.navigate_to(Screen::Devices);
+    terminal.draw(|f| render_ui(f, &state)).unwrap();
+
+    // 1. Revoke device
+    assert!(reg.revoke_device(dev_id));
+    reg.save(&temp_dir).unwrap();
+    state.refresh_devices(&temp_dir);
+    assert_eq!(state.paired_devices.len(), 1);
+    assert!(state.paired_devices[0].revoked);
+    assert!(!reg.is_authorized(dev_id, &dev_token));
+
+    // Render devices view with revoked status
+    terminal.draw(|f| render_ui(f, &state)).unwrap();
+
+    // 2. Remove device completely
+    assert!(reg.remove_device(dev_id));
+    reg.save(&temp_dir).unwrap();
+    state.refresh_devices(&temp_dir);
+    assert_eq!(state.paired_devices.len(), 0);
+    assert!(!reg.is_authorized(dev_id, &dev_token));
+
+    // Render empty devices view
+    terminal.draw(|f| render_ui(f, &state)).unwrap();
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}

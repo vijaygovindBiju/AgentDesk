@@ -48,6 +48,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             handle_device_revoke(opts)?;
             Ok(())
         }
+        CliCommand::DeviceRemove(opts) => {
+            handle_device_remove(opts)?;
+            Ok(())
+        }
         CliCommand::Help => {
             print_help();
             Ok(())
@@ -107,6 +111,18 @@ fn handle_device_revoke(opts: DeviceRevokeOptions) -> Result<(), Box<dyn std::er
         println!("✓ Device '{}' revoked successfully.", opts.device_id);
     } else {
         println!("Device '{}' not found or already revoked.", opts.device_id);
+    }
+    Ok(())
+}
+
+fn handle_device_remove(opts: DeviceRevokeOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = opts.config_dir.unwrap_or_else(default_config_dir);
+    let mut reg = DeviceRegistry::load_or_create(&config_dir)?;
+    if reg.remove_device(&opts.device_id) {
+        reg.save(&config_dir)?;
+        println!("✓ Device '{}' removed successfully.", opts.device_id);
+    } else {
+        println!("Device '{}' not found in registry.", opts.device_id);
     }
     Ok(())
 }

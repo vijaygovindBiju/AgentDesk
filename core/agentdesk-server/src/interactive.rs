@@ -162,7 +162,8 @@ pub fn devices_flow(config_dir: &std::path::Path) -> Result<(), Box<dyn std::err
 
         println!("\nOptions:");
         println!("  1) Revoke a device");
-        println!("  2) Back");
+        println!("  2) Remove a device");
+        println!("  3) Back");
         match prompt("Select an option: ")?.as_str() {
             "1" => {
                 let num_str = prompt("Enter device number to revoke: ")?;
@@ -180,7 +181,23 @@ pub fn devices_flow(config_dir: &std::path::Path) -> Result<(), Box<dyn std::err
                     println!("Invalid input.");
                 }
             }
-            "2" => return Ok(()),
+            "2" => {
+                let num_str = prompt("Enter device number to remove: ")?;
+                if let Ok(num) = num_str.parse::<usize>() {
+                    if num >= 1 && num <= devices.len() {
+                        let dev_id = devices[num - 1].device_id.clone();
+                        let dev_name = devices[num - 1].device_name.clone();
+                        reg.remove_device(&dev_id);
+                        reg.save(config_dir)?;
+                        println!("✓ Removed device: {}", dev_name);
+                    } else {
+                        println!("Invalid device number.");
+                    }
+                } else {
+                    println!("Invalid input.");
+                }
+            }
+            "3" => return Ok(()),
             _ => println!("Please choose a menu number."),
         }
     }

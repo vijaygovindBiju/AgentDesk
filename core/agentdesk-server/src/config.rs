@@ -15,6 +15,7 @@ pub enum CliCommand {
     Pair(PairOptions),
     DevicesList(DeviceOptions),
     DeviceRevoke(DeviceRevokeOptions),
+    DeviceRemove(DeviceRevokeOptions),
     Run(RunOptions),
     TokenShow(TokenOptions),
     TokenRotate(TokenOptions),
@@ -319,7 +320,7 @@ where
 
     if first == "devices" {
         if args.len() < 3 {
-            return Err("Usage: agentdesk devices <list|revoke <device_id>> [--config-dir <path>]".into());
+            return Err("Usage: agentdesk devices <list|revoke <device_id>|remove <device_id>> [--config-dir <path>]".into());
         }
         let sub = &args[2];
         match sub.as_str() {
@@ -356,9 +357,29 @@ where
                     config_dir,
                 }));
             }
+            "remove" => {
+                if args.len() < 4 {
+                    return Err("Usage: agentdesk devices remove <device_id> [--config-dir <path>]".into());
+                }
+                let device_id = args[3].clone();
+                let mut config_dir = None;
+                let mut idx = 4;
+                while idx < args.len() {
+                    if args[idx] == "--config-dir" && idx + 1 < args.len() {
+                        config_dir = Some(PathBuf::from(&args[idx + 1]));
+                        idx += 2;
+                    } else {
+                        return Err(format!("Unknown option for devices remove: '{}'", args[idx]));
+                    }
+                }
+                return Ok(CliCommand::DeviceRemove(DeviceRevokeOptions {
+                    device_id,
+                    config_dir,
+                }));
+            }
             other => {
                 return Err(format!(
-                    "Unknown devices command: '{}'. Expected 'list' or 'revoke'.",
+                    "Unknown devices command: '{}'. Expected 'list', 'revoke', or 'remove'.",
                     other
                 ));
             }
@@ -482,6 +503,7 @@ pub fn print_help() {
              agentdesk pair [OPTIONS]               Generate pairing QR code for phone\n\
              agentdesk devices list [OPTIONS]       List paired devices\n\
              agentdesk devices revoke <id> [OPTS]   Revoke a paired device\n\
+             agentdesk devices remove <id> [OPTS]   Remove a paired device from registry\n\
              agentdesk run [OPTIONS]                Run server directly\n\
              agentdesk token <show|rotate> [OPTS]   Show or rotate master token\n\n\
          PAIR OPTIONS:\n\
@@ -575,6 +597,21 @@ mod tests {
             ])
             .unwrap(),
             CliCommand::DeviceRevoke(DeviceRevokeOptions {
+                device_id: "dev-123".into(),
+                config_dir: Some(PathBuf::from("/tmp/cfg")),
+            })
+        );
+        assert_eq!(
+            parse_args([
+                "agentdesk",
+                "devices",
+                "remove",
+                "dev-123",
+                "--config-dir",
+                "/tmp/cfg",
+            ])
+            .unwrap(),
+            CliCommand::DeviceRemove(DeviceRevokeOptions {
                 device_id: "dev-123".into(),
                 config_dir: Some(PathBuf::from("/tmp/cfg")),
             })

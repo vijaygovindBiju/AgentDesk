@@ -219,6 +219,12 @@ mod tests {
         assert!(reg.revoke_device(dev_id));
         assert!(!reg.is_authorized(dev_id, &dev_token));
 
+        // Removal
+        assert!(reg.remove_device(dev_id));
+        assert!(!reg.remove_device(dev_id)); // Second remove returns false
+        assert!(reg.list_devices().is_empty());
+        assert!(!reg.is_authorized(dev_id, &dev_token));
+
         let _ = fs::remove_dir_all(&temp_dir);
     }
 }

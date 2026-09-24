@@ -18,6 +18,7 @@ use tokio::sync::mpsc;
 
 use agentdesk_model::{Decision, QuestionType};
 
+use crate::device::DeviceRegistry;
 use crate::discovery::AgentDefinition;
 use crate::pairing::load_session_file;
 use crate::tui::client::{TuiBridge, TuiEvent};
@@ -954,6 +955,31 @@ impl TuiApp {
             KeyCode::Down => {
                 if count > 0 && self.state.devices_index + 1 < count {
                     self.state.devices_index += 1;
+                }
+            }
+            KeyCode::Char('r') => {
+                if self.state.devices_index < self.state.paired_devices.len() {
+                    let dev_id = self.state.paired_devices[self.state.devices_index].device_id.clone();
+                    if let Ok(mut reg) = DeviceRegistry::load_or_create(&self.config_dir) {
+                        if reg.revoke_device(&dev_id) {
+                            let _ = reg.save(&self.config_dir);
+                            self.state.refresh_devices(&self.config_dir);
+                        }
+                    }
+                }
+            }
+            KeyCode::Char('x') | KeyCode::Delete => {
+                if self.state.devices_index < self.state.paired_devices.len() {
+                    let dev_id = self.state.paired_devices[self.state.devices_index].device_id.clone();
+                    if let Ok(mut reg) = DeviceRegistry::load_or_create(&self.config_dir) {
+                        if reg.remove_device(&dev_id) {
+                            let _ = reg.save(&self.config_dir);
+                            self.state.refresh_devices(&self.config_dir);
+                            if self.state.devices_index > 0 && self.state.devices_index >= self.state.paired_devices.len() {
+                                self.state.devices_index = self.state.paired_devices.len().saturating_sub(1);
+                            }
+                        }
+                    }
                 }
             }
             _ => {}
