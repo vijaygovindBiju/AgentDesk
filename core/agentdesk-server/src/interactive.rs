@@ -107,6 +107,7 @@ pub fn pair_flow(
     println!("{}", qr);
     println!("  Instance:    {}", instance_id);
     println!("  Relay:       {}", resolved_relay);
+    println!("  Pairing URI: {}", uri);
     println!("  Expires in:  3 minutes");
     println!("\nWaiting for phone to scan QR code...\n");
 

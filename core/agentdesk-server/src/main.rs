@@ -165,7 +165,8 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             load_service_config(&env_path).ok().and_then(|c| c.relay_url)
         })
         .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
-        .or_else(|| std::env::var("AGENTDESK_RELAY").ok());
+        .or_else(|| std::env::var("AGENTDESK_RELAY").ok())
+        .or_else(|| Some(agentdesk_server::DEFAULT_RELAY_URL.to_string()));
 
     let server_config = ServerConfig {
         bind_addr: opts.bind.clone(),

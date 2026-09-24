@@ -18,7 +18,7 @@ pub mod tui;
 
 pub use config::{
     CliCommand, DeviceOptions, DeviceRevokeOptions, PairOptions, RunOptions, ServiceConfig,
-    TokenOptions, load_service_config, parse_args, print_help, service_env_path,
+    TokenOptions, DEFAULT_RELAY_URL, load_service_config, parse_args, print_help, service_env_path,
     update_service_config,
 };
 pub use connection::{
