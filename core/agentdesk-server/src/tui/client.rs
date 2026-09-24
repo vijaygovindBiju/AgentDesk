@@ -205,7 +205,15 @@ impl TuiBridge {
         let instance_id = reg.instance_id.clone();
         let fp = fingerprint.unwrap_or_else(|| "none".into());
 
-        let resolved_relay = relay_url.unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
+        let mut resolved_relay = relay_url.unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
+        let is_stale_or_default = resolved_relay == crate::config::DEFAULT_RELAY_URL
+            || (resolved_relay.contains("trycloudflare.com") && crate::tunnel::load_active_tunnel(config_dir).is_none());
+
+        if is_stale_or_default && crate::tunnel::is_cloudflared_installed() {
+            if let Ok(tunnel_url) = crate::tunnel::ensure_tunnel(config_dir, 8766) {
+                resolved_relay = tunnel_url;
+            }
+        }
 
         let pairing_manager = PairingManager::with_dir(config_dir.to_path_buf());
         let (session, _payload, uri) = pairing_manager.create_session(

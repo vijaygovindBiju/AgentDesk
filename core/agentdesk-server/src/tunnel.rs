@@ -51,19 +51,26 @@ pub fn load_active_tunnel(config_dir: &Path) -> Option<TunnelState> {
         return None;
     }
 
+    if std::net::TcpStream::connect("127.0.0.1:8766").is_err() {
+        return None;
+    }
+
     Some(state)
 }
 
 pub fn stop_tunnel(config_dir: &Path) {
-    if let Some(state) = load_active_tunnel(config_dir) {
-        if let Some(t_pid) = state.tunnel_pid {
-            let _ = Command::new("kill").arg("-TERM").arg(t_pid.to_string()).status();
-        }
-        if let Some(r_pid) = state.relay_pid {
-            let _ = Command::new("kill").arg("-TERM").arg(r_pid.to_string()).status();
+    let path = tunnel_state_path(config_dir);
+    if let Ok(data) = fs::read_to_string(&path) {
+        if let Ok(state) = serde_json::from_str::<TunnelState>(&data) {
+            if let Some(t_pid) = state.tunnel_pid {
+                let _ = Command::new("kill").arg("-TERM").arg(t_pid.to_string()).status();
+            }
+            if let Some(r_pid) = state.relay_pid {
+                let _ = Command::new("kill").arg("-TERM").arg(r_pid.to_string()).status();
+            }
         }
     }
-    let _ = fs::remove_file(tunnel_state_path(config_dir));
+    let _ = fs::remove_file(path);
 }
 
 pub fn ensure_tunnel(
@@ -79,11 +86,15 @@ pub fn ensure_tunnel(
         return Err("cloudflared is not installed or not in PATH".into());
     }
 
-    println!("Ensuring public relay tunnel via Cloudflare...");
+    // Clean up any previous dead tunnel or orphaned process
+    stop_tunnel(config_dir);
+
+    crate::logging::info("Ensuring public relay tunnel via Cloudflare...");
 
     // 2. Ensure agentdesk-relay is running on relay_port
-    let relay_pid = if crate::config::port_available("127.0.0.1", relay_port) {
-        println!("Starting local relay server on port {}...", relay_port);
+    let is_listening = std::net::TcpStream::connect(format!("127.0.0.1:{}", relay_port)).is_ok();
+    let relay_pid = if !is_listening {
+        crate::logging::info(format!("Starting local relay server on port {}...", relay_port));
         let relay_child = Command::new("agentdesk-relay")
             .arg("--port")
             .arg(relay_port.to_string())
@@ -92,6 +103,7 @@ pub fn ensure_tunnel(
             .stderr(Stdio::null())
             .spawn()?;
         let pid = relay_child.id();
+        std::mem::forget(relay_child);
         std::thread::sleep(Duration::from_millis(500));
         Some(pid)
     } else {
@@ -99,7 +111,7 @@ pub fn ensure_tunnel(
     };
 
     // 3. Start cloudflared tunnel in background
-    println!("Requesting public tunnel from Cloudflare...");
+    crate::logging::info("Requesting public tunnel from Cloudflare...");
     let mut tunnel_child = Command::new("cloudflared")
         .arg("tunnel")
         .arg("--edge-ip-version")
@@ -142,7 +154,7 @@ pub fn ensure_tunnel(
     // Let cloudflared keep running in background
     std::mem::forget(tunnel_child);
 
-    println!("✓ Cloudflare public tunnel active: {}", url);
+    crate::logging::info(format!("Cloudflare public tunnel active: {}", url));
 
     // 4. Save tunnel state
     let state = TunnelState {

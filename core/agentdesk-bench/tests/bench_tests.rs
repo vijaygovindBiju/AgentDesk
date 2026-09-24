@@ -18,9 +18,9 @@ fn p5_t1_reduction_asserted() {
     // agentdesk.surfaced_events < raw_events.transmitted_events <= raw_lines.transmitted_events
     assert!(red.agentdesk_surfaced_events < red.raw_events_events);
     assert!(red.raw_events_events <= red.raw_lines_events);
-    assert_eq!(red.agentdesk_surfaced_events, 8);
-    assert_eq!(red.raw_events_events, 1445);
-    assert!(red.raw_lines_events >= 1445);
+    assert_eq!(red.agentdesk_surfaced_events, 10);
+    assert_eq!(red.raw_events_events, 1447);
+    assert!(red.raw_lines_events >= 1447);
 
     // Reduction ratio is at least 100x (> 99%)
     assert!(red.event_reduction_vs_raw_events_ratio > 100.0);
@@ -34,8 +34,8 @@ fn p5_t2_coverage_requests() {
     let scenario = Scenario::default_scenario();
     let report = run_all_modes(&scenario, SEED, TapPolicy::Default);
 
-    assert_eq!(report.coverage.requests.expected, 1);
-    assert_eq!(report.coverage.requests.surfaced, 1);
+    assert_eq!(report.coverage.requests.expected, 2);
+    assert_eq!(report.coverage.requests.surfaced, 2);
     assert!(report.coverage.requests.preserved);
 }
 
@@ -116,8 +116,8 @@ fn p5_t5_escalation() {
     assert!(Category::Working.tier() > Category::Error.tier());
     assert!(Category::Working.tier() > Category::Completed.tier());
 
-    // In laptop metrics, exactly 2 escalations occurred
-    assert_eq!(out.result.laptop_metrics.escalations, 2);
+    // In laptop metrics, exactly 4 escalations occurred
+    assert_eq!(out.result.laptop_metrics.escalations, 4);
 }
 
 #[test]

@@ -49,6 +49,7 @@ fn is_daemon_listening(port: u16) -> bool {
 
 /// Main entry point to run the AgentDesk TUI.
 pub async fn run_tui(custom_config_dir: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    crate::logging::set_suppress_stderr(true);
     let config_dir = custom_config_dir.unwrap_or_else(default_config_dir);
     let env_path = service_env_path(&config_dir);
     let service_config = load_service_config(&env_path).unwrap_or_default();

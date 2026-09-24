@@ -168,10 +168,19 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         .or_else(|| std::env::var("AGENTDESK_RELAY").ok())
         .or_else(|| Some(agentdesk_server::DEFAULT_RELAY_URL.to_string()));
 
-    if relay_url.as_deref() == Some(agentdesk_server::DEFAULT_RELAY_URL) {
-        if agentdesk_server::tunnel::is_cloudflared_installed() {
-            if let Ok(tunnel_url) = agentdesk_server::tunnel::ensure_tunnel(&config_dir, 8766) {
-                relay_url = Some(tunnel_url);
+    let is_stale_or_default = relay_url.as_deref() == Some(agentdesk_server::DEFAULT_RELAY_URL)
+        || relay_url.as_deref().map_or(false, |r| {
+            r.contains("trycloudflare.com")
+                && agentdesk_server::tunnel::load_active_tunnel(&config_dir).is_none()
+        });
+
+    if is_stale_or_default && agentdesk_server::tunnel::is_cloudflared_installed() {
+        if let Ok(tunnel_url) = agentdesk_server::tunnel::ensure_tunnel(&config_dir, 8766) {
+            relay_url = Some(tunnel_url.clone());
+            let env_path = service_env_path(&config_dir);
+            if let Ok(mut cfg) = load_service_config(&env_path) {
+                cfg.relay_url = Some(tunnel_url);
+                let _ = agentdesk_server::update_service_config(&env_path, &cfg);
             }
         }
     }

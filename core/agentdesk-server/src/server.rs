@@ -216,9 +216,19 @@ impl Server {
             tokio::spawn(async move {
                 let mut backoff = std::time::Duration::from_millis(50);
                 loop {
+                    let connect_url = if std::net::TcpStream::connect("127.0.0.1:8766").is_ok()
+                        && (relay_base.contains("trycloudflare.com")
+                            || crate::tunnel::load_active_tunnel(&config_dir_relay)
+                                .map_or(false, |s| s.relay_url == relay_base))
+                    {
+                        "ws://127.0.0.1:8766".to_string()
+                    } else {
+                        relay_base.clone()
+                    };
+
                     let relay_target = format!(
                         "{}/ws?role=host&inst={}&token={}",
-                        relay_base.trim_end_matches('/'),
+                        connect_url.trim_end_matches('/'),
                         urlencoding::encode(&instance_id),
                         urlencoding::encode(&expected_token_relay)
                     );

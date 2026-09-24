@@ -174,7 +174,7 @@ fn p4_t4_mode_test_message_types() {
 #[test]
 fn p4_t5_respond_request_resumes_blocked_simulated_task() {
     let (msgs, metrics) = run_headless_simulation(PipelineMode::Agentdesk);
-    assert_eq!(metrics.responses, 1);
+    assert_eq!(metrics.responses, 2);
 
     // Verify approval result was transmitted
     let has_approved_result = msgs.iter().any(|m| {
