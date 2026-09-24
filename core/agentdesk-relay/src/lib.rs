@@ -299,6 +299,7 @@ impl RelayServer {
 
         let expected_token = self.config.auth_token.clone();
 
+        #[allow(clippy::result_large_err)]
         let ws_stream = tokio_tungstenite::accept_hdr_async(
             stream,
             |req: &Request, resp: Response| {
@@ -336,15 +337,12 @@ impl RelayServer {
                     }
                 };
 
-                if parsed_role == PeerRole::Host {
-                    if let Some(ref exp) = expected_token {
-                        let provided = params.get("token").map(|s| s.as_str()).unwrap_or("");
-                        if provided != exp {
-                            let mut err = ErrorResponse::new(Some("unauthorized".into()));
-                            *err.status_mut() = StatusCode::UNAUTHORIZED;
-                            return Err(err);
-                        }
-                    }
+                if parsed_role == PeerRole::Host && expected_token.as_ref().is_some_and(|exp| {
+                    params.get("token").map(|s| s.as_str()).unwrap_or("") != exp
+                }) {
+                    let mut err = ErrorResponse::new(Some("unauthorized".into()));
+                    *err.status_mut() = StatusCode::UNAUTHORIZED;
+                    return Err(err);
                 }
 
                 role = Some(parsed_role);
@@ -402,7 +400,7 @@ impl RelayServer {
                                 break;
                             }
                             if msg.is_ping() {
-                                let _ = out_tx.send(WsMessage::Pong(msg.into_data().into())).await;
+                                let _ = out_tx.send(WsMessage::Pong(msg.into_data())).await;
                                 continue;
                             }
                             if msg.is_pong() {
@@ -521,19 +519,18 @@ impl RelayServer {
                                     }
                                 }
                             } else if let (Some(dev_id), Some(tok)) = (&client_device_id, &client_token) {
-                                if !entry.authorized_devices.is_empty() {
-                                    match entry.authorized_devices.get(dev_id) {
-                                        Some(auth) => {
-                                            if auth.revoked {
-                                                rejection = Some((4001, "device revoked"));
-                                            } else if auth.device_token != *tok {
-                                                rejection = Some((4001, "invalid device token"));
-                                            }
-                                        }
-                                        None => {
-                                            rejection = Some((4001, "device not authorized"));
-                                        }
+                                match entry.authorized_devices.get(dev_id) {
+                                    Some(auth) if auth.revoked => {
+                                        rejection = Some((4001, "device revoked"));
                                     }
+                                    Some(auth) if auth.device_token != *tok => {
+                                        rejection = Some((4001, "invalid device token"));
+                                    }
+                                    Some(_) => {}
+                                    None if !entry.authorized_devices.is_empty() => {
+                                        rejection = Some((4001, "device not authorized"));
+                                    }
+                                    None => {}
                                 }
                             }
                             (entry.host_tx.clone(), rejection)
@@ -593,7 +590,7 @@ impl RelayServer {
                                 break;
                             }
                             if msg.is_ping() {
-                                let _ = out_tx.send(WsMessage::Pong(msg.into_data().into())).await;
+                                let _ = out_tx.send(WsMessage::Pong(msg.into_data())).await;
                                 continue;
                             }
                             if msg.is_pong() {
