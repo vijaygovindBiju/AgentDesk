@@ -1038,12 +1038,13 @@ impl TuiApp {
             self.state.relay_url.clone(),
             self.state.fingerprint.clone(),
         ) {
-            Ok((sess_id, uri, qr, inst, exp)) => {
+            Ok((sess_id, uri, qr, inst, exp, resolved_relay)) => {
                 self.state.pairing_session_id = Some(sess_id);
                 self.state.pairing_uri = Some(uri);
                 self.state.pairing_qr = Some(qr);
                 self.state.pairing_instance_id = Some(inst);
                 self.state.pairing_expires_at = Some(exp);
+                self.state.relay_url = Some(resolved_relay);
                 self.state.pairing_paired_device = None;
                 self.state.pairing_error = None;
             }

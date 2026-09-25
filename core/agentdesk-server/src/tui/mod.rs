@@ -56,12 +56,16 @@ pub async fn run_tui(custom_config_dir: Option<PathBuf>) -> Result<(), Box<dyn s
     let token_file = token_path(&config_dir);
     let token = load_or_generate_token(&token_file)?;
 
+    let resolved_relay = crate::tunnel::resolve_or_ensure_relay_url(&config_dir, service_config.relay_url.clone());
+
     if is_daemon_listening(service_config.port) {
         // --- Option A: Attach to existing running daemon (e.g. systemd service) ---
-        run_attached_websocket(config_dir, service_config.port, service_config.bind, token, service_config.relay_url).await
+        run_attached_websocket(config_dir, service_config.port, service_config.bind, token, Some(resolved_relay)).await
     } else {
         // --- Option B: Launch in-process daemon with TUI attached directly ---
-        run_in_process_daemon(config_dir, service_config, token).await
+        let mut cfg = service_config;
+        cfg.relay_url = Some(resolved_relay);
+        run_in_process_daemon(config_dir, cfg, token).await
     }
 }
 

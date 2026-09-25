@@ -199,33 +199,25 @@ impl TuiBridge {
         _port: u16,
         relay_url: Option<String>,
         fingerprint: Option<String>,
-    ) -> Result<(String, String, String, String, chrono::DateTime<chrono::Utc>), String> {
+    ) -> Result<(String, String, String, String, chrono::DateTime<chrono::Utc>, String), String> {
         let reg = crate::device::DeviceRegistry::load_or_create(config_dir)
             .map_err(|e| format!("Failed loading device registry: {e}"))?;
         let instance_id = reg.instance_id.clone();
         let fp = fingerprint.unwrap_or_else(|| "none".into());
 
-        let mut resolved_relay = relay_url.unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
-        let is_stale_or_default = resolved_relay == crate::config::DEFAULT_RELAY_URL
-            || (resolved_relay.contains("trycloudflare.com") && crate::tunnel::load_active_tunnel(config_dir).is_none());
-
-        if is_stale_or_default && crate::tunnel::is_cloudflared_installed() {
-            if let Ok(tunnel_url) = crate::tunnel::ensure_tunnel(config_dir, 8766) {
-                resolved_relay = tunnel_url;
-            }
-        }
+        let resolved_relay = crate::tunnel::resolve_or_ensure_relay_url(config_dir, relay_url);
 
         let pairing_manager = PairingManager::with_dir(config_dir.to_path_buf());
         let (session, _payload, uri) = pairing_manager.create_session(
             instance_id.clone(),
             fp,
-            Some(resolved_relay),
+            Some(resolved_relay.clone()),
             Some(crate::pairing::PAIRING_DEFAULT_DURATION_SECS),
             chrono::Utc::now(),
         );
 
         let qr = render_qr_terminal(&uri).map_err(|e| format!("QR rendering failed: {e}"))?;
 
-        Ok((session.session_id, uri, qr, instance_id, session.expires_at))
+        Ok((session.session_id, uri, qr, instance_id, session.expires_at, resolved_relay))
     }
 }

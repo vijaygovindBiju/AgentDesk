@@ -134,18 +134,6 @@ pub fn load_active_tunnel(config_dir: &Path) -> Option<TunnelState> {
         return None;
     }
 
-    // Verify that the public tunnel URL actually resolves via DNS
-    if let Some(host) = extract_hostname(&state.relay_url) {
-        if !check_dns_resolves(&host) {
-            crate::logging::warn(format!(
-                "Stored tunnel URL {} hostname '{}' does not resolve in DNS; marking tunnel as stale.",
-                state.relay_url, host
-            ));
-            stop_tunnel(config_dir);
-            return None;
-        }
-    }
-
     Some(state)
 }
 
@@ -170,6 +158,13 @@ pub fn stop_tunnel(config_dir: &Path) {
         }
     }
     let _ = fs::remove_file(path);
+
+    #[cfg(unix)]
+    {
+        let _ = Command::new("pkill")
+            .args(["-9", "-f", "cloudflared tunnel.*127.0.0.1:8766"])
+            .status();
+    }
 }
 
 pub fn ensure_tunnel(
@@ -319,6 +314,75 @@ pub fn ensure_tunnel(
     Ok(url)
 }
 
+/// Synchronizes the given relay URL to the local service environment file,
+/// restarting the background systemd service if running.
+pub fn sync_relay_to_service_env(config_dir: &Path, relay_url: &str) {
+    let env_path = crate::config::service_env_path(config_dir);
+    if let Ok(mut cfg) = crate::config::load_service_config(&env_path) {
+        if cfg.relay_url.as_deref() != Some(relay_url) {
+            cfg.relay_url = Some(relay_url.to_string());
+            let _ = crate::config::update_service_config(&env_path, &cfg);
+            let is_daemon = std::env::var("INVOCATION_ID").is_ok()
+                || std::env::args().any(|a| a == "run");
+            if !is_daemon && crate::config::service_is_active().unwrap_or(false) {
+                let _ = crate::config::service_action("restart");
+            }
+        }
+    }
+}
+
+/// Resolves the authoritative public relay URL to use across the system.
+///
+/// Priority:
+/// 1. If an explicit, non-default, non-trycloudflare relay was supplied (e.g. self-hosted VPS),
+///    honor it directly.
+/// 2. If a locally managed active tunnel exists and is alive, its URL is the authoritative trycloudflare URL.
+/// 3. If the candidate was a trycloudflare URL but no active tunnel was alive, or candidate was None/DEFAULT,
+///    and cloudflared is installed: ensure a fresh tunnel.
+/// 4. Fallback: If requested_relay is valid and not trycloudflare, use it; otherwise DEFAULT_RELAY_URL.
+pub fn resolve_or_ensure_relay_url(
+    config_dir: &Path,
+    requested_relay: Option<String>,
+) -> String {
+    // 1. Explicit custom VPS relay
+    if let Some(ref candidate) = requested_relay {
+        let trimmed = candidate.trim();
+        if !trimmed.is_empty()
+            && trimmed != crate::config::DEFAULT_RELAY_URL
+            && !trimmed.contains("trycloudflare.com")
+        {
+            return trimmed.to_string();
+        }
+    }
+
+    // 2. Locally managed active tunnel
+    if let Some(active) = load_active_tunnel(config_dir) {
+        sync_relay_to_service_env(config_dir, &active.relay_url);
+        return active.relay_url;
+    }
+
+    // 3. Auto-provision Cloudflare tunnel on demand
+    if is_cloudflared_installed() {
+        match ensure_tunnel(config_dir, 8766) {
+            Ok(new_url) => {
+                sync_relay_to_service_env(config_dir, &new_url);
+                return new_url;
+            }
+            Err(e) => {
+                crate::logging::warn(format!("Failed to provision Cloudflare tunnel: {}", e));
+            }
+        }
+    }
+
+    // 4. Fallback
+    let fallback = requested_relay
+        .filter(|c| !c.contains("trycloudflare.com") && !c.trim().is_empty())
+        .unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
+    sync_relay_to_service_env(config_dir, &fallback);
+    fallback
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -357,5 +421,25 @@ mod tests {
     #[test]
     fn test_is_pid_alive_nonexistent() {
         assert!(!is_pid_alive(99999999));
+    }
+
+    #[test]
+    fn test_resolve_explicit_custom_relay() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let custom = "wss://my-custom-relay.example.com";
+        let resolved = resolve_or_ensure_relay_url(temp_dir.path(), Some(custom.to_string()));
+        assert_eq!(resolved, custom);
+    }
+
+    #[test]
+    #[ignore = "requires live cloudflared tunnel creation over the internet"]
+    fn test_resolve_fallback_when_no_cloudflared() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        // Passing a stale trycloudflare URL when no active tunnel exists
+        let stale = "wss://stale-xyz-123.trycloudflare.com";
+        let resolved = resolve_or_ensure_relay_url(temp_dir.path(), Some(stale.to_string()));
+        // If cloudflared is installed on the build machine, it may return a tunnel URL or fallback
+        // But it MUST NOT return the stale trycloudflare URL!
+        assert_ne!(resolved, stale);
     }
 }

@@ -157,33 +157,17 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         None => load_or_generate_token(&token_file)?,
     };
 
-    let mut relay_url = opts
-        .relay
-        .clone()
-        .or_else(|| {
-            let env_path = service_env_path(&config_dir);
-            load_service_config(&env_path).ok().and_then(|c| c.relay_url)
-        })
-        .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
-        .or_else(|| std::env::var("AGENTDESK_RELAY").ok())
-        .or_else(|| Some(agentdesk_server::DEFAULT_RELAY_URL.to_string()));
-
-    let is_stale_or_default = relay_url.as_deref() == Some(agentdesk_server::DEFAULT_RELAY_URL)
-        || relay_url.as_deref().map_or(false, |r| {
-            r.contains("trycloudflare.com")
-                && agentdesk_server::tunnel::load_active_tunnel(&config_dir).is_none()
-        });
-
-    if is_stale_or_default && agentdesk_server::tunnel::is_cloudflared_installed() {
-        if let Ok(tunnel_url) = agentdesk_server::tunnel::ensure_tunnel(&config_dir, 8766) {
-            relay_url = Some(tunnel_url.clone());
-            let env_path = service_env_path(&config_dir);
-            if let Ok(mut cfg) = load_service_config(&env_path) {
-                cfg.relay_url = Some(tunnel_url);
-                let _ = agentdesk_server::update_service_config(&env_path, &cfg);
-            }
-        }
-    }
+    let relay_url = agentdesk_server::tunnel::resolve_or_ensure_relay_url(
+        &config_dir,
+        opts.relay
+            .clone()
+            .or_else(|| {
+                let env_path = service_env_path(&config_dir);
+                load_service_config(&env_path).ok().and_then(|c| c.relay_url)
+            })
+            .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
+            .or_else(|| std::env::var("AGENTDESK_RELAY").ok()),
+    );
 
     let server_config = ServerConfig {
         bind_addr: opts.bind.clone(),
@@ -194,7 +178,7 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
         outbound_capacity: agentdesk_server::DEFAULT_OUTBOUND_CAPACITY,
         debug_logging: opts.debug,
         config_dir: opts.config_dir.clone(),
-        relay_url,
+        relay_url: Some(relay_url),
     };
 
     if let Err(e) = server_config.validate() {

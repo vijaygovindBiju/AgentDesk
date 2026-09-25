@@ -68,32 +68,13 @@ pub fn pair_flow(
     config: &ServiceConfig,
     relay_url: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut resolved_relay = relay_url
-        .or_else(|| config.relay_url.clone())
-        .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
-        .or_else(|| std::env::var("AGENTDESK_RELAY").ok())
-        .unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
-
-    let is_stale_or_default = resolved_relay == crate::config::DEFAULT_RELAY_URL
-        || (resolved_relay.contains("trycloudflare.com") && crate::tunnel::load_active_tunnel(config_dir).is_none());
-
-    if is_stale_or_default && crate::tunnel::is_cloudflared_installed() {
-        match crate::tunnel::ensure_tunnel(config_dir, 8766) {
-            Ok(tunnel_url) => {
-                resolved_relay = tunnel_url.clone();
-                let mut updated = config.clone();
-                updated.relay_url = Some(tunnel_url);
-                let env_path = crate::config::service_env_path(config_dir);
-                let _ = crate::config::update_service_config(&env_path, &updated);
-                if service_is_active().unwrap_or(false) {
-                    let _ = service_action("restart");
-                }
-            }
-            Err(e) => {
-                eprintln!("Warning: failed to launch automatic tunnel: {}", e);
-            }
-        }
-    }
+    let resolved_relay = crate::tunnel::resolve_or_ensure_relay_url(
+        config_dir,
+        relay_url
+            .or_else(|| config.relay_url.clone())
+            .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
+            .or_else(|| std::env::var("AGENTDESK_RELAY").ok()),
+    );
 
     let active = service_is_active().unwrap_or(false);
     let is_listening = !port_available(&config.bind, config.port);

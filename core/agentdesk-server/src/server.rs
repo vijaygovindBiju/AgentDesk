@@ -236,9 +236,12 @@ impl Server {
                     tokio::select! {
                         _ = shutdown_notify_relay.notified() => break,
                         connect_res = tokio_tungstenite::connect_async(&relay_target) => {
+                            let display_relay = crate::tunnel::load_active_tunnel(&config_dir_relay)
+                                .map(|s| s.relay_url)
+                                .unwrap_or_else(|| relay_base.clone());
                             match connect_res {
                                 Ok((ws_stream, _)) => {
-                                    logging::info(format!("Connected outbound to relay {}", relay_base));
+                                    logging::info(format!("Connected outbound to relay {}", display_relay));
                                     backoff = std::time::Duration::from_millis(50);
                                     let client_id = next_client_id_relay.fetch_add(1, Ordering::SeqCst);
                                     let params = ConnectionParams {
@@ -257,7 +260,7 @@ impl Server {
                                     };
                                     handle_relay_trunk_connection(
                                         ws_stream,
-                                        format!("relay:{}", relay_base),
+                                        format!("relay:{}", display_relay),
                                         params,
                                         instance_id.clone(),
                                     )
@@ -265,7 +268,7 @@ impl Server {
                                     logging::info("Relay session ended, reconnecting...");
                                 }
                                 Err(e) => {
-                                    logging::info(format!("Relay connection failed to {}: {}", relay_base, e));
+                                    logging::info(format!("Relay connection failed to {}: {}", display_relay, e));
                                     backoff = std::cmp::min(backoff * 2, std::time::Duration::from_secs(30));
                                     tokio::select! {
                                         _ = shutdown_notify_relay.notified() => break,
