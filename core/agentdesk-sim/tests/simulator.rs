@@ -125,7 +125,7 @@ fn different_seed_changes_only_jitter_not_event_sequence() {
 fn output_is_independent_of_polling_granularity() {
     // Human response timing is an input, so use the scenario without its request.
     let mut scenario = Scenario::default_scenario();
-    scenario.tasks.retain(|t| t.task_id != "task-db");
+    scenario.tasks.retain(|t| t.task_id != "task-db" && t.task_id != "task-architecture");
     scenario.validate().unwrap();
 
     // Fine-grained: jump to every due instant.
@@ -196,7 +196,7 @@ fn default_scenario_has_the_documented_minimum_mix() {
             .count()
     };
 
-    assert_eq!(by_cat(Category::Request), 1);
+    assert_eq!(by_cat(Category::Request), 2);
     assert!(by_cat(Category::Error) >= 2, "{by_kind:?}");
     assert!(
         evs.iter()
@@ -316,17 +316,17 @@ fn respond_errors() {
         c.set(due);
         s.poll(due);
     }
-    assert_eq!(s.blocked_tasks(), ["task-db"]);
+    assert_eq!(s.blocked_tasks(), ["task-architecture"]);
     assert!(
         s.next_due().is_none() || s.next_due().is_some(),
         "other tasks may still be due"
     );
     assert_eq!(
-        s.respond(&"task-db".to_string(), Decision::Approve, c.now()),
+        s.respond(&"task-architecture".to_string(), Decision::Approve, c.now()),
         Ok(())
     );
     assert_eq!(
-        s.respond(&"task-db".to_string(), Decision::Approve, c.now()),
+        s.respond(&"task-architecture".to_string(), Decision::Approve, c.now()),
         Err(RespondError::NotBlocked)
     );
 }
@@ -334,7 +334,7 @@ fn respond_errors() {
 #[test]
 fn blocked_task_produces_nothing_until_answered() {
     let (mut s, c) = default_sim(SEED);
-    while s.blocked_tasks().is_empty() {
+    while s.blocked_tasks().len() < 2 {
         let due = s.next_due().unwrap();
         c.set(due);
         s.poll(due);
@@ -343,10 +343,10 @@ fn blocked_task_produces_nothing_until_answered() {
     let out = s.poll(c.now());
     assert!(
         out.iter().all(
-            |o| !matches!(o, AdapterOutput::Event(e) if e.task_id.as_deref() == Some("task-db"))
+            |o| !matches!(o, AdapterOutput::Event(e) if e.task_id.as_deref() == Some("task-architecture") || e.task_id.as_deref() == Some("task-db"))
         )
     );
-    assert_eq!(s.blocked_tasks(), ["task-db"]);
+    assert_eq!(s.blocked_tasks(), ["task-architecture", "task-db"]);
 }
 
 #[test]
@@ -365,12 +365,16 @@ fn scenario_ground_truth_matches_default_scenario_expectations() {
     let thresholds = agentdesk_core::ThresholdTable::default();
     let gt = scenario.ground_truth(&thresholds);
 
-    // 1 request: task-db (approval_required)
-    assert_eq!(gt.requests.len(), 1);
-    assert_eq!(gt.requests[0].task_id, "task-db");
-    assert_eq!(gt.requests[0].kind, "approval_required");
+    // 2 requests: task-architecture (input_required), task-db (approval_required)
+    assert_eq!(gt.requests.len(), 2);
+    assert_eq!(gt.requests[0].task_id, "task-architecture");
+    assert_eq!(gt.requests[0].kind, "input_required");
     assert_eq!(gt.requests[0].category, Category::Request);
     assert_eq!(gt.requests[0].severity, 3);
+    assert_eq!(gt.requests[1].task_id, "task-db");
+    assert_eq!(gt.requests[1].kind, "approval_required");
+    assert_eq!(gt.requests[1].category, Category::Request);
+    assert_eq!(gt.requests[1].severity, 3);
 
     // 3 errors: task-auth (build_failed), task-tests (test_failed), task-lint (cancelled_by_agent)
     assert_eq!(gt.errors.len(), 3);
