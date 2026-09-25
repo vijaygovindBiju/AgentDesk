@@ -134,6 +134,22 @@ pub enum Body {
     CommandResult(CommandResult),
     Metrics(MetricsSnapshot),
     Error(ErrorReply),
+
+    // ---- adapter bridge ----
+    AdapterOutcome(AdapterOutcome),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum AdapterOutcome {
+    Delivered {
+        event_id: EventId,
+        decision: Decision,
+    },
+    DeliveryFailed {
+        event_id: EventId,
+        reason: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -512,6 +528,13 @@ mod tests {
                     message: "cannot parse".into(),
                 }),
             ),
+            Message::with_request_id(
+                "r-outcome",
+                Body::AdapterOutcome(AdapterOutcome::Delivered {
+                    event_id: id,
+                    decision: Decision::Approve,
+                }),
+            ),
         ]
     }
 
@@ -520,7 +543,7 @@ mod tests {
         let msgs = all_messages();
         assert_eq!(
             msgs.len(),
-            21,
+            22,
             "catalogue size changed; update COMMUNICATION.md"
         );
         for m in msgs {
@@ -587,6 +610,7 @@ mod tests {
                 "command_result",
                 "metrics",
                 "error",
+                "adapter_outcome",
             ]
         );
     }

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use agentdesk_core::{
     AcpAdapter, AcpConfig, Adapter, AdapterCommand, AdapterOutcome, AntigravityConfig,
-    AntigravityPtyAdapter, Clock, CoreCommand, CoreTask, LogStoreConfig, SystemClock,
+    AntigravityPtyAdapter, Clock, CoreCommand, CoreTask, LogStoreConfig, RespondError, SystemClock,
     ThresholdTable,
 };
 use agentdesk_server::{
@@ -355,15 +355,29 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
                             } else {
                                 adapter.respond(&task_id, decision, now)
                             };
-                            let outcome = match result {
-                                Ok(()) => AdapterOutcome::Delivered { event_id, decision },
-                                Err(e) => AdapterOutcome::DeliveryFailed {
-                                    event_id,
-                                    reason: e.to_string(),
-                                },
-                            };
-                            // Report outcome back to core. If core is gone, we're shutting down.
-                            let _ = adapter_sender.send(CoreCommand::AdapterResponse(outcome)).await;
+                            match result {
+                                Ok(()) => {
+                                    let _ = adapter_sender
+                                        .send(CoreCommand::AdapterResponse(
+                                            AdapterOutcome::Delivered { event_id, decision },
+                                        ))
+                                        .await;
+                                }
+                                Err(RespondError::NoSuchTask) => {
+                                    // Task is not managed by the daemon's local adapter (e.g. running in an attached TUI session).
+                                    // Attached clients deliver it to their PTY and report AdapterOutcome back.
+                                }
+                                Err(e) => {
+                                    let _ = adapter_sender
+                                        .send(CoreCommand::AdapterResponse(
+                                            AdapterOutcome::DeliveryFailed {
+                                                event_id,
+                                                reason: e.to_string(),
+                                            },
+                                        ))
+                                        .await;
+                                }
+                            }
                         }
                         Some(AdapterCommand::StartTask { prompt, .. }) => {
                             let _ = adapter.send_raw_input(format!("{prompt}\r").as_bytes());

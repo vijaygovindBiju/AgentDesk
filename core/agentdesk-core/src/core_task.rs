@@ -46,13 +46,7 @@ pub enum AdapterCommand {
 }
 
 /// Outcome reported back from the adapter loop after attempting PTY delivery.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AdapterOutcome {
-    /// PTY write succeeded; adapter accepted the response.
-    Delivered { event_id: agentdesk_model::EventId, decision: Decision },
-    /// PTY write or validation failed; request should be reopened.
-    DeliveryFailed { event_id: agentdesk_model::EventId, reason: String },
-}
+pub use agentdesk_model::AdapterOutcome;
 
 /// Incoming messages handled by the Core task inbox.
 pub enum CoreCommand {
@@ -429,6 +423,13 @@ impl CoreTask {
                         if self.adapter_responder.is_some() {
                             self.broadcast(Message::push(Body::StateUpdate(state_update)));
                         }
+                        // Forward the response command to other connected clients (e.g. attached TUI sessions)
+                        let respond_msg = Message::push(Body::RespondRequest(req.clone()));
+                        for (&cid, sink) in self.sinks.iter_mut() {
+                            if cid != client_id {
+                                let _ = sink.send(&respond_msg);
+                            }
+                        }
 
                         // Deliver to adapter. Use the blocking send path so a full channel
                         // returns an explicit error rather than silently dropping the command.
@@ -597,6 +598,30 @@ impl CoreTask {
                         body: Body::CommandResult(CommandResult::ok()),
                     },
                 );
+            }
+            Body::RawEvent(raw) => {
+                self.handle_adapter_output(AdapterOutput::Event(raw), now);
+                if req_id.is_some() {
+                    self.send_to(
+                        client_id,
+                        Message {
+                            request_id: req_id,
+                            body: Body::CommandResult(CommandResult::ok()),
+                        },
+                    );
+                }
+            }
+            Body::AdapterOutcome(outcome) => {
+                self.handle_adapter_response(outcome, now);
+                if req_id.is_some() {
+                    self.send_to(
+                        client_id,
+                        Message {
+                            request_id: req_id,
+                            body: Body::CommandResult(CommandResult::ok()),
+                        },
+                    );
+                }
             }
             _ => {
                 self.send_to(

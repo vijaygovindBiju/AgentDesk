@@ -24,7 +24,7 @@ use agentdesk_core::{
     ThresholdTable,
 };
 use agentdesk_model::{
-    Body, Hello, Message, PipelineMode, SCHEMA_VERSION,
+    Body, Hello, Message, PipelineMode, RequestResponse, SCHEMA_VERSION,
 };
 use agentdesk_sim::{Scenario, Simulator};
 
@@ -128,6 +128,12 @@ async fn run_attached_websocket(
                             Body::ScoreUpdate(s) => Some(TuiEvent::ScoreUpdate(s)),
                             Body::StateUpdate(s) => Some(TuiEvent::StateUpdate(s)),
                             Body::EventLogs(l) => Some(TuiEvent::Logs(l)),
+                            Body::StartTask(t) => Some(TuiEvent::PromptReceived(t.prompt)),
+                            Body::RespondRequest(r) => Some(TuiEvent::AdapterRespond {
+                                event_id: r.event_id,
+                                decision: r.decision,
+                                response: Some(RequestResponse::from_respond_request(&r)),
+                            }),
                             _ => None,
                         };
                         if let Some(ev) = tui_ev {

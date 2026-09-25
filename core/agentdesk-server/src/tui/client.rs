@@ -62,6 +62,11 @@ impl TransportSink for TuiConnectionSink {
             Body::StateUpdate(s) => TuiEvent::StateUpdate(s.clone()),
             Body::EventLogs(l) => TuiEvent::Logs(l.clone()),
             Body::StartTask(t) => TuiEvent::PromptReceived(t.prompt.clone()),
+            Body::RespondRequest(r) => TuiEvent::AdapterRespond {
+                event_id: r.event_id,
+                decision: r.decision,
+                response: Some(RequestResponse::from_respond_request(r)),
+            },
             _ => return Ok(0),
         };
 
@@ -176,7 +181,13 @@ impl TuiBridge {
                     .await
                     .map_err(|e| format!("Failed sending adapter event: {e}"))
             }
-            TuiBridge::WebSocket { .. } => Ok(()),
+            TuiBridge::WebSocket { outbound_tx, .. } => {
+                let msg = Message::push(Body::RawEvent(event));
+                outbound_tx
+                    .send(msg)
+                    .await
+                    .map_err(|e| format!("Failed sending adapter event to websocket: {e}"))
+            }
         }
     }
 
@@ -188,7 +199,13 @@ impl TuiBridge {
                     .await
                     .map_err(|e| format!("Failed sending adapter response: {e}"))
             }
-            TuiBridge::WebSocket { .. } => Ok(()),
+            TuiBridge::WebSocket { outbound_tx, .. } => {
+                let msg = Message::push(Body::AdapterOutcome(outcome));
+                outbound_tx
+                    .send(msg)
+                    .await
+                    .map_err(|e| format!("Failed sending adapter outcome to websocket: {e}"))
+            }
         }
     }
 
