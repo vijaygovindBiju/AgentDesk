@@ -221,6 +221,13 @@ class ConnectionService extends ChangeNotifier {
     _isActive = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    // Reject any in-flight requests immediately rather than letting them time out.
+    for (final completer in _pendingRequests.values) {
+      if (!completer.isCompleted) {
+        completer.completeError(StateError('Disconnected'));
+      }
+    }
+    _pendingRequests.clear();
     _cleanupChannel();
     _activeTransport = null;
     _connectedEndpoint = null;
@@ -476,6 +483,14 @@ class ConnectionService extends ChangeNotifier {
         break;
       case 'welcome':
         state.setWelcome(message.payload as Welcome);
+        break;
+      case 'error':
+        final err = message.payload as ErrorReply;
+        debugPrint('Server error: ${err.code}: ${err.message}');
+        break;
+      case 'command_result':
+        // Unsolicited command results (e.g. broadcast delivery confirmations)
+        // are handled by the request_id matching above; nothing else to do.
         break;
     }
   }

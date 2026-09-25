@@ -96,10 +96,11 @@ class AgentDeskState extends ChangeNotifier {
     _finishedEventIds.clear();
     for (final event in _events.values) {
       if (event.category == Category.working) {
-        bool hasFinished = _events.values.any((e) =>
-            (e.category == Category.completed || e.category == Category.error) &&
-            e.agentId == event.agentId &&
-            e.taskId == event.taskId);
+        bool hasFinished = event.taskId != null &&
+            _events.values.any((e) =>
+                (e.category == Category.completed || e.category == Category.error) &&
+                e.agentId == event.agentId &&
+                e.taskId == event.taskId);
         if (hasFinished) {
           _finishedEventIds.add(event.eventId);
         }
@@ -118,8 +119,9 @@ class AgentDeskState extends ChangeNotifier {
     }
     _queue[eventPush.entry.eventId] = eventPush.entry;
 
-    if (eventPush.event.category == Category.completed ||
-        eventPush.event.category == Category.error) {
+    if ((eventPush.event.category == Category.completed ||
+            eventPush.event.category == Category.error) &&
+        eventPush.event.taskId != null) {
       for (final e in _events.values) {
         if (e.category == Category.working &&
             e.agentId == eventPush.event.agentId &&
@@ -128,7 +130,20 @@ class AgentDeskState extends ChangeNotifier {
         }
       }
     }
-    
+
+    // Reverse check: if a working event arrives after its completion/error
+    // event (out-of-order delivery), mark it as finished immediately.
+    if (eventPush.event.category == Category.working &&
+        eventPush.event.taskId != null) {
+      final alreadyFinished = _events.values.any((e) =>
+          (e.category == Category.completed || e.category == Category.error) &&
+          e.agentId == eventPush.event.agentId &&
+          e.taskId == eventPush.event.taskId);
+      if (alreadyFinished) {
+        _finishedEventIds.add(eventId);
+      }
+    }
+
     notifyListeners();
   }
 
