@@ -222,8 +222,10 @@ class _EventScreenState extends State<EventScreen> {
         final color = _categoryColor(event.category);
         final isRequest = event.category == Category.request;
         final resolution = entry?.resolution;
-        final isResolved =
-            resolution != null && resolution != Resolution.unresolved;
+        final isPendingDelivery = resolution == Resolution.pendingDelivery;
+        final isResolved = resolution != null &&
+            resolution != Resolution.unresolved &&
+            !isPendingDelivery;
 
         return Scaffold(
           appBar: AppBar(
@@ -377,11 +379,29 @@ class _EventScreenState extends State<EventScreen> {
                           ),
                         ],
                         const SizedBox(height: 16),
-                        if (!isResolved && event.request != null)
+                        if (isPendingDelivery)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Delivering response to agent...',
+                                  style: TextStyle(fontStyle: FontStyle.italic),
+                                ),
+                              ],
+                            ),
+                          )
+                        else if (!isResolved && event.request != null)
                           _buildRequestControls(event)
                         else
                           Text(
-                            'Request already resolved: ${resolution!.wireName}',
+                            'Request already resolved: ${resolution?.wireName ?? "resolved"}',
                             style: const TextStyle(fontStyle: FontStyle.italic),
                           ),
                       ],

@@ -80,6 +80,8 @@ enum CommandError {
   noSuchEvent('no_such_event'),
   notARequest('not_a_request'),
   alreadyResolved('already_resolved'),
+  pendingDelivery('pending_delivery'),
+  deliveryFailed('delivery_failed'),
   invalid('invalid');
 
   const CommandError(this.wireName);
@@ -93,10 +95,14 @@ enum CommandError {
         return CommandError.notARequest;
       case 'already_resolved':
         return CommandError.alreadyResolved;
+      case 'pending_delivery':
+        return CommandError.pendingDelivery;
+      case 'delivery_failed':
+        return CommandError.deliveryFailed;
       case 'invalid':
         return CommandError.invalid;
       default:
-        throw ArgumentError('Unknown command error: $value');
+        return CommandError.invalid;
     }
   }
 

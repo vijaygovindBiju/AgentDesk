@@ -83,6 +83,7 @@ pub fn run_bench_mode(
                 } => {
                     let _ = sim.respond(&task_id, decision, now);
                 }
+                AdapterCommand::StartTask { .. } => {}
             }
         }
 

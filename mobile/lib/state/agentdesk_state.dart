@@ -49,10 +49,11 @@ class AgentDeskState extends ChangeNotifier {
   bool _shouldDisplay(QueueEntry entry) {
     if (entry.isLive) return true;
     
-    // Dismissed requests that are still unresolved remain visible in Requests tier.
+    // Dismissed requests that are still unresolved or pending delivery remain visible in Requests tier.
     if (entry.tier == 0 &&
         entry.state == EntryState.dismissed &&
-        entry.resolution == Resolution.unresolved &&
+        (entry.resolution == Resolution.unresolved ||
+            entry.resolution == Resolution.pendingDelivery) &&
         !entry.superseded) {
       return true;
     }

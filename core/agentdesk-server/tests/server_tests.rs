@@ -805,6 +805,7 @@ async fn phase6_exit_criteria_end_to_end() {
             sim.respond(&task_id, decision, now)
                 .expect("Simulator unblocked");
         }
+        _ => {}
     }
 
     // Advance clock and poll simulator: verify task progresses after approval

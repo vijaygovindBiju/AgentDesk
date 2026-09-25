@@ -323,13 +323,19 @@ async fn run_in_process_daemon(
 
             tokio::select! {
                 adapter_cmd = rx_adapter.recv() => {
-                    if let Some(AdapterCommand::Respond { event_id, decision, response, .. }) = adapter_cmd {
-                        // Forward response to TUI so it can inject keystrokes into the visible terminal shell
-                        let _ = tui_events_tx.send(TuiEvent::AdapterRespond {
-                            event_id,
-                            decision,
-                            response,
-                        }).await;
+                    match adapter_cmd {
+                        Some(AdapterCommand::Respond { event_id, decision, response, .. }) => {
+                            // Forward response to TUI so it can inject keystrokes into the visible terminal shell
+                            let _ = tui_events_tx.send(TuiEvent::AdapterRespond {
+                                event_id,
+                                decision,
+                                response,
+                            }).await;
+                        }
+                        Some(AdapterCommand::StartTask { prompt, .. }) => {
+                            let _ = tui_events_tx.send(TuiEvent::PromptReceived(prompt)).await;
+                        }
+                        None => {}
                     }
                 }
                 _ = tokio::time::sleep(Duration::from_millis(50)) => {}

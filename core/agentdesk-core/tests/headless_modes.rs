@@ -94,6 +94,7 @@ fn run_headless_simulation(mode: PipelineMode) -> (Vec<Message>, agentdesk_core:
                                     },
                                 ));
                             }
+                            _ => {}
                         }
                     }
                 } else {

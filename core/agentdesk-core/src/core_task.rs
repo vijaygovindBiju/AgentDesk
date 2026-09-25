@@ -37,6 +37,12 @@ pub enum AdapterCommand {
         response: Option<RequestResponse>,
         now: DateTime<Utc>,
     },
+    StartTask {
+        prompt: String,
+        workspace: Option<String>,
+        agent_id: Option<String>,
+        now: DateTime<Utc>,
+    },
 }
 
 /// Outcome reported back from the adapter loop after attempting PTY delivery.
@@ -428,9 +434,8 @@ impl CoreTask {
                         // returns an explicit error rather than silently dropping the command.
                         let event_id = req.event_id;
                         let decision = req.decision;
-                        let delivery_result = if let (Some(tid), Some(tx)) =
-                            (task_id, &self.adapter_responder)
-                        {
+                        let delivery_result = if let Some(tx) = &self.adapter_responder {
+                            let tid = task_id.unwrap_or_else(|| "antigravity-session".to_string());
                             match tx.try_send(AdapterCommand::Respond {
                                 event_id,
                                 task_id: tid,
@@ -576,6 +581,14 @@ impl CoreTask {
                 }
             }
             Body::StartTask(ref task) => {
+                if let Some(tx) = &self.adapter_responder {
+                    let _ = tx.try_send(AdapterCommand::StartTask {
+                        prompt: task.prompt.clone(),
+                        workspace: task.workspace.clone(),
+                        agent_id: task.agent_id.clone(),
+                        now,
+                    });
+                }
                 self.broadcast(Message::push(Body::StartTask(task.clone())));
                 self.send_to(
                     client_id,
@@ -898,6 +911,7 @@ mod tests {
                 assert_eq!(now, clock.now());
                 (event_id, decision)
             }
+            _ => panic!("expected AdapterCommand::Respond"),
         };
         assert_eq!(cmd_event_id, event_id);
 

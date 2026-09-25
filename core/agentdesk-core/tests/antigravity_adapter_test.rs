@@ -477,6 +477,7 @@ async fn test_antigravity_adapter_through_core_pipeline() {
                 .respond(&task_id, decision, now)
                 .expect("Adapter respond must succeed");
         }
+        _ => panic!("Expected AdapterCommand::Respond"),
     }
 
     // Verify input sent to PTY was Enter

@@ -364,21 +364,27 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             // Check if any adapter responses arrived
             tokio::select! {
                 adapter_cmd = rx_adapter.recv() => {
-                    if let Some(AdapterCommand::Respond { event_id, task_id, decision, request_seq, response, now }) = adapter_cmd {
-                        let result = if let Some(ref resp) = response {
-                            adapter.respond_with_response(&task_id, request_seq, resp, now)
-                        } else {
-                            adapter.respond(&task_id, decision, now)
-                        };
-                        let outcome = match result {
-                            Ok(()) => AdapterOutcome::Delivered { event_id, decision },
-                            Err(e) => AdapterOutcome::DeliveryFailed {
-                                event_id,
-                                reason: e.to_string(),
-                            },
-                        };
-                        // Report outcome back to core. If core is gone, we're shutting down.
-                        let _ = adapter_sender.send(CoreCommand::AdapterResponse(outcome)).await;
+                    match adapter_cmd {
+                        Some(AdapterCommand::Respond { event_id, task_id, decision, request_seq, response, now }) => {
+                            let result = if let Some(ref resp) = response {
+                                adapter.respond_with_response(&task_id, request_seq, resp, now)
+                            } else {
+                                adapter.respond(&task_id, decision, now)
+                            };
+                            let outcome = match result {
+                                Ok(()) => AdapterOutcome::Delivered { event_id, decision },
+                                Err(e) => AdapterOutcome::DeliveryFailed {
+                                    event_id,
+                                    reason: e.to_string(),
+                                },
+                            };
+                            // Report outcome back to core. If core is gone, we're shutting down.
+                            let _ = adapter_sender.send(CoreCommand::AdapterResponse(outcome)).await;
+                        }
+                        Some(AdapterCommand::StartTask { prompt, .. }) => {
+                            let _ = adapter.send_raw_input(format!("{prompt}\r").as_bytes());
+                        }
+                        None => {}
                     }
                 }
                 _ = tokio::time::sleep(Duration::from_millis(50)) => {}

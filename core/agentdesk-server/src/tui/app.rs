@@ -185,6 +185,7 @@ impl TuiApp {
             TuiEvent::PromptReceived(prompt) => {
                 if self.state.shell_session.is_none() {
                     self.launch_selected_agent().await;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
                 }
                 if let Some(ref mut session) = self.state.shell_session {
                     let input = format!("{prompt}\r");

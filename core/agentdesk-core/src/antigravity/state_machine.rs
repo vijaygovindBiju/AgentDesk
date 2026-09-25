@@ -516,6 +516,7 @@ impl AntigravityStateMachine {
 
     /// Event translation matching the original laboratory fixtures.
     pub fn state_to_event(&mut self, state: &AntigravityState) -> Option<RawAgentEvent> {
+        let task_id = Some(format!("{}-session", self.agent_id));
         match state {
             AntigravityState::CommandConfirmation { command, .. } => {
                 let op = classify_command_operation(command);
@@ -529,7 +530,7 @@ impl AntigravityStateMachine {
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
-                    task_id: None,
+                    task_id,
                     kind: "command_confirmation".to_string(),
                     operation: op,
                     message: format!("Command requires approval: {command}"),
@@ -553,7 +554,7 @@ impl AntigravityStateMachine {
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
-                    task_id: None,
+                    task_id,
                     kind: "file_edit_confirmation".to_string(),
                     operation: Operation::Edit,
                     message: format!("File edit requires approval: {file_path}"),
@@ -577,7 +578,7 @@ impl AntigravityStateMachine {
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
-                    task_id: None,
+                    task_id,
                     kind: "workspace_trust".to_string(),
                     operation: Operation::Other,
                     message: format!("Workspace trust required for: {directory}"),
@@ -599,7 +600,7 @@ impl AntigravityStateMachine {
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
-                    task_id: None,
+                    task_id,
                     kind: "question".to_string(),
                     operation: Operation::Other,
                     message: question.clone(),
@@ -617,7 +618,7 @@ impl AntigravityStateMachine {
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
-                    task_id: None,
+                    task_id,
                     kind: "progress".to_string(),
                     operation: Operation::Other,
                     message: details.clone(),
@@ -631,7 +632,7 @@ impl AntigravityStateMachine {
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
-                    task_id: None,
+                    task_id,
                     kind: "completed".to_string(),
                     operation: Operation::Other,
                     message: message.clone(),
@@ -645,7 +646,7 @@ impl AntigravityStateMachine {
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
-                    task_id: None,
+                    task_id,
                     kind: "error".to_string(),
                     operation: Operation::Other,
                     message: error.clone(),
@@ -659,7 +660,7 @@ impl AntigravityStateMachine {
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
-                    task_id: None,
+                    task_id,
                     kind: "idle".to_string(),
                     operation: Operation::Other,
                     message: "Agent ready for input".to_string(),
