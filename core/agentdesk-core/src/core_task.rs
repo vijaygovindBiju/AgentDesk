@@ -599,29 +599,20 @@ impl CoreTask {
                     },
                 );
             }
-            Body::RawEvent(raw) => {
-                self.handle_adapter_output(AdapterOutput::Event(raw), now);
-                if req_id.is_some() {
-                    self.send_to(
-                        client_id,
-                        Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::ok()),
-                        },
-                    );
-                }
-            }
-            Body::AdapterOutcome(outcome) => {
-                self.handle_adapter_response(outcome, now);
-                if req_id.is_some() {
-                    self.send_to(
-                        client_id,
-                        Message {
-                            request_id: req_id,
-                            body: Body::CommandResult(CommandResult::ok()),
-                        },
-                    );
-                }
+            Body::RawEvent(_) | Body::AdapterOutcome(_) => {
+                // These are internal bridge messages. Reject them from WebSocket
+                // clients to prevent phone clients from spoofing adapter events
+                // or falsely marking requests as delivered.
+                self.send_to(
+                    client_id,
+                    Message {
+                        request_id: req_id,
+                        body: Body::Error(ErrorReply {
+                            code: "unsupported".into(),
+                            message: "adapter bridge messages are not accepted from clients".into(),
+                        }),
+                    },
+                );
             }
             _ => {
                 self.send_to(
