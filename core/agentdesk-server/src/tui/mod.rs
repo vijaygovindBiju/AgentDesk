@@ -90,60 +90,90 @@ async fn run_attached_websocket(
         }
     };
 
-    let (mut ws_write, mut ws_read) = ws_stream.split();
     let (tx_events, rx_events) = mpsc::channel::<TuiEvent>(256);
     let (tx_outbound, mut rx_outbound) = mpsc::channel::<Message>(64);
 
-    // Send Hello handshake
-    let hello = Message::push(Body::Hello(Hello {
-        token: token.clone(),
-        device_id: "agentdesk-tui".into(),
-        client_version: env!("CARGO_PKG_VERSION").into(),
-        schema_version: SCHEMA_VERSION,
-    }));
-    let hello_json = serde_json::to_string(&hello)?;
-    ws_write.send(WsMessage::Text(hello_json.into())).await?;
+    let tx_inbound = tx_events.clone();
+    let token_clone = token.clone();
+    let ws_url_clone = ws_url.clone();
 
-    // Outbound writer task
+    // Outbound & Inbound connection task with automatic reconnect
     tokio::spawn(async move {
-        while let Some(msg) = rx_outbound.recv().await {
-            if let Ok(text) = serde_json::to_string(&msg) {
-                if ws_write.send(WsMessage::Text(text.into())).await.is_err() {
-                    break;
+        let mut initial_stream = Some(ws_stream);
+        loop {
+            let ws_stream = if let Some(s) = initial_stream.take() {
+                s
+            } else {
+                match tokio_tungstenite::connect_async(&ws_url_clone).await {
+                    Ok((stream, _)) => stream,
+                    Err(_) => {
+                        tokio::time::sleep(Duration::from_millis(500)).await;
+                        continue;
+                    }
+                }
+            };
+
+            let (mut ws_write, mut ws_read) = ws_stream.split();
+
+            // Send Hello handshake
+            let hello = Message::push(Body::Hello(Hello {
+                token: token_clone.clone(),
+                device_id: "agentdesk-tui".into(),
+                client_version: env!("CARGO_PKG_VERSION").into(),
+                schema_version: SCHEMA_VERSION,
+            }));
+            if let Ok(hello_json) = serde_json::to_string(&hello) {
+                if ws_write.send(WsMessage::Text(hello_json.into())).await.is_err() {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    continue;
                 }
             }
-        }
-    });
 
-    // Inbound reader task
-    let tx_inbound = tx_events.clone();
-    tokio::spawn(async move {
-        while let Some(msg_res) = ws_read.next().await {
-            match msg_res {
-                Ok(WsMessage::Text(text)) => {
-                    if let Ok(msg) = serde_json::from_str::<Message>(&text) {
-                        let tui_ev = match msg.body {
-                            Body::Snapshot(s) => Some(TuiEvent::Snapshot(s)),
-                            Body::Event(e) => Some(TuiEvent::Event(e)),
-                            Body::ScoreUpdate(s) => Some(TuiEvent::ScoreUpdate(s)),
-                            Body::StateUpdate(s) => Some(TuiEvent::StateUpdate(s)),
-                            Body::EventLogs(l) => Some(TuiEvent::Logs(l)),
-                            Body::StartTask(t) => Some(TuiEvent::PromptReceived(t.prompt)),
-                            Body::RespondRequest(r) => Some(TuiEvent::AdapterRespond {
-                                event_id: r.event_id,
-                                decision: r.decision,
-                                response: Some(RequestResponse::from_respond_request(&r)),
-                            }),
-                            _ => None,
-                        };
-                        if let Some(ev) = tui_ev {
-                            let _ = tx_inbound.send(ev).await;
+            loop {
+                tokio::select! {
+                    msg_res = ws_read.next() => {
+                        match msg_res {
+                            Some(Ok(WsMessage::Text(text))) => {
+                                if let Ok(msg) = serde_json::from_str::<Message>(&text) {
+                                    let tui_ev = match msg.body {
+                                        Body::Snapshot(s) => Some(TuiEvent::Snapshot(s)),
+                                        Body::Event(e) => Some(TuiEvent::Event(e)),
+                                        Body::ScoreUpdate(s) => Some(TuiEvent::ScoreUpdate(s)),
+                                        Body::StateUpdate(s) => Some(TuiEvent::StateUpdate(s)),
+                                        Body::EventLogs(l) => Some(TuiEvent::Logs(l)),
+                                        Body::StartTask(t) => Some(TuiEvent::PromptReceived(t.prompt)),
+                                        Body::RespondRequest(r) => Some(TuiEvent::AdapterRespond {
+                                            event_id: r.event_id,
+                                            decision: r.decision,
+                                            response: Some(RequestResponse::from_respond_request(&r)),
+                                        }),
+                                        _ => None,
+                                    };
+                                    if let Some(ev) = tui_ev {
+                                        let _ = tx_inbound.send(ev).await;
+                                    }
+                                }
+                            }
+                            Some(Ok(WsMessage::Close(_))) | Some(Err(_)) | None => break,
+                            _ => {}
+                        }
+                    }
+                    out_msg = rx_outbound.recv() => {
+                        match out_msg {
+                            Some(msg) => {
+                                if let Ok(text) = serde_json::to_string(&msg) {
+                                    if ws_write.send(WsMessage::Text(text.into())).await.is_err() {
+                                        break;
+                                    }
+                                }
+                            }
+                            None => return, // TUI exited and dropped outbound channel
                         }
                     }
                 }
-                Ok(WsMessage::Close(_)) | Err(_) => break,
-                _ => {}
             }
+
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
     });
 
