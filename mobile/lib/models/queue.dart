@@ -26,6 +26,7 @@ enum EntryState {
 /// Task-outcome state for `Category.request` entries only.
 enum Resolution {
   unresolved('unresolved'),
+  pendingDelivery('pending_delivery'),
   approved('approved'),
   denied('denied');
 
@@ -36,6 +37,8 @@ enum Resolution {
     switch (value) {
       case 'unresolved':
         return Resolution.unresolved;
+      case 'pending_delivery':
+        return Resolution.pendingDelivery;
       case 'approved':
         return Resolution.approved;
       case 'denied':

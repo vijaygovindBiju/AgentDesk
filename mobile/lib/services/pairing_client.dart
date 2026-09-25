@@ -160,7 +160,12 @@ class PairingClient {
       );
     } catch (e) {
       debugPrint('Relay pairing failed or unreachable ($e)');
-      if (e is SocketException || e.toString().contains('Failed host lookup')) {
+      final errStr = e.toString().toLowerCase();
+      if (e is SocketException ||
+          errStr.contains('failed host lookup') ||
+          errStr.contains('no address associated with hostname') ||
+          errStr.contains('socketexception') ||
+          errStr.contains('network is unreachable')) {
         return PairingResult.failure(
           'Could not reach relay server at ${relayUri.host}. Please verify the relay hostname is valid and reachable over the internet.',
         );

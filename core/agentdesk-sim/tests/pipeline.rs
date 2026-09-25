@@ -54,11 +54,11 @@ fn simulator_driven_pipeline_every_request_and_error_appears_exactly_once() {
         }
     }
 
-    // From default scenario: exactly 1 request (approval_required)
+    // From default scenario: requests (input_required, approval_required)
     assert_eq!(
         request_events.len(),
-        1,
-        "expected exactly 1 request event, got: {:?}",
+        2,
+        "expected exactly 2 request events, got: {:?}",
         request_events.iter().map(|e| &e.kind).collect::<Vec<_>>()
     );
 

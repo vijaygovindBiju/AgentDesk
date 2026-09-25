@@ -92,6 +92,18 @@ pub fn info(msg: impl AsRef<str>) {
     }
 }
 
+/// Emit a warning-level log message.
+pub fn warn(msg: impl AsRef<str>) {
+    let text = msg.as_ref();
+    let formatted = format!("[WARN] {}", text);
+    if let Some(cap) = GLOBAL_CAPTURE.lock().ok().and_then(|l| l.clone()) {
+        cap.push(formatted.clone());
+    }
+    if !is_stderr_suppressed() {
+        eprintln!("{}", formatted);
+    }
+}
+
 /// Emit a debug-level log message (opt-in). Never logs the secret token.
 pub fn debug(msg: impl AsRef<str>) {
     if current_log_level() < LogLevel::Debug {
