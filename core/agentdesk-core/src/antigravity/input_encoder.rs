@@ -26,30 +26,21 @@ pub mod keys {
 pub fn encode_decision(decision: Decision, state: &AntigravityState) -> Vec<u8> {
     match state {
         AntigravityState::CommandConfirmation {
-            selected_option_index,
+            selected_option_index: selected_index,
             options,
             ..
-        } => encode_confirmation_decision(decision, *selected_option_index, options),
-
-        AntigravityState::FileEditConfirmation {
-            selected_option_index,
+        }
+        | AntigravityState::FileEditConfirmation {
+            selected_option_index: selected_index,
             options,
             ..
-        } => encode_confirmation_decision(decision, *selected_option_index, options),
-
-        AntigravityState::WorkspaceTrust { .. } => match decision {
-            Decision::Approve => {
-                // First option is "Yes, I trust this folder"
-                keys::ENTER.to_vec()
-            }
-            Decision::Deny => {
-                // Down arrow to "No, exit", then Enter
-                let mut bytes = Vec::new();
-                bytes.extend_from_slice(keys::DOWN_ARROW);
-                bytes.extend_from_slice(keys::ENTER);
-                bytes
-            }
-        },
+        }
+        | AntigravityState::WorkspaceTrust {
+            options,
+            selected_index,
+            ..
+        } => encode_menu_choice(&RequestResponse::from_decision(decision), options, *selected_index)
+            .unwrap_or_default(),
 
         AntigravityState::UserQuestion { .. } => match decision {
             // Enter accepts the current selection / typed text; Esc skips the question.
@@ -57,10 +48,58 @@ pub fn encode_decision(decision: Decision, state: &AntigravityState) -> Vec<u8> 
             Decision::Deny => keys::ESC.to_vec(),
         },
 
+        // AwaitingReply requires explicit text or selected option input; an Approve/Deny
+        // decision must never produce keystrokes (such as an implicit Enter).
+        AntigravityState::AwaitingReply { .. } => Vec::new(),
+
         _ => match decision {
             Decision::Approve => keys::ENTER.to_vec(),
             Decision::Deny => keys::ESC.to_vec(),
         },
+    }
+}
+
+/// Encode a structured response for an interactive Antigravity state into terminal keystrokes.
+pub fn encode_response_for_state(
+    live: &AntigravityState,
+    response: &RequestResponse,
+) -> Result<QuestionInput, RespondError> {
+    match live {
+        AntigravityState::UserQuestion { details, .. } => {
+            encode_question_response(response, details)
+        }
+        AntigravityState::WorkspaceTrust {
+            options,
+            selected_index,
+            ..
+        }
+        | AntigravityState::CommandConfirmation {
+            options,
+            selected_option_index: selected_index,
+            ..
+        }
+        | AntigravityState::FileEditConfirmation {
+            options,
+            selected_option_index: selected_index,
+            ..
+        } => encode_menu_choice(response, options, *selected_index).map(QuestionInput::Submit),
+        // Reply typed into the chat input exactly as a user at the laptop would; only
+        // printable text is accepted (validated by the encoder).
+        AntigravityState::AwaitingReply { .. } => match response {
+            RequestResponse::TextInput { text } => {
+                validate_text_input(text)?;
+                Ok(QuestionInput::Submit(encode_text_submission(text)))
+            }
+            RequestResponse::SelectOption { option } => {
+                validate_text_input(option)?;
+                if option.trim().is_empty() {
+                    return Err(RespondError::InvalidResponse);
+                }
+                Ok(QuestionInput::Submit(encode_text_submission(option)))
+            }
+            _ => Err(RespondError::InvalidResponse),
+        },
+        _ => Err(RespondError::NotBlocked),
     }
 }
 
@@ -180,6 +219,38 @@ pub fn encode_question_response(
     }
 }
 
+/// Encode a response to a cursor-driven Antigravity menu (command / file-edit approval,
+/// workspace trust) relative to the *live* cursor row.
+///
+/// `SelectOption` must name one of the exact rows on screen; the keystrokes are the minimal
+/// arrow moves from the current cursor row to that row, then Enter. Legacy `Approve`/`Deny`
+/// map to the first affirmative (`Yes...`) / the negative (`No...`) row by label, never by an
+/// assumed position. Anything else is rejected without producing keystrokes.
+pub fn encode_menu_choice(
+    response: &RequestResponse,
+    options: &[String],
+    selected_index: usize,
+) -> Result<Vec<u8>, RespondError> {
+    if selected_index >= options.len() {
+        return Err(RespondError::StateMismatch);
+    }
+    let find = |prefix: &str| options.iter().position(|o| o.trim_start().starts_with(prefix));
+    let target = match response {
+        RequestResponse::SelectOption { option } => options
+            .iter()
+            .position(|o| o.trim() == option.trim())
+            .ok_or(RespondError::InvalidResponse)?,
+        RequestResponse::SelectMultiple { options: picked } if picked.len() == 1 => options
+            .iter()
+            .position(|o| o.trim() == picked[0].trim())
+            .ok_or(RespondError::InvalidResponse)?,
+        RequestResponse::Approve => find("Yes").ok_or(RespondError::InvalidResponse)?,
+        RequestResponse::Deny => find("No").ok_or(RespondError::InvalidResponse)?,
+        _ => return Err(RespondError::InvalidResponse),
+    };
+    Ok(navigate_and_select(selected_index, target))
+}
+
 fn encode_multi_choice_selection(
     wanted: &[String],
     details: &QuestionDetails,
@@ -217,37 +288,6 @@ fn encode_multi_choice_selection(
     }
     bytes.extend_from_slice(keys::ENTER);
     Ok(QuestionInput::Submit(bytes))
-}
-
-fn encode_confirmation_decision(
-    decision: Decision,
-    current_index: usize,
-    options: &[String],
-) -> Vec<u8> {
-    match decision {
-        Decision::Approve => {
-            // Target option 0 ("Yes, run command" / "Yes, accept this change")
-            navigate_and_select(current_index, 0)
-        }
-        Decision::Deny => {
-            // Find "No, deny", "No, reject", or "No, cancel" option index if known
-            let deny_index = options
-                .iter()
-                .position(|opt| {
-                    opt.contains("No, deny")
-                        || opt.contains("No, reject")
-                        || opt.contains("No, cancel")
-                        || opt.contains("cancel")
-                })
-                .unwrap_or(if options.len() > 1 {
-                    options.len() - 1
-                } else {
-                    0
-                });
-
-            navigate_and_select(current_index, deny_index)
-        }
-    }
 }
 
 /// Generate arrow keys to move the menu cursor from `from_index` to `to_index`.
@@ -314,12 +354,107 @@ mod tests {
         assert_eq!(input, expected);
     }
 
+    fn trust_state(selected_index: usize) -> AntigravityState {
+        AntigravityState::WorkspaceTrust {
+            directory: "/repo".into(),
+            question: "Do you trust the contents of this project?".into(),
+            options: vec!["Yes, I trust this folder".into(), "No, exit".into()],
+            selected_index,
+        }
+    }
+
     #[test]
     fn test_workspace_trust_approval() {
-        let state = AntigravityState::WorkspaceTrust {
-            directory: "/repo".into(),
+        assert_eq!(encode_decision(Decision::Approve, &trust_state(0)), keys::ENTER);
+        // Cursor already on "No, exit": approval must navigate up first.
+        let mut expected = keys::UP_ARROW.to_vec();
+        expected.extend_from_slice(keys::ENTER);
+        assert_eq!(encode_decision(Decision::Approve, &trust_state(1)), expected);
+    }
+
+    #[test]
+    fn test_workspace_trust_select_exact_option() {
+        let opts = vec!["Yes, I trust this folder".to_string(), "No, exit".to_string()];
+        let mut expected = keys::DOWN_ARROW.to_vec();
+        expected.extend_from_slice(keys::ENTER);
+        assert_eq!(
+            encode_menu_choice(&RequestResponse::SelectOption { option: "No, exit".into() }, &opts, 0).unwrap(),
+            expected
+        );
+        assert!(encode_menu_choice(&RequestResponse::SelectOption { option: "Rust".into() }, &opts, 0).is_err());
+        assert!(encode_menu_choice(&RequestResponse::TextInput { text: "yes".into() }, &opts, 0).is_err());
+    }
+
+    #[test]
+    fn test_awaiting_reply_decision_produces_no_keystrokes() {
+        let state = AntigravityState::AwaitingReply {
+            message: "Which programming language would you like me to use?".into(),
         };
-        let input = encode_decision(Decision::Approve, &state);
-        assert_eq!(input, keys::ENTER);
+        // Verify implicit Approve/Deny decisions never produce Enter/Esc for AwaitingReply
+        assert_eq!(encode_decision(Decision::Approve, &state), Vec::<u8>::new());
+        assert_eq!(encode_decision(Decision::Deny, &state), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn test_encode_response_for_state_awaiting_reply() {
+        let state = AntigravityState::AwaitingReply {
+            message: "Which programming language would you like me to use?".into(),
+        };
+
+        // 1. AwaitingReply + TextInput("Rust") -> Rust + Enter
+        let text_res = encode_response_for_state(
+            &state,
+            &RequestResponse::TextInput { text: "Rust".into() },
+        ).unwrap();
+        assert_eq!(text_res, QuestionInput::Submit(b"Rust\r".to_vec()));
+
+        // 2. AwaitingReply + SelectOption("Rust") -> Rust + Enter
+        let opt_rust = encode_response_for_state(
+            &state,
+            &RequestResponse::SelectOption { option: "Rust".into() },
+        ).unwrap();
+        assert_eq!(opt_rust, QuestionInput::Submit(b"Rust\r".to_vec()));
+
+        // 3. AwaitingReply + SelectOption("Python") -> Python + Enter
+        let opt_py = encode_response_for_state(
+            &state,
+            &RequestResponse::SelectOption { option: "Python".into() },
+        ).unwrap();
+        assert_eq!(opt_py, QuestionInput::Submit(b"Python\r".to_vec()));
+
+        // 4. AwaitingReply + invalid SelectOption -> InvalidResponse
+        for bad in ["", "   ", "Rust\x1b[A", "Rust\n", "Rust\r", "Rust\0"] {
+            assert_eq!(
+                encode_response_for_state(
+                    &state,
+                    &RequestResponse::SelectOption { option: bad.into() },
+                ),
+                Err(RespondError::InvalidResponse),
+                "option {bad:?} must be rejected"
+            );
+        }
+
+        // 5. AwaitingReply + unsupported response -> InvalidResponse
+        assert_eq!(
+            encode_response_for_state(&state, &RequestResponse::Approve),
+            Err(RespondError::InvalidResponse)
+        );
+        assert_eq!(
+            encode_response_for_state(&state, &RequestResponse::Deny),
+            Err(RespondError::InvalidResponse)
+        );
+        assert_eq!(
+            encode_response_for_state(
+                &state,
+                &RequestResponse::SelectMultiple {
+                    options: vec!["Rust".into(), "Python".into()]
+                }
+            ),
+            Err(RespondError::InvalidResponse)
+        );
+
+        // 6. Verify selected option is never converted into an implicit Approve/Deny decision
+        assert_ne!(opt_rust, QuestionInput::Submit(keys::ENTER.to_vec()));
+        assert_ne!(opt_py, QuestionInput::Submit(keys::ENTER.to_vec()));
     }
 }

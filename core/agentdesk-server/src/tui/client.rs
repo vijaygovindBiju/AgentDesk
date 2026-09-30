@@ -34,7 +34,11 @@ pub enum TuiEvent {
         device_id: String,
     },
     PairingFailed(String),
-    PromptReceived(String),
+    PromptReceived {
+        prompt: String,
+        workspace: Option<String>,
+        agent_id: Option<String>,
+    },
     AdapterRespond {
         event_id: EventId,
         decision: Decision,
@@ -61,7 +65,11 @@ impl TransportSink for TuiConnectionSink {
             Body::ScoreUpdate(s) => TuiEvent::ScoreUpdate(s.clone()),
             Body::StateUpdate(s) => TuiEvent::StateUpdate(s.clone()),
             Body::EventLogs(l) => TuiEvent::Logs(l.clone()),
-            Body::StartTask(t) => TuiEvent::PromptReceived(t.prompt.clone()),
+            Body::StartTask(t) => TuiEvent::PromptReceived {
+                prompt: t.prompt.clone(),
+                workspace: t.workspace.clone(),
+                agent_id: t.agent_id.clone(),
+            },
             Body::RespondRequest(r) => TuiEvent::AdapterRespond {
                 event_id: r.event_id,
                 decision: r.decision,

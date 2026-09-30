@@ -49,7 +49,7 @@ class _AppShellState extends State<AppShell> {
     return ListenableBuilder(
       listenable: widget.state,
       builder: (context, _) {
-        final requestCount = widget.state.entriesForTier(0).length;
+        final requestCount = widget.state.pendingRequestCount;
         final activeWorkingCount = widget.state.activeWorkingCount;
 
         final pages = [

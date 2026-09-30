@@ -20,31 +20,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late final TextEditingController _urlController;
-  late final TextEditingController _tokenController;
-  late final TextEditingController _deviceController;
-  late final TextEditingController _fingerprintController;
-
-  @override
-  void initState() {
-    super.initState();
-    _urlController = TextEditingController(text: widget.connection.url);
-    _tokenController = TextEditingController(text: widget.connection.token);
-    _deviceController = TextEditingController(text: widget.connection.deviceId);
-    _fingerprintController = TextEditingController(
-      text: widget.connection.fingerprint ?? '',
-    );
-  }
-
-  @override
-  void dispose() {
-    _urlController.dispose();
-    _tokenController.dispose();
-    _deviceController.dispose();
-    _fingerprintController.dispose();
-    super.dispose();
-  }
-
   Future<void> _openQrScanner() async {
     final paired = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -52,12 +27,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (paired == true && mounted) {
-      setState(() {
-        _urlController.text = widget.connection.url;
-        _tokenController.text = widget.connection.token;
-        _deviceController.text = widget.connection.deviceId;
-        _fingerprintController.text = widget.connection.fingerprint ?? '';
-      });
+      setState(() {});
     }
   }
 
@@ -89,11 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (confirmed == true && mounted) {
       await widget.connection.unpair();
-      setState(() {
-        _urlController.text = widget.connection.url;
-        _tokenController.text = '';
-        _fingerprintController.text = '';
-      });
+      setState(() {});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Phone unpaired successfully.')),
@@ -102,40 +68,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _saveAndConnect() async {
-    try {
-      await widget.connection.saveConfiguration(
-        url: _urlController.text,
-        token: _tokenController.text,
-        deviceId: _deviceController.text,
-        fingerprint: _fingerprintController.text,
-      );
-      if (!mounted) return;
-      widget.connection.connect();
-      final message = widget.connection.isConfigurationComplete
-          ? 'Configuration saved securely, connecting...'
-          : widget.connection.configurationError!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-      if (widget.connection.isConfigurationComplete) {
-        Navigator.of(context).pop();
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save secure connection configuration.'),
-        ),
-      );
-    }
-  }
-
   void _disconnect() {
     widget.connection.disconnect();
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Disconnected from daemon.')));
+    ).showSnackBar(const SnackBar(content: Text('Disconnected from relay.')));
     setState(() {});
   }
 
@@ -294,92 +231,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 16),
 
-          // Collapsible / Expandable Manual Configuration
-          ExpansionTile(
-            key: const Key('manual_config_expansion_tile'),
-            initiallyExpanded: true,
-            title: const Text('Manual / Developer Configuration'),
-            subtitle: const Text('IP address, custom token, and TLS fingerprint'),
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                child: Column(
-                  children: [
-                    TextField(
-                      key: const Key('url_field'),
-                      controller: _urlController,
-                      decoration: const InputDecoration(
-                        labelText: 'Server WebSocket URL',
-                        hintText: 'wss://192.168.1.10:8765',
-                        border: OutlineInputBorder(),
+          // Relay connection status (relay is the only transport)
+          Card(
+            key: const Key('relay_status_card'),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isConnected ? Icons.circle : Icons.circle_outlined,
+                        size: 14,
+                        color: isConnected ? Colors.green.shade600 : Theme.of(context).colorScheme.error,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const Key('token_field'),
-                      controller: _tokenController,
-                      obscureText: true,
-                      enableSuggestions: false,
-                      autocorrect: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Authentication Token',
-                        hintText: 'Stored in this device’s secure storage',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const Key('device_id_field'),
-                      controller: _deviceController,
-                      decoration: const InputDecoration(
-                        labelText: 'Device Identifier',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const Key('fingerprint_field'),
-                      controller: _fingerprintController,
-                      decoration: const InputDecoration(
-                        labelText: 'TLS SHA-256 Fingerprint',
-                        hintText: 'Required for wss://; optional only for loopback ws://',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (!widget.connection.isConfigurationComplete) ...[
+                      const SizedBox(width: 8),
                       Text(
-                        widget.connection.configurationError!,
-                        key: const Key('configuration_error'),
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        isConnected ? 'Relay Connected' : 'Relay Disconnected',
+                        key: const Key('relay_status_text'),
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 16),
                     ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            key: const Key('save_connect_button'),
-                            onPressed: _saveAndConnect,
-                            icon: const Icon(Icons.link),
-                            label: const Text('Save & Connect'),
-                          ),
-                        ),
-                        if (isConnected) ...[
-                          const SizedBox(width: 12),
-                          OutlinedButton.icon(
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Your phone and laptop each connect outbound to the AgentDesk relay over '
+                    'WSS. They do not need to share a Wi-Fi network: the laptop can be on '
+                    'hostel/college Wi-Fi while the phone is on mobile data.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  if (widget.connection.lastError != null &&
+                      !isConnected) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.connection.lastError!,
+                      key: const Key('configuration_error'),
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ],
+                  if (isPaired) ...[
+                    const SizedBox(height: 12),
+                    isConnected
+                        ? OutlinedButton.icon(
                             key: const Key('disconnect_button'),
                             onPressed: _disconnect,
                             icon: const Icon(Icons.link_off),
                             label: const Text('Disconnect'),
+                          )
+                        : FilledButton.icon(
+                            key: const Key('reconnect_button'),
+                            onPressed: () {
+                              widget.connection.connect();
+                              setState(() {});
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reconnect to Relay'),
                           ),
-                        ],
-                      ],
-                    ),
                   ],
-                ),
+                ],
               ),
-            ],
+            ),
           ),
 
           const SizedBox(height: 28),

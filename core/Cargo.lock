@@ -68,6 +68,7 @@ dependencies = [
  "chrono",
  "crossterm",
  "futures-util",
+ "libc",
  "qrcode",
  "rand 0.10.2",
  "ratatui",

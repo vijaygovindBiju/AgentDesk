@@ -24,6 +24,20 @@ use crate::status::StatusTracker;
 use crate::tls::TlsIdentity;
 use crate::token::{default_config_dir, validate_bind_security};
 
+const RELAY_BACKOFF_MIN: std::time::Duration = std::time::Duration::from_millis(250);
+const RELAY_BACKOFF_MAX: std::time::Duration = std::time::Duration::from_secs(30);
+const RELAY_STABLE_SESSION: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Apply +/-20% jitter so many laptops don't reconnect in lockstep after a relay restart.
+fn jittered(d: std::time::Duration) -> std::time::Duration {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|t| t.subsec_nanos())
+        .unwrap_or(0);
+    let factor = 0.8 + 0.4 * (nanos as f64 / 1_000_000_000.0);
+    d.mul_f64(factor)
+}
+
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
     pub bind_addr: String,
@@ -213,36 +227,46 @@ impl Server {
             let debug_log = self.config.debug_logging;
             let pipeline_mode = self.config.pipeline_mode;
 
+            // Per-instance host key (never the master token) authenticates this
+            // laptop's trunk to the relay; an optional relay operator token gates access.
+            let host_key = crate::token::load_or_generate_token(&self.config_dir.join("relay_host.key"))?;
+            let relay_operator_token = crate::config::load_service_config(
+                &crate::config::service_env_path(&self.config_dir),
+            )
+            .ok()
+            .and_then(|c| c.relay_token);
+
             tokio::spawn(async move {
-                let mut backoff = std::time::Duration::from_millis(50);
+                let mut backoff = RELAY_BACKOFF_MIN;
                 loop {
-                    let connect_url = if std::net::TcpStream::connect("127.0.0.1:8766").is_ok()
-                        && (relay_base.contains("trycloudflare.com")
-                            || crate::tunnel::load_active_tunnel(&config_dir_relay)
-                                .map_or(false, |s| s.relay_url == relay_base))
+                    let active_tunnel = crate::tunnel::load_active_tunnel(&config_dir_relay);
+                    let (connect_url, display_relay) = if std::net::TcpStream::connect("127.0.0.1:8766").is_ok()
+                        && (active_tunnel.is_some() || relay_base.contains("trycloudflare.com"))
                     {
-                        "ws://127.0.0.1:8766".to_string()
+                        let display = active_tunnel.map(|s| s.relay_url).unwrap_or_else(|| relay_base.clone());
+                        ("ws://127.0.0.1:8766".to_string(), display)
                     } else {
-                        relay_base.clone()
+                        (relay_base.clone(), relay_base.clone())
                     };
 
-                    let relay_target = format!(
-                        "{}/ws?role=host&inst={}&token={}",
+                    let mut relay_target = format!(
+                        "{}/ws?role=host&inst={}&host_key={}",
                         connect_url.trim_end_matches('/'),
                         urlencoding::encode(&instance_id),
-                        urlencoding::encode(&expected_token_relay)
+                        urlencoding::encode(&host_key)
                     );
+                    if let Some(ref t) = relay_operator_token {
+                        relay_target.push_str(&format!("&token={}", urlencoding::encode(t)));
+                    }
 
                     tokio::select! {
                         _ = shutdown_notify_relay.notified() => break,
                         connect_res = tokio_tungstenite::connect_async(&relay_target) => {
-                            let display_relay = crate::tunnel::load_active_tunnel(&config_dir_relay)
-                                .map(|s| s.relay_url)
-                                .unwrap_or_else(|| relay_base.clone());
                             match connect_res {
                                 Ok((ws_stream, _)) => {
                                     logging::info(format!("Connected outbound to relay {}", display_relay));
-                                    backoff = std::time::Duration::from_millis(50);
+                                    status_tracker_relay.set_relay_state(true, Some(display_relay.clone()));
+                                    let started = std::time::Instant::now();
                                     let client_id = next_client_id_relay.fetch_add(1, Ordering::SeqCst);
                                     let params = ConnectionParams {
                                         client_id,
@@ -265,18 +289,35 @@ impl Server {
                                         instance_id.clone(),
                                     )
                                     .await;
+                                    status_tracker_relay.set_relay_state(false, Some(display_relay.clone()));
                                     logging::info("Relay session ended, reconnecting...");
+                                    // A long-lived session resets backoff; a quickly dropped one keeps growing it.
+                                    backoff = if started.elapsed() > RELAY_STABLE_SESSION {
+                                        RELAY_BACKOFF_MIN
+                                    } else {
+                                        std::cmp::min(backoff * 2, RELAY_BACKOFF_MAX)
+                                    };
                                 }
                                 Err(e) => {
+                                    status_tracker_relay.set_relay_state(false, Some(display_relay.clone()));
                                     logging::info(format!("Relay connection failed to {}: {}", display_relay, e));
-                                    backoff = std::cmp::min(backoff * 2, std::time::Duration::from_secs(30));
-                                    tokio::select! {
-                                        _ = shutdown_notify_relay.notified() => break,
-                                        _ = tokio::time::sleep(backoff) => {}
+                                    backoff = std::cmp::min(backoff * 2, RELAY_BACKOFF_MAX);
+
+                                    if crate::tunnel::is_cloudflared_installed() && crate::tunnel::load_active_tunnel(&config_dir_relay).is_none() {
+                                        let cfg_dir = config_dir_relay.clone();
+                                        let r_base = relay_base.clone();
+                                        let _ = tokio::task::spawn_blocking(move || {
+                                            crate::tunnel::resolve_or_ensure_relay_url(&cfg_dir, Some(r_base))
+                                        }).await;
                                     }
                                 }
                             }
                         }
+                    }
+
+                    tokio::select! {
+                        _ = shutdown_notify_relay.notified() => break,
+                        _ = tokio::time::sleep(jittered(backoff)) => {}
                     }
                 }
             });

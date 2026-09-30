@@ -48,7 +48,7 @@ impl TuiApp {
             bridge,
             rx_events,
             config_dir,
-            state_machine: agentdesk_core::AntigravityStateMachine::new("antigravity"),
+            state_machine: agentdesk_core::AntigravityStateMachine::new("antigravity-tui"),
         }
     }
 
@@ -182,39 +182,83 @@ impl TuiApp {
             TuiEvent::PairingFailed(err) => {
                 self.state.pairing_error = Some(err);
             }
-            TuiEvent::PromptReceived(prompt) => {
-                if self.state.shell_session.is_none() {
-                    self.launch_selected_agent().await;
-                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+            TuiEvent::PromptReceived { prompt, workspace, agent_id: _ } => {
+                if self.state.is_attached_mode {
+                    // In attached mode, the background daemon service already runs the agent adapter
+                    // and processes this prompt. Do not spawn a second duplicate agent session in the TUI shell.
+                    return;
                 }
+                if let Some(ref ws) = workspace {
+                    let p = PathBuf::from(ws);
+                    if p.is_dir() {
+                        self.state.workspace_dir = p;
+                        let prefs = WorkspacePreferences {
+                            last_agent_id: self.state.active_agent.as_ref().map(|a| a.id.clone()),
+                            last_workspace: Some(self.state.workspace_dir.clone()),
+                        };
+                        let _ = save_preferences(&self.config_dir, &prefs);
+                    }
+                }
+
+                let need_spawn = match &self.state.shell_session {
+                    None => true,
+                    Some(s) => !s.is_alive(),
+                };
+
+                if need_spawn {
+                    if let Ok(mut session) = TerminalSession::spawn_shell(&self.state.workspace_dir, 120, 40) {
+                        let _ = session.pump_output();
+                        self.state.shell_session = Some(session);
+                    }
+                }
+
+                let exe = self.state.selected_agent().map(|a| a.executable.clone()).unwrap_or_else(|| "agy".into());
+
                 if let Some(ref mut session) = self.state.shell_session {
-                    let input = format!("{prompt}\r");
-                    let _ = session.send_input(input.as_bytes());
                     let _ = session.pump_output();
+                    let snapshot = session.screen.snapshot();
+                    let live = agentdesk_core::detect_state(&snapshot);
+
+                    if live.accepts_chat_input() {
+                        let payload = if prompt.contains('\n') {
+                            format!("\x1b[200~{prompt}\x1b[201~\r")
+                        } else {
+                            format!("{prompt}\r")
+                        };
+                        let _ = session.send_input(payload.as_bytes());
+                        let _ = session.pump_output();
+                    } else {
+                        let escaped = prompt.replace('\'', "'\\''");
+                        let cmd = if exe == "agy" || exe.ends_with("/agy") {
+                            format!("agy -i '{}'\r", escaped)
+                        } else {
+                            format!("{} '{}'\r", exe, escaped)
+                        };
+                        let _ = session.send_input(cmd.as_bytes());
+                        let _ = session.pump_output();
+                    }
                 }
+
                 self.inspect_shell_screen().await;
                 self.state.current_screen = Screen::Workspace;
                 self.state.workspace_overlay = WorkspaceOverlay::None;
+                self.state.agent_session_running = true;
             }
             TuiEvent::AdapterRespond { event_id, decision, response } => {
                 let outcome = if let Some(ref mut session) = self.state.shell_session {
                     let snapshot = session.screen.snapshot();
                     let live = agentdesk_core::detect_state(&snapshot);
                     let input_result = if let Some(ref resp) = response {
-                        match &live {
-                            agentdesk_core::AntigravityState::UserQuestion { details, .. } => {
-                                agentdesk_core::encode_question_response(resp, details)
-                            }
-                            _ => {
-                                let dec = match resp {
-                                    agentdesk_model::RequestResponse::Deny => agentdesk_model::Decision::Deny,
-                                    _ => agentdesk_model::Decision::Approve,
-                                };
-                                Ok(agentdesk_core::QuestionInput::Submit(agentdesk_core::encode_decision(dec, &live)))
-                            }
-                        }
+                        agentdesk_core::encode_response_for_state(&live, resp)
                     } else {
-                        Ok(agentdesk_core::QuestionInput::Submit(agentdesk_core::encode_decision(decision, &live)))
+                        match &live {
+                            agentdesk_core::AntigravityState::AwaitingReply { .. } => {
+                                Err(agentdesk_core::RespondError::InvalidResponse)
+                            }
+                            _ => Ok(agentdesk_core::QuestionInput::Submit(
+                                agentdesk_core::encode_decision(decision, &live),
+                            )),
+                        }
                     };
 
                     match input_result {

@@ -104,6 +104,74 @@ pub fn is_cloudflared_installed() -> bool {
         .unwrap_or(false)
 }
 
+pub fn is_tunnel_healthy(config_dir: &Path, state: &TunnelState) -> bool {
+    if let Some(t_pid) = state.tunnel_pid {
+        if !is_pid_alive(t_pid) {
+            return false;
+        }
+    } else {
+        return false;
+    }
+
+    if let Some(r_pid) = state.relay_pid {
+        if !is_pid_alive(r_pid) {
+            return false;
+        }
+    }
+
+    if std::net::TcpStream::connect("127.0.0.1:8766").is_err() {
+        return false;
+    }
+
+    // Inspect recent lines in tunnel.log for unrecoverable tunnel errors
+    let log_path = tunnel_log_path(config_dir);
+    if let Ok(content) = fs::read_to_string(&log_path) {
+        let recent = if content.len() > 4096 {
+            &content[content.len() - 4096..]
+        } else {
+            &content[..]
+        };
+        if recent.contains("Unauthorized: Tunnel not found")
+            || recent.contains("Tunnel has been deleted")
+        {
+            crate::logging::warn("Tunnel log indicates session is unauthorized or deleted by Cloudflare");
+            return false;
+        }
+    }
+
+    // Verify hostname resolves via DNS if using trycloudflare, after a grace period.
+    // Newly created tunnels (e.g. < 180 seconds old) may still be propagating through local DNS resolvers.
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let age = now.saturating_sub(state.created_at);
+
+    if age >= 180 {
+        if let Some(host) = extract_hostname(&state.relay_url) {
+            if host.ends_with(".trycloudflare.com") {
+                let mut resolved = false;
+                for _ in 0..5 {
+                    if check_dns_resolves(&host) {
+                        resolved = true;
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(500));
+                }
+                if !resolved {
+                    crate::logging::warn(format!(
+                        "Tunnel hostname '{}' (age: {}s) does not resolve via DNS; marking tunnel as stale.",
+                        host, age
+                    ));
+                    return false;
+                }
+            }
+        }
+    }
+
+    true
+}
+
 pub fn load_active_tunnel(config_dir: &Path) -> Option<TunnelState> {
     let path = tunnel_state_path(config_dir);
     if !path.exists() {
@@ -112,24 +180,7 @@ pub fn load_active_tunnel(config_dir: &Path) -> Option<TunnelState> {
     let data = fs::read_to_string(&path).ok()?;
     let state: TunnelState = serde_json::from_str(&data).ok()?;
 
-    if let Some(t_pid) = state.tunnel_pid {
-        if !is_pid_alive(t_pid) {
-            stop_tunnel(config_dir);
-            return None;
-        }
-    } else {
-        stop_tunnel(config_dir);
-        return None;
-    }
-
-    if let Some(r_pid) = state.relay_pid {
-        if !is_pid_alive(r_pid) {
-            stop_tunnel(config_dir);
-            return None;
-        }
-    }
-
-    if std::net::TcpStream::connect("127.0.0.1:8766").is_err() {
+    if !is_tunnel_healthy(config_dir, &state) {
         stop_tunnel(config_dir);
         return None;
     }
@@ -189,13 +240,24 @@ pub fn ensure_tunnel(
     let is_listening = std::net::TcpStream::connect(format!("127.0.0.1:{}", relay_port)).is_ok();
     let relay_pid = if !is_listening {
         crate::logging::info(format!("Starting local relay server on port {}...", relay_port));
-        let mut relay_child = Command::new("agentdesk-relay")
+        let mut relay_cmd = Command::new("agentdesk-relay");
+        relay_cmd
+            .arg("--bind")
+            .arg("127.0.0.1")
             .arg("--port")
             .arg(relay_port.to_string())
             .arg("--insecure-dev")
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()?;
+            .stderr(Stdio::null());
+        #[cfg(target_os = "linux")]
+        unsafe {
+            use std::os::unix::process::CommandExt;
+            relay_cmd.pre_exec(|| {
+                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                Ok(())
+            });
+        }
+        let mut relay_child = relay_cmd.spawn()?;
         let pid = relay_child.id();
         // Spawn reaper thread so terminated relay child does not become a zombie
         std::thread::spawn(move || {
@@ -231,6 +293,13 @@ pub fn ensure_tunnel(
     {
         use std::os::unix::process::CommandExt;
         cmd.process_group(0);
+        #[cfg(target_os = "linux")]
+        unsafe {
+            cmd.pre_exec(|| {
+                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                Ok(())
+            });
+        }
     }
 
     let mut tunnel_child = cmd.spawn()?;
@@ -344,6 +413,17 @@ pub fn resolve_or_ensure_relay_url(
     config_dir: &Path,
     requested_relay: Option<String>,
 ) -> String {
+    // Never use a relay that points at a LAN/private or plaintext public endpoint.
+    let requested_relay = requested_relay.filter(|candidate| {
+        match crate::config::validate_relay_url(candidate) {
+            Ok(()) => true,
+            Err(e) => {
+                crate::logging::warn(format!("Ignoring invalid relay URL '{}': {}", candidate, e));
+                false
+            }
+        }
+    });
+
     // 1. Explicit custom VPS relay
     if let Some(ref candidate) = requested_relay {
         let trimmed = candidate.trim();
@@ -441,5 +521,43 @@ mod tests {
         // If cloudflared is installed on the build machine, it may return a tunnel URL or fallback
         // But it MUST NOT return the stale trycloudflare URL!
         assert_ne!(resolved, stale);
+    }
+
+    #[test]
+    fn test_is_tunnel_healthy_dead_pid() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let state = TunnelState {
+            relay_pid: None,
+            tunnel_pid: Some(99999999),
+            relay_url: "wss://some-tunnel.trycloudflare.com".to_string(),
+            created_at: 100,
+        };
+        assert!(!is_tunnel_healthy(temp_dir.path(), &state));
+    }
+
+    #[test]
+    fn test_is_tunnel_healthy_unauthorized_log() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let log_file = tunnel_log_path(temp_dir.path());
+        let _ = fs::write(&log_file, "ERR Register tunnel error from server side error=\"Unauthorized: Tunnel not found\"\n");
+        let state = TunnelState {
+            relay_pid: None,
+            tunnel_pid: Some(std::process::id()),
+            relay_url: "wss://some-tunnel.trycloudflare.com".to_string(),
+            created_at: 100,
+        };
+        assert!(!is_tunnel_healthy(temp_dir.path(), &state));
+    }
+
+    #[test]
+    fn test_is_tunnel_healthy_unresolvable_dns() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let state = TunnelState {
+            relay_pid: None,
+            tunnel_pid: Some(std::process::id()),
+            relay_url: "wss://this-subdomain-definitely-does-not-exist-123456789.trycloudflare.com".to_string(),
+            created_at: 100,
+        };
+        assert!(!is_tunnel_healthy(temp_dir.path(), &state));
     }
 }

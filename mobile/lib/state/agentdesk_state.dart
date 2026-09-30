@@ -16,7 +16,11 @@ class AgentDeskState extends ChangeNotifier {
 
   int get activeWorkingCount {
     return _queue.values
-        .where((e) => e.tier == 3 && _shouldDisplay(e) && !isFinished(e.eventId))
+        .where((e) =>
+            e.tier == 3 &&
+            _events[e.eventId]?.request == null &&
+            _shouldDisplay(e) &&
+            !isFinished(e.eventId))
         .length;
   }
 
@@ -24,6 +28,28 @@ class AgentDeskState extends ChangeNotifier {
     return _queue.values
         .where((e) => e.tier == 3 && isFinished(e.eventId))
         .length;
+  }
+
+  int get pendingRequestCount {
+    return _queue.values
+        .where((e) =>
+            (e.tier == 0 || _events[e.eventId]?.request != null) &&
+            _shouldDisplay(e) &&
+            (e.resolution == Resolution.unresolved ||
+                e.resolution == Resolution.pendingDelivery))
+        .length;
+  }
+
+  List<QueueEntry> get pendingRequests {
+    final list = _queue.values
+        .where((e) =>
+            (e.tier == 0 || _events[e.eventId]?.request != null) &&
+            _shouldDisplay(e) &&
+            (e.resolution == Resolution.unresolved ||
+                e.resolution == Resolution.pendingDelivery))
+        .toList();
+    list.sort();
+    return list;
   }
 
   void dismissAllFinishedWorking() {
@@ -49,8 +75,9 @@ class AgentDeskState extends ChangeNotifier {
   bool _shouldDisplay(QueueEntry entry) {
     if (entry.isLive) return true;
     
+    final isReq = entry.tier == 0 || _events[entry.eventId]?.request != null;
     // Dismissed requests that are still unresolved or pending delivery remain visible in Requests tier.
-    if (entry.tier == 0 &&
+    if (isReq &&
         entry.state == EntryState.dismissed &&
         (entry.resolution == Resolution.unresolved ||
             entry.resolution == Resolution.pendingDelivery) &&
@@ -60,7 +87,7 @@ class AgentDeskState extends ChangeNotifier {
 
     // Hide working entries (tier==3) that are both finished AND dismissed.
     // This implies that dismissed working entries that are NOT finished should remain visible.
-    if (entry.tier == 3 && entry.state == EntryState.dismissed && !entry.superseded) {
+    if (entry.tier == 3 && _events[entry.eventId]?.request == null && entry.state == EntryState.dismissed && !entry.superseded) {
       return !isFinished(entry.eventId);
     }
     
@@ -69,7 +96,16 @@ class AgentDeskState extends ChangeNotifier {
 
   List<QueueEntry> entriesForTier(int tier) {
     final list = _queue.values
-        .where((e) => e.tier == tier && _shouldDisplay(e))
+        .where((e) {
+          final isReq = e.tier == 0 || _events[e.eventId]?.request != null;
+          if (tier == 0) {
+            return isReq && _shouldDisplay(e);
+          }
+          if (isReq) {
+            return false;
+          }
+          return e.tier == tier && _shouldDisplay(e);
+        })
         .toList();
     list.sort();
     return list;

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -180,13 +179,12 @@ class _QRScanScreenState extends State<QRScanScreen> {
               setState(() => _torchEnabled = !_torchEnabled);
             },
           ),
-          if (kDebugMode)
-            IconButton(
-              key: const Key('simulate_qr_button'),
-              icon: const Icon(Icons.paste),
-              tooltip: 'Simulate QR Scan',
-              onPressed: _showManualSimulationDialog,
-            ),
+          IconButton(
+            key: const Key('simulate_qr_button'),
+            icon: const Icon(Icons.paste),
+            tooltip: 'Paste Pairing URI',
+            onPressed: _showManualSimulationDialog,
+          ),
         ],
       ),
       body: Stack(

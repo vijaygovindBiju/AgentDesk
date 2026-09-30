@@ -82,7 +82,7 @@ void main() {
 
     test('client with pinned fingerprint connects over wss://', () async {
       final state = AgentDeskState();
-      final conn = ConnectionService(state: state);
+      final conn = ConnectionService(state: state, allowLoopbackTestServer: true);
       conn.configure(
         url: 'wss://127.0.0.1:$securePort',
         token: 'test-token',
@@ -105,7 +105,7 @@ void main() {
 
     test('client with mismatched fingerprint fails handshake', () async {
       final state = AgentDeskState();
-      final conn = ConnectionService(state: state);
+      final conn = ConnectionService(state: state, allowLoopbackTestServer: true);
       // Pass wrong fingerprint
       final wrongFingerprint = '00' * 32;
       conn.configure(
@@ -133,7 +133,7 @@ void main() {
 
     test('wss without fingerprint is rejected immediately', () async {
       final state = AgentDeskState();
-      final conn = ConnectionService(state: state);
+      final conn = ConnectionService(state: state, allowLoopbackTestServer: true);
       conn.configure(
         url: 'wss://127.0.0.1:$securePort',
         token: 'test-token',

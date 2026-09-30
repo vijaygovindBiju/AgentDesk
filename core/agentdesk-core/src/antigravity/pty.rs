@@ -102,6 +102,11 @@ pub struct PtySession {
     alive: Arc<AtomicBool>,
     start_time: Instant,
     recording: PtyRecording,
+    /// Opt-in local capture (`AGENTDESK_PTY_CAPTURE=<file>`): the recording is periodically
+    /// written in replay-fixture format for diagnosing real agy terminal states. Never sent
+    /// over the network.
+    capture_path: Option<PathBuf>,
+    last_capture: Instant,
 }
 
 impl PtySession {
@@ -160,6 +165,8 @@ impl PtySession {
             cmd.pre_exec(move || {
                 libc::setsid();
                 libc::ioctl(0, libc::TIOCSCTTY, 0);
+                #[cfg(target_os = "linux")]
+                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
                 Ok(())
             });
         }
@@ -223,7 +230,24 @@ impl PtySession {
             alive,
             start_time,
             recording,
+            capture_path: std::env::var_os("AGENTDESK_PTY_CAPTURE").map(PathBuf::from),
+            last_capture: Instant::now(),
         })
+    }
+
+    fn maybe_write_capture(&mut self) {
+        let Some(path) = self.capture_path.clone() else { return };
+        if self.last_capture.elapsed() < Duration::from_millis(500) {
+            return;
+        }
+        self.last_capture = Instant::now();
+        if self.recording.save_to_file(&path).is_ok() {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+            }
+        }
     }
 
     /// Read any new chunks received from the PTY master without blocking.
@@ -233,7 +257,10 @@ impl PtySession {
                 self.recording.chunks.push(chunk.clone());
                 Ok(Some(chunk))
             }
-            Err(TryRecvError::Empty) => Ok(None),
+            Err(TryRecvError::Empty) => {
+                self.maybe_write_capture();
+                Ok(None)
+            }
             Err(TryRecvError::Disconnected) => {
                 self.alive.store(false, Ordering::SeqCst);
                 Ok(None)

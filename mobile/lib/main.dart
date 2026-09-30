@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'services/client_metrics.dart';
 import 'services/connection_service.dart';
 import 'services/onboarding_store.dart';
@@ -9,6 +10,10 @@ import 'ui/onboarding_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   final state = AgentDeskState();
   final connection = ConnectionService(state: state);
   final metrics = ClientMetrics();

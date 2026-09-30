@@ -45,6 +45,10 @@ pub struct ScreenSnapshot {
     pub cursor_visible: bool,
     pub lines: Vec<String>,
     pub reversed_lines: Vec<(u16, String)>,
+    /// Foreground colour of the first non-blank cell of each row (`None` = default colour).
+    /// Lets the detector tell Antigravity's transcript roles apart (user prompt, thoughts,
+    /// agent reply) from the rendered styling rather than from text heuristics.
+    pub line_fg: Vec<Option<u8>>,
 }
 
 /// 2D VT100/ANSI screen emulator.
@@ -716,6 +720,11 @@ impl Screen {
             cursor_visible: self.cursor_visible,
             lines: self.all_lines(),
             reversed_lines: self.reversed_lines(),
+            line_fg: self
+                .grid()
+                .iter()
+                .map(|row| row.iter().find(|c| c.ch != ' ').and_then(|c| c.attrs.fg))
+                .collect(),
         }
     }
 }

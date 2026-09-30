@@ -28,8 +28,8 @@ pub use antigravity::{
     AntigravityStateMachine, MockPtyTransport, PendingRequest, PtyChunk, PtyRecording, PtySession,
     PtyTransport, QuestionDetails, QuestionDialog, QuestionForm, QuestionInput, RequestOutcome,
     Screen, ScreenSnapshot, classify_command_operation, detect_state, encode_decision,
-    encode_question_response, encode_text_submission, extract_question_dialog, keys,
-    validate_text_input,
+    encode_question_response, encode_response_for_state, encode_text_submission,
+    extract_question_dialog, keys, validate_text_input,
 };
 pub use classifier::{Classification, Matched, RULES, Rule, classify};
 pub use clock::{Clock, SystemClock, VirtualClock};

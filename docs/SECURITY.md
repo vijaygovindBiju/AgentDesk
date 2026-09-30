@@ -8,16 +8,26 @@ The laptop accepts `respond_request { approve }`. An open endpoint on shared Wi-
 
 In scope:
 
-- Passive attacker on the same LAN reading traffic (event content, logs, token).
-- Active attacker on the same LAN connecting to the daemon and issuing commands.
+- Passive attacker on any network path (hostel/college Wi-Fi, mobile carrier, Internet) reading traffic.
+- Active attacker trying to connect to the laptop daemon and issue commands.
 - Active attacker impersonating the daemon to the phone (rogue AP / ARP spoofing).
+- Attacker who learns an instance id and tries to register as that laptop on the relay (hijack).
+- Relay operator: must not obtain the laptop master token, raw PTY streams or shell stdin/stdout.
 
 Out of scope for the MVP:
 
 - Compromised laptop or phone.
 - Attacker with physical access to the laptop screen while the token is displayed.
 - Denial of service.
-- Internet exposure (the daemon is LAN-only; no port forwarding, no NAT traversal).
+- Relay-level denial of service.
+
+## Connectivity model (relay-only)
+
+- The laptop daemon listens on `127.0.0.1` only (local TUI). Non-loopback binds are rejected; there is no LAN, USB/ADB or direct phone-to-laptop transport, no port forwarding and no inbound firewall rule.
+- Laptop and phone each open an **outbound** WSS connection to the configured public relay (`agentdesk relay set wss://...`). They may be on completely different networks.
+- The laptop authenticates its relay trunk with a per-instance host key (`relay_host.key`, `0600`), never the master token. The relay binds each instance to the first host key it sees and rejects other hosts (`4003`); a reconnecting laptop with the same key supersedes its stale trunk. An optional relay operator token (`AGENTDESK_RELAY_TOKEN` / `agentdesk-relay --token`) gates who may register hosts.
+- Relay URLs must be public `wss://`; private/LAN hosts and plaintext `ws://` are rejected on both laptop and phone (loopback `ws://` is a development-only configuration).
+- Only structured AgentDesk protocol messages cross the relay. See `docs/REMOTE_E2E_TEST.md`.
 
 ## MVP mechanisms
 
@@ -36,7 +46,7 @@ This provides confidentiality and integrity on the wire and prevents daemon impe
 - The phone sends it in the first frame (`hello`), never in the URL, so it does not appear in access logs or proxies.
 - The phone persists it only through OS-backed secure storage (Android Keystore-backed storage on Android and the platform equivalent elsewhere). It is never written to ordinary preferences, plaintext app files, logs, or debug output.
 - Mismatch → immediate close (`4001`). Compared in constant time.
-- The daemon refuses to bind to a non-loopback address unless a token is configured (fail closed).
+- The daemon refuses to bind to any non-loopback address (fail closed); phones reach it only via the relay.
 
 ### 3. Authorization
 

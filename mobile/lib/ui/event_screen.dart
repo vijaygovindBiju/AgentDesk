@@ -143,6 +143,18 @@ class _EventScreenState extends State<EventScreen> {
         .where((option) => option != _writeInOption)
         .toList(growable: false);
 
+    final isApprovalOptions =
+        request.options.length == 2 &&
+        request.options
+            .map((option) => option.toLowerCase())
+            .toSet()
+            .containsAll({'approve', 'deny'});
+    final questionType =
+        request.questionType ??
+        (request.options.isNotEmpty && !isApprovalOptions
+            ? QuestionType.singleChoice
+            : null);
+
     // A write-in is represented by text_input. The server and core preserve
     // the existing structured protocol and route it as a TextInput response.
     if (_selectedOptions.contains(writeInOption) && customText.trim().isEmpty) {
@@ -150,11 +162,25 @@ class _EventScreenState extends State<EventScreen> {
       return;
     }
 
-    if (customText.isNotEmpty) {
+    if (questionType == QuestionType.freeText && customText.trim().isEmpty) {
+      setState(() => _inlineError = 'Please enter a response.');
+      return;
+    }
+
+    if ((questionType == QuestionType.singleChoice ||
+            questionType == QuestionType.multipleChoice ||
+            questionType == QuestionType.yesNo) &&
+        _selectedOptions.isEmpty &&
+        customText.trim().isEmpty) {
+      setState(() => _inlineError = 'Please select an option.');
+      return;
+    }
+
+    if (customText.trim().isNotEmpty) {
       await _respondWithInput(
         Decision.approve,
         selectedOptions: selected.isEmpty ? null : selected,
-        textInput: customText,
+        textInput: customText.trim(),
       );
       return;
     }
@@ -220,16 +246,24 @@ class _EventScreenState extends State<EventScreen> {
         }
 
         final color = _categoryColor(event.category);
-        final isRequest = event.category == Category.request;
+        final isRequest = event.category == Category.request || event.request != null;
         final resolution = entry?.resolution;
         final isPendingDelivery = resolution == Resolution.pendingDelivery;
         final isResolved = resolution != null &&
             resolution != Resolution.unresolved &&
             !isPendingDelivery;
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final requestCardColor = isDark ? const Color(0xFF2A2113) : Colors.amber.shade50;
+        final requestBorderColor = isDark ? Colors.amber.shade700.withValues(alpha: 0.4) : Colors.amber.shade200;
+        final requestHeaderColor = isDark ? Colors.amber.shade300 : Colors.amber.shade900;
+        final requestPromptColor = isDark ? Colors.amber.shade50 : Colors.brown.shade900;
+
+        final displayCategory = isRequest ? 'REQUEST' : event.category.wireName.toUpperCase();
+
         return Scaffold(
           appBar: AppBar(
-            title: Text('${event.category.wireName.toUpperCase()} — Details'),
+            title: Text('$displayCategory — Details'),
             actions: [
               IconButton(
                 key: const Key('view_logs_appbar_button'),
@@ -239,10 +273,19 @@ class _EventScreenState extends State<EventScreen> {
               ),
             ],
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (_isLoading) const LinearProgressIndicator(),
+          body: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            behavior: HitTestBehavior.opaque,
+            child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(context).viewInsets.bottom > 0 ? 120 : 32,
+              ),
+              children: [
+                if (_isLoading) const LinearProgressIndicator(),
 
               if (_inlineError != null)
                 Container(
@@ -341,7 +384,11 @@ class _EventScreenState extends State<EventScreen> {
               if (isRequest)
                 Card(
                   key: const Key('request_action_card'),
-                  color: Colors.amber.shade50,
+                  color: requestCardColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: requestBorderColor),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -351,7 +398,7 @@ class _EventScreenState extends State<EventScreen> {
                           children: [
                             Icon(
                               Icons.help_outline,
-                              color: Colors.amber.shade900,
+                              color: requestHeaderColor,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -360,14 +407,21 @@ class _EventScreenState extends State<EventScreen> {
                                   : 'Input Required',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.amber.shade900,
+                                color: requestHeaderColor,
                               ),
                             ),
                             const Spacer(),
                             if (entry?.resolution != null)
                               Chip(
-                                label: Text(entry!.resolution!.wireName),
-                                backgroundColor: Colors.white,
+                                label: Text(
+                                  entry!.resolution!.wireName,
+                                  style: TextStyle(
+                                    color: isDark ? Colors.amber.shade100 : Colors.brown.shade900,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                backgroundColor: isDark ? const Color(0xFF423420) : Colors.white,
                               ),
                           ],
                         ),
@@ -375,34 +429,44 @@ class _EventScreenState extends State<EventScreen> {
                           const SizedBox(height: 8),
                           Text(
                             event.request!.prompt,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: requestPromptColor,
+                            ),
                           ),
                         ],
                         const SizedBox(height: 16),
                         if (isPendingDelivery)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
                             child: Row(
                               children: [
-                                SizedBox(
+                                const SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 ),
-                                SizedBox(width: 10),
+                                const SizedBox(width: 10),
                                 Text(
                                   'Delivering response to agent...',
-                                  style: TextStyle(fontStyle: FontStyle.italic),
+                                  style: TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                                  ),
                                 ),
                               ],
                             ),
                           )
                         else if (!isResolved && event.request != null)
-                          _buildRequestControls(event)
+                          _buildRequestControls(event, isDark: isDark)
                         else
                           Text(
                             'Request already resolved: ${resolution?.wireName ?? "resolved"}',
-                            style: const TextStyle(fontStyle: FontStyle.italic),
+                            style: TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                            ),
                           ),
                       ],
                     ),
@@ -493,12 +557,13 @@ class _EventScreenState extends State<EventScreen> {
               ),
             ],
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 
-  Widget _buildRequestControls(Event event) {
+  Widget _buildRequestControls(Event event, {required bool isDark}) {
     final request = event.request!;
     final isApprovalOptions =
         request.options.length == 2 &&
@@ -577,6 +642,9 @@ class _EventScreenState extends State<EventScreen> {
                       option == _writeInOption
                           ? 'Other / Write your own'
                           : option,
+                      style: TextStyle(
+                        color: isDark ? Colors.grey.shade100 : Colors.black87,
+                      ),
                     ),
                     value: option,
                   ),
@@ -596,6 +664,9 @@ class _EventScreenState extends State<EventScreen> {
             key: Key('question_option_$option'),
             title: Text(
               option == _writeInOption ? 'Other / Write your own' : option,
+              style: TextStyle(
+                color: isDark ? Colors.grey.shade100 : Colors.black87,
+              ),
             ),
             value: _selectedOptions.contains(option),
             onChanged: _isLoading
@@ -622,9 +693,14 @@ class _EventScreenState extends State<EventScreen> {
           controller: _textController,
           enabled: !_isLoading,
           maxLines: 4,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+          ),
           decoration: InputDecoration(
             labelText: 'Your response',
             hintText: allowsWriteIn ? 'Or enter a custom response' : null,
+            filled: true,
+            fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             border: const OutlineInputBorder(),
           ),
         ),
@@ -647,7 +723,11 @@ class _EventScreenState extends State<EventScreen> {
           Expanded(
             child: OutlinedButton.icon(
               key: const Key('deny_question_button'),
-              onPressed: _isLoading ? null : () => _respond(Decision.deny),
+              onPressed: _isLoading
+                  ? null
+                  : (questionType == QuestionType.freeText
+                      ? () => Navigator.of(context).pop()
+                      : () => _respond(Decision.deny)),
               icon: const Icon(Icons.close),
               label: const Text('Cancel'),
             ),

@@ -40,7 +40,7 @@ pub fn render_connection(f: &mut Frame, area: Rect, state: &TuiState) {
     let relay_str = state
         .relay_url
         .as_deref()
-        .unwrap_or(crate::config::DEFAULT_RELAY_URL);
+        .unwrap_or("not configured (agentdesk relay set wss://relay.example.com)");
 
     let fp_str = state
         .fingerprint
@@ -53,7 +53,11 @@ pub fn render_connection(f: &mut Frame, area: Rect, state: &TuiState) {
         "Never in this session".to_string()
     };
 
+    let mut relay_line = vec![Span::styled("Relay Trunk:       ", Style::default().fg(Color::DarkGray))];
+    relay_line.extend(crate::tui::views::header::relay_status_spans(state));
+
     let lines = vec![
+        Line::from(relay_line),
         phone_status_line,
         Line::raw(""),
         Line::from(vec![

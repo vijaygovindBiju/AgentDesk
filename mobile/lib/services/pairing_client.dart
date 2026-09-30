@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/io.dart';
 import '../models/message.dart';
+import 'relay_url.dart';
 
 /// The QR payload structure carried in the terminal QR code.
 /// Format: `agentdesk://pair?v=1&inst=...&sess=...&sec=...&fp=...&relay=...`
@@ -78,10 +79,13 @@ class PairingPayload {
       throw const FormatException('Missing fingerprint in pairing URI');
     }
 
+    // Relay-only: the QR must carry the relay endpoint. Legacy `lan=` values
+    // are ignored; the phone never connects to a laptop LAN address.
     final relay = params['relay']?.trim();
-    final resolvedRelay = (relay != null && relay.isNotEmpty)
-        ? relay
-        : 'wss://relay.agentdesk.io';
+    if (relay == null || relay.isEmpty) {
+      throw const FormatException('Pairing QR code has no relay endpoint');
+    }
+    final resolvedRelay = relay;
 
     return PairingPayload(
       version: version,
@@ -143,13 +147,17 @@ class PairingClient {
         'No relay URL provided in pairing QR code',
       );
     }
+    final relayProblem = validateRelayUrl(relay, allowLoopback: kDebugMode);
+    if (relayProblem != null) {
+      return PairingResult.failure(relayProblem);
+    }
 
     final cleanRelay = relay.replaceAll(RegExp(r'/+$'), '');
     final relayUri = Uri.parse(
       '$cleanRelay/ws?role=pair&inst=${Uri.encodeComponent(payload.instanceId)}&sess=${Uri.encodeComponent(payload.sessionId)}&sec=${Uri.encodeComponent(payload.pairingSecret)}',
     );
     try {
-      debugPrint('Attempting remote pairing via relay: $relayUri...');
+      debugPrint('Attempting remote pairing via relay: ${relayUri.host}...');
       final ws = await WebSocket.connect(relayUri.toString()).timeout(timeout);
       return await _performPairingExchange(
         ws: ws,

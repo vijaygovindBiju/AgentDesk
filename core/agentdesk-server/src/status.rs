@@ -22,6 +22,11 @@ pub struct RuntimeStatus {
     pub phone_device_name: Option<String>,
     pub phone_last_seen: Option<DateTime<Utc>>,
     pub active_clients: usize,
+    /// Whether the outbound WSS trunk to the relay is currently established.
+    #[serde(default)]
+    pub relay_connected: bool,
+    #[serde(default)]
+    pub relay_url: Option<String>,
     pub updated_at: DateTime<Utc>,
 }
 
@@ -36,6 +41,8 @@ impl Default for RuntimeStatus {
             phone_device_name: None,
             phone_last_seen: None,
             active_clients: 0,
+            relay_connected: false,
+            relay_url: None,
             updated_at: Utc::now(),
         }
     }
@@ -92,6 +99,8 @@ impl StatusTracker {
             phone_device_name: None,
             phone_last_seen: None,
             active_clients: 0,
+            relay_connected: false,
+            relay_url: None,
             updated_at: Utc::now(),
         };
         let _ = save_runtime_status(&config_dir, &status);
@@ -100,6 +109,16 @@ impl StatusTracker {
             status: Mutex::new(status),
             clients: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Record the state of the outbound relay trunk.
+    pub fn set_relay_state(&self, connected: bool, relay_url: Option<String>) {
+        {
+            let mut status = self.status.lock().unwrap();
+            status.relay_connected = connected;
+            status.relay_url = relay_url;
+        }
+        self.recompute_and_save();
     }
 
     pub fn register_client(

@@ -1,3 +1,5 @@
+> **Note:** Historical report. The authoritative, reproducible different-networks procedure is [`REMOTE_E2E_TEST.md`](REMOTE_E2E_TEST.md). There is no `--no-lan` flag and no LAN fallback: relay is the only transport.
+
 # AgentDesk Remote-First E2E Test and Verification Report
 
 This report documents the verification of AgentDesk's remote-first, LAN-independent architecture, covering protocol transport, relay security, ephemeral QR pairing, Antigravity (`agy`) adapter execution, resource profiling, and the verification hierarchy status.
@@ -35,12 +37,11 @@ The following key components were updated:
    - Reconnection after mobile client drop restores state without requiring QR re-scan.
 
 3. **`core/agentdesk-server/src/config.rs`, `interactive.rs`, & `main.rs`**:
-   - Added `--no-lan` flag to `agentdesk pair` CLI command.
-   - When `--no-lan` is provided, `lan_address` is omitted from the QR payload URI (`agentdesk://pair?v=1&inst=...&sess=...&sec=...&fp=...&relay=...`).
+   - Removed LAN endpoints from the QR payload entirely (`agentdesk://pair?v=1&inst=...&sess=...&sec=...&fp=...&relay=...`); `--bind`/`--lan`/`--no-lan`/`--usb` are rejected.
 
 4. **`mobile/lib/services/connection_service.dart` & `pairing_client.dart`**:
-   - Reordered connection preference: Primary connection targets Relay (`TransportMode.relay`). If relay fails, falls back to direct LAN.
-   - Pinned certificate fingerprints are only enforced for direct LAN self-signed connections; relay connections over WSS rely on standard public root CAs.
+   - Relay (`TransportMode.relay`) is the only transport; there is no LAN fallback. Unpaired/manual direct URLs are not connectable in the app.
+   - Relay connections over WSS rely on standard public root CAs (pinned fingerprint used only as a fallback for self-signed relays).
    - Pairing client connects directly to relay pairing endpoint (`/ws?role=pair`) when scanning remote QR.
 
 5. **`mobile/test/dual_mode_connection_test.dart` & `core/agentdesk-server/tests/relay_integration_tests.rs`**:

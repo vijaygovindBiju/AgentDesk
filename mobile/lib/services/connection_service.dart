@@ -10,6 +10,7 @@ import '../models/models.dart';
 import '../state/agentdesk_state.dart';
 import 'connection_configuration_store.dart';
 import 'fingerprint.dart';
+import 'relay_url.dart';
 import 'secure_token_store.dart';
 
 enum ConnectionStatus {
@@ -23,9 +24,20 @@ enum ConnectionStatus {
 }
 
 class ConnectionService extends ChangeNotifier {
-  static const defaultSecureUrl = 'wss://127.0.0.1:8765';
+  /// Connect timeout sized for high-latency mobile (4G/5G) networks.
+  static const relayConnectTimeout = Duration(seconds: 15);
+
+  /// Keepalive so a dead socket (Wi-Fi <-> mobile handover, NAT rebinding)
+  /// is detected and the reconnect loop kicks in.
+  static const relayPingInterval = Duration(seconds: 20);
 
   final AgentDeskState state;
+
+  /// Test-harness only: permits connecting directly to a loopback AgentDesk
+  /// daemon without a relay. Never enabled by the app; production traffic is
+  /// relay-only (no LAN, no USB/adb reverse, no direct laptop sockets).
+  final bool allowLoopbackTestServer;
+
   final ConnectionConfigurationStore _configurationStore;
   final SecureTokenStore _tokenStore;
   final Random _random = Random();
@@ -40,7 +52,7 @@ class ConnectionService extends ChangeNotifier {
   String? _lastError;
   String? get lastError => _lastError;
 
-  String _url = defaultSecureUrl;
+  String _url = '';
   String _token = '';
   String _deviceId = 'flutter-client-1';
   String? _fingerprint;
@@ -72,6 +84,7 @@ class ConnectionService extends ChangeNotifier {
     required this.state,
     ConnectionConfigurationStore? configurationStore,
     SecureTokenStore? tokenStore,
+    this.allowLoopbackTestServer = false,
   }) : _configurationStore =
            configurationStore ??
            SharedPreferencesConnectionConfigurationStore(),
@@ -98,7 +111,7 @@ class ConnectionService extends ChangeNotifier {
     try {
       final stored = await _configurationStore.load();
       final token = await _tokenStore.readToken();
-      _url = stored.url?.trim() ?? defaultSecureUrl;
+      _url = stored.url?.trim() ?? '';
       _deviceId = stored.deviceId?.trim().isEmpty ?? true
           ? 'flutter-client-1'
           : stored.deviceId!.trim();
@@ -268,7 +281,11 @@ class ConnectionService extends ChangeNotifier {
       if (_relayUrl == null || _relayUrl!.trim().isEmpty) {
         return 'Paired device has no relay URL.';
       }
-      return null;
+      return validateRelayUrl(_relayUrl!, allowLoopback: allowLoopbackRelay);
+    }
+
+    if (!allowLoopbackTestServer) {
+      return 'Not paired. Scan the pairing QR code shown by agentdesk on your laptop.';
     }
 
     final url = _url.trim();
@@ -280,8 +297,9 @@ class ConnectionService extends ChangeNotifier {
     if (uri.scheme != 'wss' && uri.scheme != 'ws') {
       return 'Server URL must use wss://, or loopback ws:// for insecure development.';
     }
-    if (uri.scheme == 'ws' && !_isLoopbackHost(uri.host)) {
-      return 'Plain ws:// is allowed only for loopback insecure-development servers.';
+    if (!isLoopbackHost(uri.host)) {
+      return 'Direct connections are allowed only for loopback test servers; '
+          'AgentDesk connects to laptops through the relay.';
     }
     if (uri.scheme == 'wss' &&
         (_fingerprint == null || _fingerprint!.isEmpty)) {
@@ -290,8 +308,8 @@ class ConnectionService extends ChangeNotifier {
     return null;
   }
 
-  static bool _isLoopbackHost(String host) =>
-      host == '127.0.0.1' || host == '::1' || host.toLowerCase() == 'localhost';
+  /// Loopback relays are a development-only configuration.
+  bool get allowLoopbackRelay => allowLoopbackTestServer || kDebugMode;
 
   static String? _blankToNull(String? value) {
     final trimmed = value?.trim() ?? '';
@@ -334,21 +352,24 @@ class ConnectionService extends ChangeNotifier {
         if (_relayUrl != null && _relayUrl!.trim().isNotEmpty && _instanceId != null) {
           final cleanRelay = _relayUrl!.trim().replaceAll(RegExp(r'/+$'), '');
           final relayUri = Uri.parse(
-            '$cleanRelay/ws?role=client&inst=$_instanceId&device_id=$_deviceId&token=$_token',
+            '$cleanRelay/ws?role=client'
+            '&inst=${Uri.encodeQueryComponent(_instanceId!)}'
+            '&device_id=${Uri.encodeQueryComponent(_deviceId)}'
+            '&token=${Uri.encodeQueryComponent(_token)}',
           );
           try {
-            debugPrint('Attempting relay connection to $relayUri...');
+            debugPrint('Attempting relay connection to ${relayUri.host}...');
             if (relayUri.scheme == 'wss' && _fingerprint != null && _fingerprint!.trim().isNotEmpty) {
               try {
-                ws = await WebSocket.connect(relayUri.toString()).timeout(const Duration(seconds: 5));
+                ws = await WebSocket.connect(relayUri.toString()).timeout(relayConnectTimeout);
               } catch (_) {
-                ws = await _connectTls(relayUri).timeout(const Duration(seconds: 5));
+                ws = await _connectTls(relayUri).timeout(relayConnectTimeout);
               }
             } else {
-              ws = await WebSocket.connect(relayUri.toString()).timeout(const Duration(seconds: 5));
+              ws = await WebSocket.connect(relayUri.toString()).timeout(relayConnectTimeout);
             }
             currentTransport = TransportMode.relay;
-            endpoint = relayUri.toString();
+            endpoint = relayUri.replace(query: '').toString();
             debugPrint('Relay connection established');
           } catch (e) {
             debugPrint('Relay connection failed ($e)');
@@ -361,22 +382,23 @@ class ConnectionService extends ChangeNotifier {
           return;
         }
       } else {
-        // Manual / developer configuration mode
+        // Test harness only: loopback daemon without a relay.
         final uri = Uri.parse(_url);
+        if (!allowLoopbackTestServer || !isLoopbackHost(uri.host)) {
+          _onFailure('AgentDesk connects only through the relay. Pair using the QR code.');
+          return;
+        }
         if (uri.scheme == 'wss') {
           ws = await _connectTls(uri);
           currentTransport = TransportMode.tls;
-        } else if (uri.scheme == 'ws' && _isLoopbackHost(uri.host)) {
+        } else {
           ws = await WebSocket.connect(uri.toString());
           currentTransport = TransportMode.insecureDev;
-        } else {
-          _onFailure(
-            'Plain ws:// is only permitted for loopback insecure-development servers',
-          );
-          return;
         }
         endpoint = uri.toString();
       }
+
+      ws.pingInterval = relayPingInterval;
 
       _activeTransport = currentTransport;
       _connectedEndpoint = endpoint;

@@ -43,7 +43,23 @@ pub const RULES: &[Rule] = &[
         Critical,
         "Credential Required",
     ),
+    rule(
+        "command_confirmation",
+        Request,
+        Critical,
+        "Command Confirmation",
+    ),
+    rule(
+        "file_edit_confirmation",
+        Request,
+        Critical,
+        "File Edit Confirmation",
+    ),
+    rule("workspace_trust", Request, Critical, "Workspace Trust"),
+    rule("user_question", Request, Critical, "User Question"),
+    rule("question", Request, Critical, "Question"),
     // Errors: something failed or stopped unexpectedly.
+    rule("error", Error, Critical, "Error"),
     rule("build_failed", Error, Critical, "Build Failed"),
     rule("command_failed", Error, Critical, "Command Failed"),
     rule("adapter_error", Error, Critical, "Adapter Error"),
@@ -62,6 +78,7 @@ pub const RULES: &[Rule] = &[
     rule("waiting", Working, Notable, "Waiting"),
     rule("progress", Working, Routine, "Working"),
     rule("installing", Working, Routine, "Installing"),
+    rule("idle", Working, Routine, "Idle"),
 ];
 
 /// How a kind was matched; `Fallback` is counted as `unclassified_events`.

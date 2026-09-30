@@ -51,7 +51,7 @@ async fn test_relay_bidirectional_frame_forwarding() {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     // 1. Host connects
-    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-duplex-1", port);
+    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-duplex-1&host_key=test-host-key-0123456789abcdef0123456789", port);
     let (mut host_ws, _) = connect_async(host_url).await.unwrap();
 
     // 2. Client connects
@@ -96,7 +96,7 @@ async fn test_relay_host_disconnect_closes_client() {
     });
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-disc-1", port);
+    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-disc-1&host_key=test-host-key-0123456789abcdef0123456789", port);
     let (host_ws, _) = connect_async(host_url).await.unwrap();
 
     let client_url = format!("ws://127.0.0.1:{}/ws?role=client&inst=inst-disc-1", port);
@@ -126,7 +126,7 @@ async fn test_relay_client_disconnect_keeps_host_online() {
     });
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-keepalive-1", port);
+    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-keepalive-1&host_key=test-host-key-0123456789abcdef0123456789", port);
     let (mut host_ws, _) = connect_async(host_url).await.unwrap();
 
     // Session 1 connects and disconnects
@@ -167,7 +167,7 @@ async fn test_relay_authenticates_and_rejects_unauthorized_device() {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     // Host connects and syncs authorized devices
-    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-auth-1", port);
+    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-auth-1&host_key=test-host-key-0123456789abcdef0123456789", port);
     let (mut host_ws, _) = connect_async(host_url).await.unwrap();
 
     let sync_msg = RelayControlMessage {
@@ -261,7 +261,7 @@ async fn test_relay_pairing_validation() {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     // Host connects and syncs pairing session
-    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-pair-1", port);
+    let host_url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-pair-1&host_key=test-host-key-0123456789abcdef0123456789", port);
     let (mut host_ws, _) = connect_async(host_url).await.unwrap();
 
     let now_secs = std::time::SystemTime::now()
@@ -313,4 +313,72 @@ async fn test_relay_pairing_validation() {
     assert_eq!(host_msg.to_text().unwrap(), "{\"type\":\"pair_request\"}");
 
     server.shutdown();
+}
+
+#[tokio::test]
+async fn test_relay_rejects_host_without_host_key() {
+    let port = get_free_port();
+    let server = RelayServer::new(RelayConfig::insecure("127.0.0.1", port));
+    let s_clone = server.clone();
+    tokio::spawn(async move {
+        let _ = s_clone.run().await;
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let url = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-nokey", port);
+    assert!(connect_async(url).await.is_err());
+    let weak = format!("ws://127.0.0.1:{}/ws?role=host&inst=inst-nokey&host_key=short", port);
+    assert!(connect_async(weak).await.is_err());
+
+    server.shutdown();
+}
+
+#[tokio::test]
+async fn test_relay_rejects_instance_hijack_and_allows_same_host_reconnect() {
+    let port = get_free_port();
+    let server = RelayServer::new(RelayConfig::insecure("127.0.0.1", port));
+    let s_clone = server.clone();
+    tokio::spawn(async move {
+        let _ = s_clone.run().await;
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let good = format!(
+        "ws://127.0.0.1:{}/ws?role=host&inst=inst-bind-1&host_key=legit-host-key-0123456789abcdef012345",
+        port
+    );
+    let (mut host_ws, _) = connect_async(&good).await.unwrap();
+
+    // An attacker who knows the instance id but not the host key is rejected.
+    let evil = format!(
+        "ws://127.0.0.1:{}/ws?role=host&inst=inst-bind-1&host_key=attacker-key-0123456789abcdef0123456",
+        port
+    );
+    let (mut evil_ws, _) = connect_async(evil).await.unwrap();
+    match evil_ws.next().await.unwrap().unwrap() {
+        WsMessage::Close(Some(frame)) => assert_eq!(u16::from(frame.code), 4003),
+        other => panic!("expected close, got {other:?}"),
+    }
+
+    // The legitimate laptop reconnecting (e.g. after a Wi-Fi change) supersedes its stale trunk.
+    let (mut host_ws2, _) = connect_async(&good).await.unwrap();
+    match tokio::time::timeout(Duration::from_secs(2), host_ws.next()).await.unwrap() {
+        Some(Ok(WsMessage::Close(Some(frame)))) => assert_eq!(u16::from(frame.code), 4000),
+        other => panic!("expected supersede close, got {other:?}"),
+    }
+
+    // The new trunk is live: a client reaches it.
+    let client_url = format!("ws://127.0.0.1:{}/ws?role=client&inst=inst-bind-1", port);
+    let (mut client_ws, _) = connect_async(client_url).await.unwrap();
+    client_ws.send(WsMessage::Text("{\"type\":\"ping\"}".into())).await.unwrap();
+    let got = tokio::time::timeout(Duration::from_secs(2), host_ws2.next()).await.unwrap().unwrap().unwrap();
+    assert_eq!(got.to_text().unwrap(), "{\"type\":\"ping\"}");
+
+    server.shutdown();
+}
+
+#[tokio::test]
+async fn test_insecure_relay_refuses_non_loopback_bind() {
+    let server = RelayServer::new(RelayConfig::insecure("0.0.0.0", get_free_port()));
+    assert!(server.run().await.is_err());
 }

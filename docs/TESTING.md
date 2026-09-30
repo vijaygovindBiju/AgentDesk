@@ -127,3 +127,7 @@ Future (when offline queues exist): replay ordering, individual command failure 
 ## Measurement
 
 `agentdesk-bench` output is JSON; a run is only cited if it is produced headlessly from a committed seed and scenario. See PROJECT.md success criteria and SYSTEM_DESIGN.md "Pipeline modes".
+
+## Remote E2E (different networks)
+
+Release-gating manual test with the laptop on hostel/college Wi-Fi and the phone on 4G/5G through a public relay: see [`REMOTE_E2E_TEST.md`](REMOTE_E2E_TEST.md).

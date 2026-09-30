@@ -102,9 +102,11 @@ pub struct TuiState {
     pub phone_last_seen: Option<DateTime<Utc>>,
     pub daemon_port: u16,
     pub daemon_bind: String,
+    pub relay_connected: bool,
     pub relay_url: Option<String>,
     pub fingerprint: Option<String>,
     pub client_id: ClientId,
+    pub is_attached_mode: bool,
 
     // Screen-specific navigation states
     pub agents_index: usize,
@@ -197,9 +199,11 @@ impl TuiState {
             phone_last_seen: None,
             daemon_port: port,
             daemon_bind: bind,
+            relay_connected: false,
             relay_url,
             fingerprint,
             client_id: 0,
+            is_attached_mode: false,
 
             agents_index: 0,
             selected_agent_id: None,
@@ -414,11 +418,14 @@ impl TuiState {
 
     pub fn refresh_runtime_status(&mut self, config_dir: &Path) {
         if let Some(status) = load_runtime_status(config_dir) {
-            self.phone_connected = status.phone_connected;
-            self.phone_transport = status.phone_transport.clone();
-            self.phone_device_name = status.phone_device_name.clone();
-            self.phone_last_seen = status.phone_last_seen;
-            self.runtime_status = Some(status);
+            if self.is_attached_mode || status.pid == std::process::id() {
+                self.phone_connected = status.phone_connected;
+                self.phone_transport = status.phone_transport.clone();
+                self.phone_device_name = status.phone_device_name.clone();
+                self.phone_last_seen = status.phone_last_seen;
+                self.relay_connected = status.relay_connected;
+                self.runtime_status = Some(status);
+            }
         }
     }
 

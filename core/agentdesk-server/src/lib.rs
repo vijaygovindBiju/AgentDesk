@@ -19,8 +19,8 @@ pub mod tunnel;
 
 pub use config::{
     CliCommand, DeviceOptions, DeviceRevokeOptions, PairOptions, RunOptions, ServiceConfig,
-    TokenOptions, DEFAULT_RELAY_URL, load_service_config, parse_args, print_help, service_env_path,
-    update_service_config,
+    TokenOptions, DEFAULT_RELAY_URL, LOCAL_DAEMON_BIND, load_service_config, parse_args, print_help, service_env_path,
+    update_service_config, validate_relay_url,
 };
 pub use connection::{
     ConnectionParams, DEFAULT_OUTBOUND_CAPACITY, ServerConnectionSink, handle_connection,

@@ -373,13 +373,15 @@ fn test_workspace_ui_rendering_and_top_bar() {
     });
     state.agent_session_running = true;
     state.phone_connected = true;
+    state.relay_connected = true;
     state.active_terminal_tab = ActiveTerminalTab::Shell;
 
     let rendered = render_state_to_string(&state, 100, 30);
     println!("DEBUG RENDERED:\n{}", rendered);
     assert!(rendered.contains("◈ AgentDesk"));
     assert!(rendered.contains("Antigravity"));
-    assert!(rendered.contains("Connected"));
+    assert!(rendered.contains("● Relay Connected"));
+    assert!(rendered.contains("Phone"));
     assert!(rendered.contains("🔔") && rendered.contains('0'));
     assert!(rendered.contains("[Shell]"));
     assert!(rendered.contains("F1 Agent"));

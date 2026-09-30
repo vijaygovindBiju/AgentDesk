@@ -199,10 +199,20 @@ pub enum AntigravityState {
         form: Option<QuestionForm>,
         details: QuestionDetails,
     },
-    /// Waiting for workspace trust confirmation.
-    WorkspaceTrust { directory: String },
+    /// Waiting for workspace trust confirmation. `question` and `options` are the exact
+    /// text Antigravity renders; `selected_index` is the live cursor row.
+    WorkspaceTrust {
+        directory: String,
+        question: String,
+        options: Vec<String>,
+        selected_index: usize,
+    },
     /// Idle prompt at the bottom input bar waiting for the user's next request.
     IdlePrompt,
+    /// Antigravity finished its turn with a reply and focused the chat input: it is waiting
+    /// for arbitrary text from the user (e.g. a question asked in plain chat rather than via
+    /// an `ask_question` menu). `message` is the agent's exact reply text.
+    AwaitingReply { message: String },
     /// Task or goal successfully completed.
     Completed { message: String },
     /// Fatal error encountered.
@@ -218,6 +228,15 @@ impl AntigravityState {
                 | AntigravityState::FileEditConfirmation { .. }
                 | AntigravityState::UserQuestion { .. }
                 | AntigravityState::WorkspaceTrust { .. }
+                | AntigravityState::AwaitingReply { .. }
+        )
+    }
+
+    /// True when the chat input is focused, i.e. a new user message can be typed.
+    pub fn accepts_chat_input(&self) -> bool {
+        matches!(
+            self,
+            AntigravityState::IdlePrompt | AntigravityState::AwaitingReply { .. }
         )
     }
 
@@ -262,12 +281,135 @@ impl AntigravityState {
                 },
             ) => qa == qb && fa == fb && da.same_controls(db),
             (
-                AntigravityState::WorkspaceTrust { directory: a },
-                AntigravityState::WorkspaceTrust { directory: b },
+                AntigravityState::WorkspaceTrust {
+                    directory: a,
+                    question: qa,
+                    options: oa,
+                    ..
+                },
+                AntigravityState::WorkspaceTrust {
+                    directory: b,
+                    question: qb,
+                    options: ob,
+                    ..
+                },
+            ) => a == b && qa == qb && oa == ob,
+            (
+                AntigravityState::AwaitingReply { message: a },
+                AntigravityState::AwaitingReply { message: b },
             ) => a == b,
             _ => false,
         }
     }
+}
+
+/// Question type for a workspace-trust menu: `YesNo` only when the rows are literally yes/no,
+/// otherwise a single choice over Antigravity's exact option labels.
+pub fn workspace_trust_question_type(options: &[String]) -> QuestionType {
+    QuestionDetails::SingleChoice {
+        options: options.to_vec(),
+        selected_index: 0,
+        write_in_index: None,
+    }
+    .question_type()
+}
+
+/// Structured request mirroring Antigravity's real trust dialog (exact prompt and options).
+pub fn workspace_trust_request(question: &str, options: &[String]) -> RequestInfo {
+    RequestInfo {
+        prompt: question.to_string(),
+        options: options.to_vec(),
+        question_type: Some(workspace_trust_question_type(options)),
+    }
+}
+
+pub fn workspace_trust_details_map(
+    directory: &str,
+    question: &str,
+    options: &[String],
+    selected_index: usize,
+) -> BTreeMap<String, serde_json::Value> {
+    let mut d = BTreeMap::new();
+    d.insert("directory".to_string(), serde_json::Value::String(directory.to_string()));
+    d.insert(
+        "question_type".to_string(),
+        serde_json::to_value(workspace_trust_question_type(options)).unwrap_or(serde_json::Value::Null),
+    );
+    d.insert("question".to_string(), serde_json::Value::String(question.to_string()));
+    d.insert("options".to_string(), serde_json::json!(options));
+    d.insert(
+        "selected_options".to_string(),
+        serde_json::json!(options.get(selected_index).into_iter().collect::<Vec<_>>()),
+    );
+    d.insert("allows_write_in".to_string(), serde_json::Value::Bool(false));
+    d.insert("interaction".to_string(), serde_json::Value::String("workspace_trust".into()));
+    d
+}
+
+/// Prompt shown for an Antigravity command-permission dialog (agy renders `Run this command?`
+/// followed by the command).
+pub fn command_approval_prompt(command: &str) -> String {
+    format!("Run this command?\n{command}")
+}
+
+pub fn file_edit_approval_prompt(file_path: &str) -> String {
+    format!("Allow edit to {file_path}?")
+}
+
+/// Structured request for a cursor-driven approval menu: the exact option rows agy renders
+/// (any number of them), answered by selecting exactly one.
+pub fn approval_menu_request(prompt: String, options: &[String]) -> RequestInfo {
+    RequestInfo {
+        prompt,
+        options: options.to_vec(),
+        question_type: Some(QuestionType::SingleChoice),
+    }
+}
+
+pub fn approval_menu_details_map(
+    interaction: &str,
+    subject_key: &str,
+    subject: &str,
+    options: &[String],
+    selected_index: usize,
+) -> BTreeMap<String, serde_json::Value> {
+    let mut d = BTreeMap::new();
+    d.insert(subject_key.to_string(), serde_json::Value::String(subject.to_string()));
+    d.insert(
+        "question_type".to_string(),
+        serde_json::to_value(QuestionType::SingleChoice).unwrap_or(serde_json::Value::Null),
+    );
+    d.insert("options".to_string(), serde_json::json!(options));
+    d.insert("selected_option".to_string(), serde_json::json!(selected_index));
+    d.insert(
+        "selected_options".to_string(),
+        serde_json::json!(options.get(selected_index).into_iter().collect::<Vec<_>>()),
+    );
+    d.insert("allows_write_in".to_string(), serde_json::Value::Bool(false));
+    d.insert("interaction".to_string(), serde_json::Value::String(interaction.into()));
+    d
+}
+
+/// Structured free-form request for an agent reply awaiting the user's text.
+pub fn agent_reply_request(message: &str) -> RequestInfo {
+    RequestInfo {
+        prompt: message.to_string(),
+        options: Vec::new(),
+        question_type: Some(QuestionType::FreeText),
+    }
+}
+
+pub fn agent_reply_details_map(message: &str) -> BTreeMap<String, serde_json::Value> {
+    let mut d = BTreeMap::new();
+    d.insert(
+        "question_type".to_string(),
+        serde_json::to_value(QuestionType::FreeText).unwrap_or(serde_json::Value::Null),
+    );
+    d.insert("question".to_string(), serde_json::Value::String(message.to_string()));
+    d.insert("options".to_string(), serde_json::json!([] as [String; 0]));
+    d.insert("allows_write_in".to_string(), serde_json::Value::Bool(false));
+    d.insert("interaction".to_string(), serde_json::Value::String("agent_reply".into()));
+    d
 }
 
 /// Build the normalized `details` map for a detected question. Only structured, sanitized
@@ -338,6 +480,10 @@ impl AntigravityStateMachine {
     pub fn update(&mut self, snapshot: &ScreenSnapshot) -> Option<RawAgentEvent> {
         let detected = detect_state(snapshot);
         if detected != self.current_state {
+            if self.current_state.same_request(&detected) {
+                self.current_state = detected;
+                return None;
+            }
             self.current_state = detected.clone();
             self.confirmed_state_count = 1;
             self.state_to_event(&detected)
@@ -359,15 +505,13 @@ impl AntigravityStateMachine {
         task_id: Option<TaskId>,
     ) -> Option<RawAgentEvent> {
         match state {
-            AntigravityState::CommandConfirmation { command, .. } => {
+            AntigravityState::CommandConfirmation {
+                command,
+                selected_option_index,
+                options,
+            } => {
                 let op = classify_command_operation(command);
                 let seq = self.next_seq();
-                let mut details = BTreeMap::new();
-                details.insert(
-                    "command".to_string(),
-                    serde_json::Value::String(command.clone()),
-                );
-
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -375,23 +519,23 @@ impl AntigravityStateMachine {
                     kind: "approval_required".to_string(),
                     operation: op,
                     message: format!("Command requires approval: {command}"),
-                    details,
+                    details: approval_menu_details_map(
+                        "command_approval",
+                        "command",
+                        command,
+                        options,
+                        *selected_option_index,
+                    ),
                     log_lines: vec![format!("Command: {command}")],
-                    request: Some(RequestInfo {
-                        prompt: command.clone(),
-                        options: vec!["approve".to_string(), "deny".to_string()],
-                        question_type: None,
-                    }),
+                    request: Some(approval_menu_request(command_approval_prompt(command), options)),
                 })
             }
-            AntigravityState::FileEditConfirmation { file_path, .. } => {
+            AntigravityState::FileEditConfirmation {
+                file_path,
+                selected_option_index,
+                options,
+            } => {
                 let seq = self.next_seq();
-                let mut details = BTreeMap::new();
-                details.insert(
-                    "file".to_string(),
-                    serde_json::Value::String(file_path.clone()),
-                );
-
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -399,23 +543,24 @@ impl AntigravityStateMachine {
                     kind: "approval_required".to_string(),
                     operation: Operation::Edit,
                     message: format!("File edit requires approval: {file_path}"),
-                    details,
+                    details: approval_menu_details_map(
+                        "file_edit_approval",
+                        "file",
+                        file_path,
+                        options,
+                        *selected_option_index,
+                    ),
                     log_lines: vec![format!("File: {file_path}")],
-                    request: Some(RequestInfo {
-                        prompt: format!("Allow edit to {file_path}?"),
-                        options: vec!["approve".to_string(), "deny".to_string()],
-                        question_type: None,
-                    }),
+                    request: Some(approval_menu_request(file_edit_approval_prompt(file_path), options)),
                 })
             }
-            AntigravityState::WorkspaceTrust { directory } => {
+            AntigravityState::WorkspaceTrust {
+                directory,
+                question,
+                options,
+                selected_index,
+            } => {
                 let seq = self.next_seq();
-                let mut details = BTreeMap::new();
-                details.insert(
-                    "directory".to_string(),
-                    serde_json::Value::String(directory.clone()),
-                );
-
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -423,13 +568,9 @@ impl AntigravityStateMachine {
                     kind: "approval_required".to_string(),
                     operation: Operation::Other,
                     message: format!("Workspace trust required for: {directory}"),
-                    details,
+                    details: workspace_trust_details_map(directory, question, options, *selected_index),
                     log_lines: vec![format!("Trust requested for directory {directory}")],
-                    request: Some(RequestInfo {
-                        prompt: format!("Trust directory {directory}?"),
-                        options: vec!["approve".to_string(), "deny".to_string()],
-                        question_type: None,
-                    }),
+                    request: Some(workspace_trust_request(question, options)),
                 })
             }
             AntigravityState::UserQuestion {
@@ -496,6 +637,20 @@ impl AntigravityStateMachine {
                     request: None,
                 })
             }
+            AntigravityState::AwaitingReply { message } => {
+                let seq = self.next_seq();
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "input_required".to_string(),
+                    operation: Operation::Other,
+                    message: message.clone(),
+                    details: agent_reply_details_map(message),
+                    log_lines: vec![message.clone()],
+                    request: Some(agent_reply_request(message)),
+                })
+            }
             AntigravityState::IdlePrompt => {
                 let seq = self.next_seq();
                 Some(RawAgentEvent {
@@ -518,15 +673,13 @@ impl AntigravityStateMachine {
     pub fn state_to_event(&mut self, state: &AntigravityState) -> Option<RawAgentEvent> {
         let task_id = Some(format!("{}-session", self.agent_id));
         match state {
-            AntigravityState::CommandConfirmation { command, .. } => {
+            AntigravityState::CommandConfirmation {
+                command,
+                selected_option_index,
+                options,
+            } => {
                 let op = classify_command_operation(command);
                 let seq = self.next_seq();
-                let mut details = BTreeMap::new();
-                details.insert(
-                    "command".to_string(),
-                    serde_json::Value::String(command.clone()),
-                );
-
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -534,23 +687,23 @@ impl AntigravityStateMachine {
                     kind: "command_confirmation".to_string(),
                     operation: op,
                     message: format!("Command requires approval: {command}"),
-                    details,
+                    details: approval_menu_details_map(
+                        "command_approval",
+                        "command",
+                        command,
+                        options,
+                        *selected_option_index,
+                    ),
                     log_lines: vec![format!("Command: {command}")],
-                    request: Some(RequestInfo {
-                        prompt: command.clone(),
-                        options: vec!["approve".to_string(), "deny".to_string()],
-                        question_type: None,
-                    }),
+                    request: Some(approval_menu_request(command_approval_prompt(command), options)),
                 })
             }
-            AntigravityState::FileEditConfirmation { file_path, .. } => {
+            AntigravityState::FileEditConfirmation {
+                file_path,
+                selected_option_index,
+                options,
+            } => {
                 let seq = self.next_seq();
-                let mut details = BTreeMap::new();
-                details.insert(
-                    "file".to_string(),
-                    serde_json::Value::String(file_path.clone()),
-                );
-
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -558,23 +711,24 @@ impl AntigravityStateMachine {
                     kind: "file_edit_confirmation".to_string(),
                     operation: Operation::Edit,
                     message: format!("File edit requires approval: {file_path}"),
-                    details,
+                    details: approval_menu_details_map(
+                        "file_edit_approval",
+                        "file",
+                        file_path,
+                        options,
+                        *selected_option_index,
+                    ),
                     log_lines: vec![format!("File: {file_path}")],
-                    request: Some(RequestInfo {
-                        prompt: format!("Allow edit to {file_path}?"),
-                        options: vec!["approve".to_string(), "deny".to_string()],
-                        question_type: None,
-                    }),
+                    request: Some(approval_menu_request(file_edit_approval_prompt(file_path), options)),
                 })
             }
-            AntigravityState::WorkspaceTrust { directory } => {
+            AntigravityState::WorkspaceTrust {
+                directory,
+                question,
+                options,
+                selected_index,
+            } => {
                 let seq = self.next_seq();
-                let mut details = BTreeMap::new();
-                details.insert(
-                    "directory".to_string(),
-                    serde_json::Value::String(directory.clone()),
-                );
-
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -582,13 +736,9 @@ impl AntigravityStateMachine {
                     kind: "workspace_trust".to_string(),
                     operation: Operation::Other,
                     message: format!("Workspace trust required for: {directory}"),
-                    details,
+                    details: workspace_trust_details_map(directory, question, options, *selected_index),
                     log_lines: vec![format!("Trust requested for directory {directory}")],
-                    request: Some(RequestInfo {
-                        prompt: format!("Trust directory {directory}?"),
-                        options: vec!["approve".to_string(), "deny".to_string()],
-                        question_type: None,
-                    }),
+                    request: Some(workspace_trust_request(question, options)),
                 })
             }
             AntigravityState::UserQuestion {
@@ -655,6 +805,20 @@ impl AntigravityStateMachine {
                     request: None,
                 })
             }
+            AntigravityState::AwaitingReply { message } => {
+                let seq = self.next_seq();
+                Some(RawAgentEvent {
+                    agent_id: self.agent_id.clone(),
+                    agent_seq: seq,
+                    task_id,
+                    kind: "input_required".to_string(),
+                    operation: Operation::Other,
+                    message: message.clone(),
+                    details: agent_reply_details_map(message),
+                    log_lines: vec![message.clone()],
+                    request: Some(agent_reply_request(message)),
+                })
+            }
             AntigravityState::IdlePrompt => {
                 let seq = self.next_seq();
                 Some(RawAgentEvent {
@@ -679,18 +843,8 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
     let non_empty_lines: Vec<&String> = snapshot.lines.iter().filter(|l| !l.is_empty()).collect();
 
     // 1. Workspace Trust prompt
-    for line in &non_empty_lines {
-        if line.contains("Do you trust the authors of the files")
-            || line.contains("trust this folder")
-        {
-            let dir = non_empty_lines
-                .iter()
-                .find(|l| l.contains('/') || l.contains('\\'))
-                .cloned()
-                .cloned()
-                .unwrap_or_else(|| "current directory".to_string());
-            return AntigravityState::WorkspaceTrust { directory: dir };
-        }
+    if let Some(trust) = extract_workspace_trust(snapshot) {
+        return trust;
     }
 
     // 2. Interactive Command Confirmation Menu
@@ -733,9 +887,11 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
     }
 
     // 6. Working / Progress / Thinking
-    let spinner_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    // Any braille-pattern glyph (U+2800..=U+28FF) is a spinner frame; it is stripped so that
+    // successive animation frames map to the same Working state instead of new events.
+    let is_spinner = |c: char| ('\u{2800}'..='\u{28FF}').contains(&c);
     for line in &non_empty_lines {
-        if spinner_chars.iter().any(|&c| line.contains(c))
+        if line.chars().any(is_spinner)
             || line.contains("Thinking...")
             || line.contains("Working...")
             || line.contains("Searching...")
@@ -744,7 +900,7 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
             return AntigravityState::Working {
                 details: line
                     .trim()
-                    .trim_start_matches(|c| spinner_chars.contains(&c))
+                    .trim_start_matches(is_spinner)
                     .trim()
                     .to_string(),
             };
@@ -752,25 +908,190 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
     }
 
     // 7. Idle Prompt
-    if let Some(last_line) = non_empty_lines.last() {
-        let is_idle = last_line.starts_with("> ")
-            || last_line.as_str() == ">"
-            || last_line.starts_with("? ")
-            || last_line.as_str() == "?"
-            || last_line.contains("Send message")
-            || (snapshot.cursor_row > 0 && snapshot.cursor_visible && last_line.trim().is_empty());
-        if is_idle {
-            return AntigravityState::IdlePrompt;
+    let is_idle = non_empty_lines.iter().rev().take(4).any(|line| {
+        let t = line.trim();
+        t.starts_with("> ")
+            || t == ">"
+            || t.starts_with("? ")
+            || t == "?"
+            || t.contains("Send message")
+    }) || (snapshot.cursor_row > 0
+        && snapshot.cursor_visible
+        && usize::from(snapshot.cursor_row) < snapshot.lines.len()
+        && {
+            let cur = snapshot.lines[usize::from(snapshot.cursor_row)].trim();
+            cur.starts_with("> ") || cur == ">" || cur.is_empty()
+        });
+
+    if is_idle {
+        if let Some(message) = extract_agent_reply(snapshot) {
+            return AntigravityState::AwaitingReply { message };
         }
+        return AntigravityState::IdlePrompt;
     }
 
     AntigravityState::Initializing
 }
 
+/// ANSI colour indices Antigravity uses for transcript roles (see `ScreenSnapshot::line_fg`).
+const FG_USER_PROMPT: u8 = 4; // `ESC[34;1m> ...`
+
+fn is_rule_line(line: &str) -> bool {
+    let t = line.trim();
+    t.chars().count() >= 10 && t.chars().all(|c| c == '─')
+}
+
+/// Extract Antigravity's final reply for the current turn when the chat input is focused.
+///
+/// Layout (styling from the VT screen, not guessed from text):
+/// ```text
+/// > user prompt ...            (blue, bold)
+/// ▸ Thought for 5s             (grey)
+///   thought summary ...        (grey)
+///   Which language ...?        (default colour)  ← reply
+/// ──────────────────────────
+/// >                            ← input box
+/// ```
+/// Returns `None` when there is no user turn on screen or no default-colour reply after it.
+fn extract_agent_reply(snapshot: &ScreenSnapshot) -> Option<String> {
+    if snapshot.line_fg.len() != snapshot.lines.len() {
+        return None;
+    }
+    let lines = &snapshot.lines;
+    // The input box sits between the last two horizontal rules; the transcript ends at the
+    // rule above the input box.
+    let rules: Vec<usize> = (0..lines.len()).filter(|&i| is_rule_line(&lines[i])).collect();
+    let transcript_end = *rules.iter().rev().nth(1).or(rules.last())?;
+    // Last user prompt row above it.
+    let user_row = (0..transcript_end)
+        .rev()
+        .find(|&i| snapshot.line_fg[i] == Some(FG_USER_PROMPT) && lines[i].starts_with("> "))?;
+
+    let mut reply: Vec<&str> = Vec::new();
+    for i in user_row + 1..transcript_end {
+        let t = lines[i].trim();
+        if t.is_empty() {
+            continue;
+        }
+        match snapshot.line_fg[i] {
+            None => reply.push(t),
+            // User prompt continuation: not part of the reply.
+            Some(FG_USER_PROMPT) => {}
+            // Thoughts / tool chrome after reply text start a new section; only the final
+            // default-colour block is the agent's reply.
+            Some(_) => reply.clear(),
+        }
+    }
+    let message = reply.join("\n");
+    (!message.is_empty()).then_some(message)
+}
+
+/// Selection markers Antigravity/Bubbletea may render in front of the focused menu row.
+const CURSOR_MARKERS: [char; 3] = ['>', '❯', '›'];
+
+/// Strip a leading cursor marker; returns (had_cursor, label).
+fn strip_cursor_marker(line: &str) -> (bool, &str) {
+    let t = line.trim_start();
+    for m in CURSOR_MARKERS {
+        if let Some(rest) = t.strip_prefix(m) {
+            return (true, rest.trim());
+        }
+    }
+    (false, t.trim())
+}
+
+/// Parse Antigravity's workspace-trust dialog from the VT screen:
+///
+/// ```text
+/// Accessing workspace:
+/// /path/to/project
+/// Do you trust the contents of this project?
+/// Antigravity CLI requires permission to read, edit, and execute files here.
+/// > Yes, I trust this folder
+///   No, exit
+///   ↑/↓ Navigate · enter Confirm
+/// ```
+///
+/// Returns the exact question, option labels (cursor markers stripped), live cursor index and
+/// directory. Plain chat text that merely mentions trust never matches: the option rows and
+/// the trust question must both be present.
+fn extract_workspace_trust(snapshot: &ScreenSnapshot) -> Option<AntigravityState> {
+    let lines = &snapshot.lines;
+    let q_idx = lines.iter().position(|l| {
+        let t = l.trim();
+        t.ends_with('?')
+            && (t.contains("Do you trust the contents")
+                || t.contains("Do you trust the authors of the files"))
+    })?;
+    let question = lines[q_idx].trim().to_string();
+
+    let mut options = Vec::new();
+    let mut selected_index = None;
+    for line in &lines[q_idx + 1..] {
+        let t = line.trim();
+        if t.is_empty() {
+            if options.is_empty() {
+                continue;
+            }
+            break;
+        }
+        if t.contains("Navigate") && t.contains("enter") {
+            break;
+        }
+        let (cursor, label) = strip_cursor_marker(line);
+        let indented = line.starts_with("  ");
+        let is_option = cursor
+            || (indented && !options.is_empty())
+            || label.starts_with("Yes,")
+            || label.starts_with("No,");
+        if !is_option {
+            // Description text between the question and the menu.
+            if options.is_empty() {
+                continue;
+            }
+            break;
+        }
+        if cursor {
+            selected_index = Some(options.len());
+        }
+        options.push(label.to_string());
+    }
+    if options.len() < 2 {
+        return None;
+    }
+
+    let directory = lines
+        .iter()
+        .position(|l| l.trim() == "Accessing workspace:")
+        .and_then(|i| lines[i + 1..].iter().map(|l| l.trim()).find(|l| !l.is_empty()))
+        .map(str::to_string)
+        .or_else(|| {
+            question
+                .split_once(" in ")
+                .map(|(_, rest)| rest.trim_end_matches('?').trim().to_string())
+        })
+        .or_else(|| {
+            lines
+                .iter()
+                .map(|l| l.trim())
+                .find(|l| l.starts_with('/') || l.starts_with('~'))
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| "current directory".to_string());
+
+    Some(AntigravityState::WorkspaceTrust {
+        directory,
+        question,
+        options,
+        selected_index: selected_index.unwrap_or(0),
+    })
+}
+
 fn extract_command_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<String>, usize)> {
     let mut options = Vec::new();
     let mut selected_index = 0;
-    let mut command = String::new();
+    let mut explicit_command = String::new();
+    let mut fallback_command = String::new();
     let mut has_selection = false;
     let mut expecting_command = false;
 
@@ -778,9 +1099,7 @@ fn extract_command_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<Stri
         let trimmed = line.trim();
 
         if expecting_command && !trimmed.is_empty() {
-            if command.is_empty() {
-                command = trimmed.to_string();
-            }
+            explicit_command = trimmed.to_string();
             expecting_command = false;
         }
 
@@ -790,20 +1109,22 @@ fn extract_command_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<Stri
             || trimmed.starts_with("Run:")
             || trimmed.starts_with("$ ")
         {
-            if command.is_empty() {
-                command = trimmed
-                    .trim_start_matches("Command:")
-                    .trim_start_matches("Run:")
-                    .trim_start_matches("$ ")
-                    .trim()
-                    .to_string();
+            let extracted = trimmed
+                .trim_start_matches("Command:")
+                .trim_start_matches("Run:")
+                .trim_start_matches("$ ")
+                .trim()
+                .to_string();
+            if !extracted.is_empty() {
+                explicit_command = extracted;
             }
         } else if let Some(start) = trimmed.find("● Bash(") {
             let after = &trimmed[start + "● Bash(".len()..];
-            if let Some(end) = after.find(')')
-                && command.is_empty()
-            {
-                command = after[..end].trim().to_string();
+            if let Some(end) = after.find(')') {
+                let bash_cmd = after[..end].trim().to_string();
+                if !bash_cmd.is_empty() {
+                    fallback_command = bash_cmd;
+                }
             }
         }
 
@@ -836,9 +1157,13 @@ fn extract_command_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<Stri
         .any(|o| o.contains("deny") || o.contains("cancel"));
 
     if options.len() >= 2 && has_run_cmd && has_deny && (has_selection || snapshot.in_alt_screen) {
-        if command.is_empty() {
-            command = "run_command".to_string();
-        }
+        let command = if !explicit_command.is_empty() {
+            explicit_command
+        } else if !fallback_command.is_empty() {
+            fallback_command
+        } else {
+            "run_command".to_string()
+        };
         Some((command, options, selected_index))
     } else {
         None
@@ -1314,6 +1639,7 @@ mod tests {
                 "No, deny".to_string(),
             ],
             reversed_lines: vec![(1, "Yes, run command".to_string())],
+            line_fg: vec![],
         };
 
         let state = detect_state(&snapshot);
@@ -1347,6 +1673,7 @@ mod tests {
                 "No, deny".to_string(),
             ],
             reversed_lines: vec![(1, "Yes, run command".to_string())],
+            line_fg: vec![],
         };
 
         let event = sm.update(&snapshot).expect("Must emit event on transition");
@@ -1366,11 +1693,34 @@ mod tests {
             cursor_visible: true,
             lines: vec![format!("{spinner} Generating...")],
             reversed_lines: vec![],
+            line_fg: vec![],
         };
 
         assert_eq!(
             detect_state(&make_snapshot("⠋")),
             detect_state(&make_snapshot("⠙"))
         );
+    }
+
+    #[test]
+    fn idle_prompt_detected_with_status_bar_and_rule_lines() {
+        let snapshot = ScreenSnapshot {
+            cols: 80,
+            rows: 24,
+            cursor_row: 2,
+            cursor_col: 2,
+            in_alt_screen: false,
+            cursor_visible: true,
+            lines: vec![
+                "──────────────────────────────────────────────────".to_string(),
+                ">".to_string(),
+                "──────────────────────────────────────────────────".to_string(),
+                "gemini-3.8-flash-high (8k tokens)".to_string(),
+            ],
+            reversed_lines: vec![],
+            line_fg: vec![],
+        };
+
+        assert_eq!(detect_state(&snapshot), AntigravityState::IdlePrompt);
     }
 }

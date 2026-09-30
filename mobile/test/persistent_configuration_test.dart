@@ -50,6 +50,7 @@ ConnectionService service(
   state: AgentDeskState(),
   configurationStore: configuration,
   tokenStore: token,
+  allowLoopbackTestServer: true,
 );
 
 void main() {
@@ -62,13 +63,13 @@ void main() {
         final connection = service(configuration, tokens);
 
         await connection.saveConfiguration(
-          url: 'wss://agentdesk.local:8765',
+          url: 'wss://127.0.0.1:8765',
           token: 'sensitive-token',
           deviceId: 'phone-1',
           fingerprint: 'AA:BB:CC',
         );
 
-        expect(configuration.value.url, 'wss://agentdesk.local:8765');
+        expect(configuration.value.url, 'wss://127.0.0.1:8765');
         expect(configuration.value.deviceId, 'phone-1');
         expect(configuration.value.fingerprint, 'AA:BB:CC');
         expect(tokens.value, 'sensitive-token');
@@ -82,7 +83,7 @@ void main() {
       () async {
         final configuration = MemoryConfigurationStore()
           ..value = const ConnectionConfiguration(
-            url: 'wss://agentdesk.local:8765',
+            url: 'wss://127.0.0.1:8765',
             deviceId: 'phone-1',
             fingerprint: 'AA:BB:CC',
           );
@@ -92,7 +93,7 @@ void main() {
         await connection.restoreConfiguration();
 
         expect(tokens.reads, 1);
-        expect(connection.url, 'wss://agentdesk.local:8765');
+        expect(connection.url, 'wss://127.0.0.1:8765');
         expect(connection.deviceId, 'phone-1');
         expect(connection.fingerprint, 'AA:BB:CC');
         expect(connection.token, 'restored-token');
@@ -106,7 +107,7 @@ void main() {
       () async {
         final configuration = MemoryConfigurationStore()
           ..value = const ConnectionConfiguration(
-            url: 'wss://agentdesk.local:8765',
+            url: 'wss://127.0.0.1:8765',
             deviceId: 'phone-1',
             fingerprint: 'AA:BB:CC',
           );
@@ -149,7 +150,7 @@ void main() {
       );
 
       await connection.saveConfiguration(
-        url: 'wss://agentdesk.local:8765',
+        url: 'wss://127.0.0.1:8765',
         token: 'token',
         deviceId: 'phone-1',
         fingerprint: '',
@@ -168,7 +169,7 @@ void main() {
         );
 
         await connection.saveConfiguration(
-          url: 'wss://agentdesk.local:8765',
+          url: 'wss://127.0.0.1:8765',
           token: 'token',
           deviceId: 'phone-1',
           fingerprint: 'AA:BB:CC',
@@ -181,7 +182,7 @@ void main() {
     );
 
     test(
-      'plain ws rejects non-loopback addresses and permits loopback development',
+      'direct LAN addresses are rejected; only loopback test servers are permitted',
       () async {
         final connection = service(
           MemoryConfigurationStore(),
@@ -195,7 +196,15 @@ void main() {
           fingerprint: '',
         );
         expect(connection.status, ConnectionStatus.configurationRequired);
-        expect(connection.configurationError, contains('only for loopback'));
+        expect(connection.configurationError, contains('through the relay'));
+
+        await connection.saveConfiguration(
+          url: 'wss://10.0.0.5:8765',
+          token: 'token',
+          deviceId: 'phone-1',
+          fingerprint: 'AA:BB',
+        );
+        expect(connection.status, ConnectionStatus.configurationRequired);
 
         await connection.saveConfiguration(
           url: 'ws://127.0.0.1:8765',
@@ -215,20 +224,20 @@ void main() {
         final connection = service(configuration, tokens);
 
         await connection.saveConfiguration(
-          url: 'wss://first.local:8765',
+          url: 'wss://127.0.0.1:8001',
           token: 'first-token',
           deviceId: 'phone-1',
           fingerprint: 'AA',
         );
         await connection.saveConfiguration(
-          url: 'wss://second.local:8765',
+          url: 'wss://127.0.0.1:8002',
           token: 'second-token',
           deviceId: 'phone-2',
           fingerprint: 'BB',
         );
 
         expect(configuration.saves, 2);
-        expect(configuration.value.url, 'wss://second.local:8765');
+        expect(configuration.value.url, 'wss://127.0.0.1:8002');
         expect(configuration.value.deviceId, 'phone-2');
         expect(configuration.value.fingerprint, 'BB');
         expect(tokens.value, 'second-token');
@@ -243,7 +252,7 @@ void main() {
         final connection = service(MemoryConfigurationStore(), tokens);
 
         await connection.saveConfiguration(
-          url: 'wss://agentdesk.local:8765',
+          url: 'wss://127.0.0.1:8765',
           token: '',
           deviceId: 'phone-1',
           fingerprint: 'AA',
@@ -254,5 +263,61 @@ void main() {
         expect(connection.status, ConnectionStatus.configurationRequired);
       },
     );
+
+    test('production client never connects directly to a laptop', () async {
+      final connection = ConnectionService(
+        state: AgentDeskState(),
+        configurationStore: MemoryConfigurationStore(),
+        tokenStore: MemorySecureTokenStore(),
+      );
+      for (final url in [
+        'wss://192.168.1.10:8765',
+        'ws://127.0.0.1:8765',
+        'wss://laptop.local:8765',
+      ]) {
+        await connection.saveConfiguration(
+          url: url,
+          token: 'token',
+          deviceId: 'phone-1',
+          fingerprint: 'AA:BB',
+        );
+        connection.connect();
+        expect(connection.status, ConnectionStatus.configurationRequired, reason: url);
+        expect(connection.configurationError, contains('Scan the pairing QR'));
+      }
+    });
+
+    test('paired device rejects LAN / plaintext relay endpoints', () async {
+      final connection = ConnectionService(
+        state: AgentDeskState(),
+        configurationStore: MemoryConfigurationStore(),
+        tokenStore: MemorySecureTokenStore(),
+      );
+      for (final relay in [
+        'wss://192.168.1.10:8766',
+        'wss://10.1.2.3',
+        'wss://172.20.0.1',
+        'ws://relay.example.com',
+      ]) {
+        await connection.savePairing(
+          instanceId: 'inst-1',
+          deviceToken: 'dev-token',
+          deviceId: 'phone-1',
+          fingerprint: 'AA:BB',
+          relayUrl: relay,
+          autoConnect: false,
+        );
+        expect(connection.isConfigurationComplete, isFalse, reason: relay);
+      }
+      await connection.savePairing(
+        instanceId: 'inst-1',
+        deviceToken: 'dev-token',
+        deviceId: 'phone-1',
+        fingerprint: 'AA:BB',
+        relayUrl: 'wss://relay.example.com',
+        autoConnect: false,
+      );
+      expect(connection.isConfigurationComplete, isTrue);
+    });
   });
 }

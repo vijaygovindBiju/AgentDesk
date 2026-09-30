@@ -60,13 +60,39 @@ pub async fn run_tui(custom_config_dir: Option<PathBuf>) -> Result<(), Box<dyn s
 
     if is_daemon_listening(service_config.port) {
         // --- Option A: Attach to existing running daemon (e.g. systemd service) ---
-        run_attached_websocket(config_dir, service_config.port, service_config.bind, token, Some(resolved_relay)).await
+        run_attached_websocket(config_dir, service_config.port, crate::config::LOCAL_DAEMON_BIND.into(), token, Some(resolved_relay)).await
     } else {
         // --- Option B: Launch in-process daemon with TUI attached directly ---
         let mut cfg = service_config;
         cfg.relay_url = Some(resolved_relay);
         run_in_process_daemon(config_dir, cfg, token).await
     }
+}
+
+/// Connect to loopback WebSocket daemon, trying TLS with pinned cert then plain ws
+async fn connect_loopback_ws(
+    port: u16,
+    tls_id: Option<&TlsIdentity>,
+) -> Result<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Box<dyn std::error::Error + Send + Sync>> {
+    if let Some(id) = tls_id {
+        let client_config = id.build_client_config();
+        let wss_url = format!("wss://127.0.0.1:{}/ws", port);
+        match tokio_tungstenite::connect_async_tls_with_config(
+            &wss_url,
+            None,
+            false,
+            Some(tokio_tungstenite::Connector::Rustls(client_config)),
+        ).await {
+            Ok((stream, _)) => return Ok(stream),
+            Err(e) => {
+                crate::logging::info(format!("Loopback TLS WebSocket connection to {} failed ({}), trying plain ws...", wss_url, e));
+            }
+        }
+    }
+
+    let ws_url = format!("ws://127.0.0.1:{}/ws", port);
+    let (stream, _) = tokio_tungstenite::connect_async(&ws_url).await?;
+    Ok(stream)
 }
 
 /// Attach to an existing daemon running on the local port over WebSocket
@@ -80,13 +106,14 @@ async fn run_attached_websocket(
     let tls_id = TlsIdentity::load_or_generate(&config_dir).ok();
     let fingerprint = tls_id.as_ref().map(|t| t.fingerprint.clone());
 
-    // Connect to loopback WebSocket
-    let ws_url = format!("ws://127.0.0.1:{}/ws", port);
-    let (ws_stream, _) = match tokio_tungstenite::connect_async(&ws_url).await {
+    // Connect to loopback WebSocket (with TLS support)
+    let ws_stream = match connect_loopback_ws(port, tls_id.as_ref()).await {
         Ok(res) => res,
-        Err(_) => {
-            let service_config = load_service_config(&service_env_path(&config_dir)).unwrap_or_default();
-            return run_in_process_daemon(config_dir, service_config, token).await;
+        Err(e) => {
+            return Err(format!(
+                "Daemon is listening on port {}, but failed to connect over WebSocket: {}. If another process is holding this port, terminate it.",
+                port, e
+            ).into());
         }
     };
 
@@ -95,7 +122,7 @@ async fn run_attached_websocket(
 
     let tx_inbound = tx_events.clone();
     let token_clone = token.clone();
-    let ws_url_clone = ws_url.clone();
+    let tls_id_clone = tls_id.clone();
 
     // Outbound & Inbound connection task with automatic reconnect
     tokio::spawn(async move {
@@ -104,8 +131,8 @@ async fn run_attached_websocket(
             let ws_stream = if let Some(s) = initial_stream.take() {
                 s
             } else {
-                match tokio_tungstenite::connect_async(&ws_url_clone).await {
-                    Ok((stream, _)) => stream,
+                match connect_loopback_ws(port, tls_id_clone.as_ref()).await {
+                    Ok(stream) => stream,
                     Err(_) => {
                         tokio::time::sleep(Duration::from_millis(500)).await;
                         continue;
@@ -141,7 +168,11 @@ async fn run_attached_websocket(
                                         Body::ScoreUpdate(s) => Some(TuiEvent::ScoreUpdate(s)),
                                         Body::StateUpdate(s) => Some(TuiEvent::StateUpdate(s)),
                                         Body::EventLogs(l) => Some(TuiEvent::Logs(l)),
-                                        Body::StartTask(t) => Some(TuiEvent::PromptReceived(t.prompt)),
+                                        Body::StartTask(t) => Some(TuiEvent::PromptReceived {
+                                            prompt: t.prompt,
+                                            workspace: t.workspace,
+                                            agent_id: t.agent_id,
+                                        }),
                                         Body::RespondRequest(r) => Some(TuiEvent::AdapterRespond {
                                             event_id: r.event_id,
                                             decision: r.decision,
@@ -183,6 +214,7 @@ async fn run_attached_websocket(
     };
 
     let mut state = TuiState::new(port, bind_addr, relay_url, fingerprint);
+    state.is_attached_mode = true;
     let detected = crate::discovery::AgentDiscovery::discover();
     let prefs = crate::tui::preferences::load_preferences(&config_dir);
     state.init_workspace_selection(detected, prefs);
@@ -278,14 +310,11 @@ async fn run_in_process_daemon(
     let core_sender = tx_core.clone();
     tokio::spawn(core.run(rx_core));
 
-    let bind_addr = service_config.bind.clone();
-    let insecure_dev = false;
-
     let server_config = ServerConfig {
-        bind_addr: bind_addr.clone(),
+        bind_addr: crate::config::LOCAL_DAEMON_BIND.into(),
         port: service_config.port,
         token: token.clone(),
-        insecure_dev,
+        insecure_dev: false,
         pipeline_mode: PipelineMode::Agentdesk,
         outbound_capacity: crate::connection::DEFAULT_OUTBOUND_CAPACITY,
         debug_logging: false,
@@ -293,34 +322,21 @@ async fn run_in_process_daemon(
         relay_url: service_config.relay_url.clone(),
     };
 
-    let (server, final_bind) = match Server::bind(server_config, core_sender.clone(), clock.clone()).await {
-        Ok(s) => (Some(s), bind_addr),
-        Err(_) if bind_addr != "127.0.0.1" => {
-            let fallback_config = ServerConfig {
-                bind_addr: "127.0.0.1".into(),
-                port: service_config.port,
-                token: token.clone(),
-                insecure_dev: false,
-                pipeline_mode: PipelineMode::Agentdesk,
-                outbound_capacity: crate::connection::DEFAULT_OUTBOUND_CAPACITY,
-                debug_logging: false,
-                config_dir: Some(config_dir.clone()),
-                relay_url: service_config.relay_url.clone(),
-            };
-            let fallback = Server::bind(fallback_config, core_sender.clone(), clock.clone()).await.ok();
-            (fallback, "127.0.0.1".to_string())
+    let server = match Server::bind(server_config, core_sender.clone(), clock.clone()).await {
+        Ok(s) => s,
+        Err(e) => {
+            return Err(format!(
+                "Failed to bind AgentDesk server on 127.0.0.1:{}: {}. Terminate any existing AgentDesk process first.",
+                service_config.port, e
+            ).into());
         }
-        Err(_) => (None, bind_addr),
     };
+    let fingerprint = server.fingerprint().map(|f| f.to_string());
 
-    let fingerprint = server.as_ref().and_then(|s| s.fingerprint().map(|f| f.to_string()));
-
-    // Spawn server background accept loop so mobile phones / relay can connect
-    if let Some(srv) = server {
-        tokio::spawn(async move {
-            let _ = srv.run().await;
-        });
-    }
+    // Spawn loopback accept loop (local TUI attach) and the outbound relay trunk
+    tokio::spawn(async move {
+        let _ = server.run().await;
+    });
 
     // Attach TUI via in-process sink
     let (tx_events, rx_events) = mpsc::channel::<TuiEvent>(256);
@@ -372,8 +388,12 @@ async fn run_in_process_daemon(
                                 response,
                             }).await;
                         }
-                        Some(AdapterCommand::StartTask { prompt, .. }) => {
-                            let _ = tui_events_tx.send(TuiEvent::PromptReceived(prompt)).await;
+                        Some(AdapterCommand::StartTask { prompt, workspace, agent_id, .. }) => {
+                            let _ = tui_events_tx.send(TuiEvent::PromptReceived {
+                                prompt,
+                                workspace,
+                                agent_id,
+                            }).await;
                         }
                         None => {}
                     }
@@ -395,7 +415,7 @@ async fn run_in_process_daemon(
 
     let mut state = TuiState::new(
         service_config.port,
-        final_bind,
+        crate::config::LOCAL_DAEMON_BIND.into(),
         service_config.relay_url,
         fingerprint,
     );

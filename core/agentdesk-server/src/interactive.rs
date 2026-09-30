@@ -306,10 +306,11 @@ fn configure_flow(
             println!("Port saved. Restart AgentDesk to apply it.");
         }
         "2" => {
-            let relay = prompt("Enter relay URL (e.g. wss://relay.agentdesk.io): ")?;
+            let relay = prompt("Enter public relay URL (e.g. wss://relay.example.com): ")?;
             if relay.trim().is_empty() || relay.contains(['\n', '\r']) {
                 return Err("invalid relay URL".into());
             }
+            crate::config::validate_relay_url(&relay)?;
             config.relay_url = Some(relay.trim().to_string());
             update_service_config(env_path, config)?;
             println!("Relay URL saved. Restart AgentDesk to apply it.");

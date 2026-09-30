@@ -1,5 +1,5 @@
 //! Header bar rendering.
-//! Displays: AGENTDESK | Attention & Control Surface | ● X AGENTS | ● PHONE CONNECTED
+//! Displays: AGENTDESK | Attention & Control Surface | ● X AGENTS | ● Relay Connected | ● PHONE CONNECTED
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -9,6 +9,21 @@ use ratatui::Frame;
 
 use crate::tui::state::TuiState;
 
+/// Relay trunk indicator shared by all views: "● Relay Connected" / "○ Relay Disconnected".
+pub fn relay_status_spans(state: &TuiState) -> Vec<Span<'static>> {
+    if state.relay_connected {
+        vec![
+            Span::styled("● ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled("Relay Connected", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        ]
+    } else {
+        vec![
+            Span::styled("○ ", Style::default().fg(Color::Red)),
+            Span::styled("Relay Disconnected", Style::default().fg(Color::Red)),
+        ]
+    }
+}
+
 pub fn render_header(f: &mut Frame, area: Rect, state: &TuiState) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -16,6 +31,7 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &TuiState) {
             Constraint::Length(30), // Title & Subtitle
             Constraint::Min(20),    // Center spacing
             Constraint::Length(16), // Agent count badge
+            Constraint::Length(22), // Relay trunk status badge
             Constraint::Length(28), // Phone connection status badge
         ])
         .split(area);
@@ -60,7 +76,10 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &TuiState) {
         chunks[2],
     );
 
-    // 3. Phone Connection badge
+    // 3. Relay trunk badge
+    f.render_widget(Paragraph::new(Line::from(relay_status_spans(state))), chunks[3]);
+
+    // 4. Phone Connection badge
     let phone_text = if state.phone_connected {
         let mode = state
             .phone_transport
@@ -79,5 +98,5 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &TuiState) {
         ])
     };
 
-    f.render_widget(Paragraph::new(phone_text), chunks[3]);
+    f.render_widget(Paragraph::new(phone_text), chunks[4]);
 }

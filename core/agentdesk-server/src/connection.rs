@@ -12,7 +12,7 @@ use tokio_tungstenite::tungstenite::protocol::Message as WsMessage;
 use tokio_tungstenite::tungstenite::protocol::frame::CloseFrame;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 
-use agentdesk_core::{ClientId, Clock, CoreCommand, SinkError, TransportSink};
+use agentdesk_core::{AdapterOutput, ClientId, Clock, CoreCommand, SinkError, TransportSink};
 use agentdesk_model::close_code;
 use agentdesk_model::{
     Body, ErrorReply, Message, PairResponse, PipelineMode, SCHEMA_VERSION, TransportMode, Welcome,
@@ -449,13 +449,31 @@ pub async fn handle_ws_connection<S>(
 
                         match serde_json::from_str::<Message>(&text) {
                             Ok(msg) => {
-                                // Valid message, route to CoreTask
-                                if let Err(e) = params.core_sender.send(CoreCommand::Client {
-                                    client_id: params.client_id,
-                                    message: msg,
-                                }).await {
-                                    logging::info(format!("Failed dispatching client message to core: {}", e));
-                                    break;
+                                // If the message is an internal bridge message from the local TUI client,
+                                // bridge it directly to CoreCommand::Adapter or CoreCommand::AdapterResponse.
+                                match msg.body {
+                                    Body::RawEvent(raw) if hello.device_id == "agentdesk-tui" => {
+                                        if let Err(e) = params.core_sender.send(CoreCommand::Adapter(AdapterOutput::Event(raw))).await {
+                                            logging::info(format!("Failed dispatching TUI RawEvent to core: {}", e));
+                                            break;
+                                        }
+                                    }
+                                    Body::AdapterOutcome(outcome) if hello.device_id == "agentdesk-tui" => {
+                                        if let Err(e) = params.core_sender.send(CoreCommand::AdapterResponse(outcome)).await {
+                                            logging::info(format!("Failed dispatching TUI AdapterOutcome to core: {}", e));
+                                            break;
+                                        }
+                                    }
+                                    _ => {
+                                        // Standard client message, route to CoreTask
+                                        if let Err(e) = params.core_sender.send(CoreCommand::Client {
+                                            client_id: params.client_id,
+                                            message: msg,
+                                        }).await {
+                                            logging::info(format!("Failed dispatching client message to core: {}", e));
+                                            break;
+                                        }
+                                    }
                                 }
                             }
                             Err(parse_err) => {
@@ -652,7 +670,23 @@ pub async fn handle_relay_trunk_connection<S>(
         let parsed_msg: Message = match serde_json::from_str(&text) {
             Ok(m) => m,
             Err(e) => {
-                logging::info(format!("Failed parsing relay message: {}", e));
+                // Diagnose without leaking secrets: report the message type and id-like fields only.
+                let hint = serde_json::from_str::<serde_json::Value>(&text)
+                    .ok()
+                    .map(|v| {
+                        let ty = v.get("type").and_then(|t| t.as_str()).unwrap_or("?").to_string();
+                        let ids: Vec<String> = ["event_id", "request_id"]
+                            .iter()
+                            .filter_map(|k| {
+                                v.get(k)
+                                    .or_else(|| v.get("payload").and_then(|p| p.get(k)))
+                                    .map(|x| format!("{k}={x}"))
+                            })
+                            .collect();
+                        format!("type={ty} {}", ids.join(" "))
+                    })
+                    .unwrap_or_default();
+                logging::info(format!("Failed parsing relay message ({hint}): {}", e));
                 continue;
             }
         };

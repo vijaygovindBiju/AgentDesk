@@ -14,8 +14,8 @@
 #   INSTALL_DIR="$HOME/.local/lib/agentdesk"
 #   AGENTDESK_REPOSITORY="owner/repository"
 #   AGENTDESK_RELEASE_BASE_URL="https://github.com/owner/repository/releases/download"
-#   AGENTDESK_BIND="127.0.0.1"
-#   AGENTDESK_PORT="8765"
+#   AGENTDESK_RELAY_URL="wss://relay.example.com"   (public relay; the only remote transport)
+#   AGENTDESK_PORT="8765"                           (loopback-only local TUI socket)
 #   AGENTDESK_AGENT="agy"
 #   AGENTDESK_ANTIGRAVITY="1"
 
@@ -189,7 +189,7 @@ ln -sfn "${INSTALL_DIR}/agentdesk" "${BIN_DIR}/agentdesk"
 cat > "$SERVICE_WRAPPER" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail
-args=(run --mode agentdesk --bind "\${AGENTDESK_BIND:-127.0.0.1}" --port "\${AGENTDESK_PORT:-8765}")
+args=(run --mode agentdesk --port "\${AGENTDESK_PORT:-8765}")
 if [[ "\${AGENTDESK_ANTIGRAVITY:-0}" == "1" ]]; then
   args+=(--antigravity)
 fi
@@ -203,12 +203,21 @@ chmod 0755 "$SERVICE_WRAPPER"
 if [[ ! -f "$ENV_FILE" ]]; then
   cat > "$ENV_FILE" <<'EOF'
 # AgentDesk service configuration. This file contains no authentication token.
-AGENTDESK_BIND=127.0.0.1
+# Connectivity is relay-only: the laptop opens an outbound WSS connection to
+# AGENTDESK_RELAY; no LAN, USB/ADB, port forwarding or inbound firewall rule.
+# Set it with: agentdesk relay set wss://relay.example.com
 AGENTDESK_PORT=8765
 # Set AGENTDESK_AGENT to a supported command, for example: agy
 # Set AGENTDESK_ANTIGRAVITY=1 when using the Antigravity PTY adapter.
+AGENTDESK_ANTIGRAVITY=1
 EOF
+  if [[ -n "${AGENTDESK_RELAY_URL:-}" ]]; then
+    printf 'AGENTDESK_RELAY=%s\n' "$AGENTDESK_RELAY_URL" >> "$ENV_FILE"
+  fi
   chmod 0600 "$ENV_FILE"
+else
+  # Drop obsolete direct-connectivity settings from older installs.
+  sed -i '/^AGENTDESK_BIND=/d' "$ENV_FILE"
 fi
 
 cat > "${SERVICE_DIR}/${SERVICE_NAME}" <<EOF
@@ -223,11 +232,6 @@ EnvironmentFile=${ENV_FILE}
 ExecStart=${SERVICE_WRAPPER}
 Restart=on-failure
 RestartSec=5s
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=${CONFIG_DIR}
 
 [Install]
 WantedBy=default.target
@@ -247,4 +251,5 @@ log "configuration: ${CONFIG_DIR}"
 log "service: systemctl --user status ${SERVICE_NAME}"
 log "logs: journalctl --user -u ${SERVICE_NAME} -f"
 log "Android APK releases are published separately; do not install Flutter, Android SDK, or ADB."
+log "phone connectivity is relay-only: run 'agentdesk relay set wss://your-relay' (no LAN or USB needed)"
 log "run 'agentdesk' for interactive start, status, stop, restart, and configuration; no manual service.env editing is required"

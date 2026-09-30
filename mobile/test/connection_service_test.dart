@@ -22,7 +22,7 @@ void main() {
 
     test('performs full handshake and receives pushed messages', () async {
       final state = AgentDeskState();
-      final conn = ConnectionService(state: state);
+      final conn = ConnectionService(state: state, allowLoopbackTestServer: true);
       conn.configure(
         url: 'ws://127.0.0.1:$port',
         token: 'test-token',
@@ -127,7 +127,7 @@ void main() {
 
     test('reconnects with backoff when server closes connection', () async {
       final state = AgentDeskState();
-      final conn = ConnectionService(state: state);
+      final conn = ConnectionService(state: state, allowLoopbackTestServer: true);
       conn.configure(
         url: 'ws://127.0.0.1:$port',
         token: 'test-token',

@@ -65,12 +65,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                      USAGE:\n\
                          agentdesk-relay [OPTIONS]\n\n\
                      OPTIONS:\n\
-                         --bind <addr>        Bind address (default: 0.0.0.0)\n\
+                         --bind <addr>        Bind address (default: 0.0.0.0; loopback required with --insecure-dev)\n\
                          --port <port>        Bind port (default: 8766)\n\
-                         --token <token>      Optional host authentication token\n\
+                         --token <token>      Optional operator token hosts must present (AGENTDESK_RELAY_TOKEN)\n\
                          --cert <path>        Path to TLS certificate (PEM)\n\
                          --key <path>         Path to TLS private key (PEM)\n\
-                         --insecure-dev       Run insecure plain ws:// mode (development only)\n\
+                         --insecure-dev       Plain ws:// on loopback only (dev, or behind a TLS proxy)\n\
                          -h, --help           Show help\n"
                 );
                 return Ok(());

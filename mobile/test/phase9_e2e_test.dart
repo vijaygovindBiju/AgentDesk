@@ -193,7 +193,7 @@ void main() {
     test('P9.1: Full checklist executes over wss:// with certificate pinning', () async {
       final state = AgentDeskState();
       final metrics = ClientMetrics();
-      final conn = ConnectionService(state: state);
+      final conn = ConnectionService(state: state, allowLoopbackTestServer: true);
 
       // 1. Configure wss:// and pinned SHA-256 fingerprint
       conn.configure(

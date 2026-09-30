@@ -6,6 +6,7 @@
 mobile/.dart_tool/
 mobile/.packages
 mobile/build/
+mobile/android/build/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 mobile/android/.gradle/

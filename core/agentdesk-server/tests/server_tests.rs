@@ -571,6 +571,10 @@ fn p6_t5_insecure_dev_with_non_loopback_rejected() {
 
     // Empty token on non-loopback rejected
     assert!(validate_bind_security("0.0.0.0", "", false).is_err());
+
+    // Relay-only: non-loopback binds are rejected even with a valid token
+    assert!(validate_bind_security("0.0.0.0", "valid_token", false).is_err());
+    assert!(validate_bind_security("192.168.1.10", "valid_token", false).is_err());
 }
 
 /// P6.T6: Captured logs at default level contain no token.

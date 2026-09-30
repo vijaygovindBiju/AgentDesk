@@ -24,13 +24,16 @@ use agentdesk_model::{
 
 use crate::adapter::{Adapter, AdapterOutput, RespondError};
 use crate::antigravity::input_encoder::{
-    QuestionInput, encode_decision, encode_question_response, validate_text_input,
+    QuestionInput, encode_question_response, encode_response_for_state, validate_text_input,
 };
 use crate::antigravity::pty::{PtySession, PtyTransport};
 use crate::antigravity::screen::Screen;
 use crate::antigravity::state_machine::{
     AntigravityState, QuestionDetails, classify_command_operation, detect_state,
+    agent_reply_details_map, agent_reply_request, approval_menu_details_map,
+    approval_menu_request, command_approval_prompt, file_edit_approval_prompt,
     question_details_map,
+    workspace_trust_details_map, workspace_trust_request,
 };
 
 /// Lifecycle state machine for the Antigravity PTY Adapter.
@@ -260,69 +263,62 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
             AntigravityState::CommandConfirmation {
                 command,
                 selected_option_index,
-                ..
+                options,
             } => {
-                let op = classify_command_operation(command);
-                let mut details = Details::new();
-                details.insert("command".into(), Value::String(command.clone()));
-                details.insert(
-                    "selected_option".into(),
-                    Value::from(*selected_option_index),
+                let mut d = approval_menu_details_map(
+                    "command_approval",
+                    "command",
+                    command,
+                    options,
+                    *selected_option_index,
                 );
-                details.insert("request_generation".into(), Value::from(generation));
+                d.insert("request_generation".into(), Value::from(generation));
                 self.event(
                     "approval_required",
-                    op,
+                    classify_command_operation(command),
                     format!("Command requires approval: {}", command),
-                    details,
+                    d,
                     vec![format!("Command: {}", command)],
-                    Some(RequestInfo {
-                        prompt: command.clone(),
-                        options: vec!["approve".into(), "deny".into()],
-                        question_type: None,
-                    }),
+                    Some(approval_menu_request(command_approval_prompt(command), options)),
                 )
             }
             AntigravityState::FileEditConfirmation {
                 file_path,
                 selected_option_index,
-                ..
+                options,
             } => {
-                let mut details = Details::new();
-                details.insert("file".into(), Value::String(file_path.clone()));
-                details.insert(
-                    "selected_option".into(),
-                    Value::from(*selected_option_index),
+                let mut d = approval_menu_details_map(
+                    "file_edit_approval",
+                    "file",
+                    file_path,
+                    options,
+                    *selected_option_index,
                 );
-                details.insert("request_generation".into(), Value::from(generation));
+                d.insert("request_generation".into(), Value::from(generation));
                 self.event(
                     "approval_required",
                     Operation::Edit,
                     format!("File edit requires approval: {}", file_path),
-                    details,
+                    d,
                     vec![format!("File: {}", file_path)],
-                    Some(RequestInfo {
-                        prompt: format!("Allow edit to {}?", file_path),
-                        options: vec!["approve".into(), "deny".into()],
-                        question_type: None,
-                    }),
+                    Some(approval_menu_request(file_edit_approval_prompt(file_path), options)),
                 )
             }
-            AntigravityState::WorkspaceTrust { directory } => {
-                let mut details = Details::new();
-                details.insert("directory".into(), Value::String(directory.clone()));
-                details.insert("request_generation".into(), Value::from(generation));
+            AntigravityState::WorkspaceTrust {
+                directory,
+                question,
+                options,
+                selected_index,
+            } => {
+                let mut d = workspace_trust_details_map(directory, question, options, *selected_index);
+                d.insert("request_generation".into(), Value::from(generation));
                 self.event(
                     "approval_required",
                     Operation::Other,
                     format!("Workspace trust required for: {}", directory),
-                    details,
+                    d,
                     vec![format!("Trust requested for directory {}", directory)],
-                    Some(RequestInfo {
-                        prompt: format!("Trust directory {}?", directory),
-                        options: vec!["approve".into(), "deny".into()],
-                        question_type: None,
-                    }),
+                    Some(workspace_trust_request(question, options)),
                 )
             }
             AntigravityState::UserQuestion {
@@ -343,6 +339,18 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
                         options: details.answer_options(),
                         question_type: Some(details.question_type()),
                     }),
+                )
+            }
+            AntigravityState::AwaitingReply { message } => {
+                let mut d = agent_reply_details_map(message);
+                d.insert("request_generation".into(), Value::from(generation));
+                self.event(
+                    "input_required",
+                    Operation::Other,
+                    message.clone(),
+                    d,
+                    vec![message.clone()],
+                    Some(agent_reply_request(message)),
                 )
             }
             _ => unreachable!("request_event called with non-blocking state"),
@@ -556,22 +564,7 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
         live: &AntigravityState,
         response: &RequestResponse,
     ) -> Result<QuestionInput, RespondError> {
-        match live {
-            AntigravityState::UserQuestion { details, .. } => {
-                encode_question_response(response, details)
-            }
-            AntigravityState::CommandConfirmation { .. }
-            | AntigravityState::FileEditConfirmation { .. }
-            | AntigravityState::WorkspaceTrust { .. } => {
-                let decision = match response {
-                    RequestResponse::Approve => Decision::Approve,
-                    RequestResponse::Deny => Decision::Deny,
-                    _ => return Err(RespondError::InvalidResponse),
-                };
-                Ok(QuestionInput::Submit(encode_decision(decision, live)))
-            }
-            _ => Err(RespondError::NotBlocked),
-        }
+        encode_response_for_state(live, response)
     }
 }
 

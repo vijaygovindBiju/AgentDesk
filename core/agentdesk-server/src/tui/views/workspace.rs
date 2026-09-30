@@ -58,8 +58,9 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &TuiState) {
         .constraints([
             Constraint::Length(14), // ◈ AgentDesk
             Constraint::Length(22), // Agent Dropdown
-            Constraint::Min(16),    // Workspace Directory
-            Constraint::Length(18), // Phone Connection
+            Constraint::Min(10),    // Workspace Directory
+            Constraint::Length(22), // Relay trunk
+            Constraint::Length(10), // Phone (via relay)
             Constraint::Length(8),  // Notifications
             Constraint::Length(10), // Tab toggle
         ])
@@ -113,23 +114,29 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &TuiState) {
     ]);
     f.render_widget(Paragraph::new(dir_badge), chunks[2]);
 
-    // 4. Phone connection
+    // 4. Relay trunk
+    let mut relay_spans = vec![Span::raw(" ")];
+    relay_spans.extend(crate::tui::views::header::relay_status_spans(state));
+    relay_spans.push(Span::styled(" │", Style::default().fg(Color::DarkGray)));
+    f.render_widget(Paragraph::new(Line::from(relay_spans)), chunks[3]);
+
+    // 5. Phone connection (via relay)
     let phone_text = if state.phone_connected {
         Line::from(vec![
             Span::styled("● ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::styled("Connected", Style::default().fg(Color::Green)),
+            Span::styled("Phone", Style::default().fg(Color::Green)),
             Span::styled(" │", Style::default().fg(Color::DarkGray)),
         ])
     } else {
         Line::from(vec![
             Span::styled("○ ", Style::default().fg(Color::DarkGray)),
-            Span::styled("Offline", Style::default().fg(Color::DarkGray)),
+            Span::styled("Phone", Style::default().fg(Color::DarkGray)),
             Span::styled(" │", Style::default().fg(Color::DarkGray)),
         ])
     };
-    f.render_widget(Paragraph::new(phone_text), chunks[3]);
+    f.render_widget(Paragraph::new(phone_text), chunks[4]);
 
-    // 5. Attention notifications badge
+    // 6. Attention notifications badge
     let pending_requests = state.requests().len();
     let errors_count = state.errors().len();
     let total_attention = pending_requests + errors_count;
@@ -148,14 +155,14 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &TuiState) {
             Span::styled("0", Style::default().fg(Color::DarkGray)),
         ])
     };
-    f.render_widget(Paragraph::new(notif_badge), chunks[4]);
+    f.render_widget(Paragraph::new(notif_badge), chunks[5]);
 
-    // 6. Tab indicator
+    // 7. Tab indicator
     let tab_text = match state.active_terminal_tab {
         ActiveTerminalTab::Shell => Line::from(Span::styled("[Shell]", Style::default().fg(Color::Green))),
         ActiveTerminalTab::Agent => Line::from(Span::styled("[Agent]", Style::default().fg(Color::Cyan))),
     };
-    f.render_widget(Paragraph::new(tab_text), chunks[5]);
+    f.render_widget(Paragraph::new(tab_text), chunks[6]);
 }
 
 fn render_bottom_bar(f: &mut Frame, area: Rect, _state: &TuiState) {

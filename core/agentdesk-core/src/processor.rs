@@ -133,8 +133,13 @@ impl EventProcessor {
         };
 
         // 2. Classify kind -> category, severity, summary
-        let classification = classify(&raw.kind);
-        if classification.matched == Matched::Fallback {
+        let mut classification = classify(&raw.kind);
+        // Safety invariant: Any event carrying a structured request MUST be in the Request category.
+        if raw.request.is_some() && classification.category != Category::Request {
+            classification.category = Category::Request;
+            classification.severity = agentdesk_model::Severity::Critical;
+        }
+        if classification.matched == Matched::Fallback && raw.request.is_none() {
             metrics.unclassified_events += 1;
         }
 
@@ -406,5 +411,36 @@ mod tests {
 
         assert_eq!(ev.agent_name, "Backend Service Agent");
         assert_eq!(ev.project, "Core Service");
+    }
+
+    #[test]
+    fn request_with_unknown_or_confirmation_kind_is_always_tier_0_request() {
+        let mut processor = EventProcessor::new();
+        let mut store = EventStore::new();
+        let mut queue = PriorityQueue::new();
+        let mut logs = LogStore::new(Default::default());
+        let mut metrics = Metrics::new();
+
+        let mut raw = sample_raw("antigravity", "command_confirmation", 1);
+        raw.request = Some(agentdesk_model::RequestInfo {
+            prompt: "Command requires approval: ls -la".into(),
+            options: vec!["Yes, run command".into(), "No, cancel".into()],
+            question_type: Some(agentdesk_model::QuestionType::SingleChoice),
+        });
+
+        let (ev, entry) = processor
+            .process_raw_event(
+                raw,
+                Utc::now(),
+                &mut store,
+                &mut queue,
+                &mut logs,
+                &mut metrics,
+            )
+            .unwrap();
+
+        assert_eq!(ev.category, Category::Request);
+        assert_eq!(ev.severity, agentdesk_model::Severity::Critical);
+        assert_eq!(entry.tier, 0);
     }
 }

@@ -19,6 +19,8 @@ pub enum CliCommand {
     Run(RunOptions),
     TokenShow(TokenOptions),
     TokenRotate(TokenOptions),
+    RelayShow(DeviceOptions),
+    RelaySet { url: String, config_dir: Option<PathBuf> },
     Help,
 }
 
@@ -50,7 +52,6 @@ pub struct RunOptions {
     pub seed: u64,
     pub mode: PipelineMode,
     pub insecure_dev: bool,
-    pub bind: String,
     pub port: u16,
     pub token: Option<String>,
     pub config_dir: Option<PathBuf>,
@@ -70,18 +71,79 @@ pub struct ServiceConfig {
     pub agent: Option<String>,
     pub antigravity: bool,
     pub relay_url: Option<String>,
+    /// Optional access token required by the relay operator (`agentdesk-relay --token`).
+    /// This is NOT the laptop master token, which never leaves the laptop.
+    pub relay_token: Option<String>,
 }
+
+/// The local daemon socket is loopback-only; it serves the on-laptop TUI and
+/// is never reachable by phones. Phones connect exclusively via the relay.
+pub const LOCAL_DAEMON_BIND: &str = "127.0.0.1";
 
 impl Default for ServiceConfig {
     fn default() -> Self {
         Self {
-            bind: "127.0.0.1".into(),
+            bind: LOCAL_DAEMON_BIND.into(),
             port: 8765,
             agent: None,
             antigravity: false,
             relay_url: None,
+            relay_token: None,
         }
     }
+}
+
+fn env_nonempty(keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .filter_map(|k| std::env::var(k).ok())
+        .map(|v| v.trim().to_string())
+        .find(|v| !v.is_empty())
+}
+
+/// Validate a relay endpoint. Production relays must be `wss://` on a public
+/// host. Plain `ws://` is accepted only for a loopback development relay.
+/// Private/LAN addresses are rejected: they would reintroduce a LAN dependency.
+pub fn validate_relay_url(url: &str) -> Result<(), String> {
+    let url = url.trim();
+    let (scheme, rest) = url
+        .split_once("://")
+        .ok_or_else(|| format!("relay URL '{url}' must start with wss://"))?;
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = if let Some(stripped) = authority.strip_prefix('[') {
+        stripped.split(']').next().unwrap_or_default()
+    } else {
+        authority.rsplit_once(':').map(|(h, _)| h).unwrap_or(authority)
+    };
+    if host.is_empty() {
+        return Err(format!("relay URL '{url}' has no host"));
+    }
+    let loopback = crate::token::is_loopback_addr(host);
+    match scheme {
+        "wss" => {}
+        "ws" if loopback => return Ok(()),
+        "ws" => return Err("plain ws:// relays are allowed only on loopback for development; use wss://".into()),
+        other => return Err(format!("unsupported relay scheme '{other}'; use wss://")),
+    }
+    if loopback {
+        return Ok(());
+    }
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        let private = match ip {
+            std::net::IpAddr::V4(v4) => v4.is_private() || v4.is_link_local() || v4.is_unspecified(),
+            std::net::IpAddr::V6(v6) => {
+                v6.is_unspecified() || (v6.segments()[0] & 0xfe00) == 0xfc00 || (v6.segments()[0] & 0xffc0) == 0xfe80
+            }
+        };
+        if private {
+            return Err(format!(
+                "relay host '{host}' is a private/LAN address; phones on mobile data cannot reach it. Use a public relay."
+            ));
+        }
+    }
+    if host.ends_with(".local") || host.ends_with(".lan") {
+        return Err(format!("relay host '{host}' is a LAN-only name; use a public relay."));
+    }
+    Ok(())
 }
 
 pub fn service_env_path(config_dir: &std::path::Path) -> PathBuf {
@@ -91,11 +153,8 @@ pub fn service_env_path(config_dir: &std::path::Path) -> PathBuf {
 pub fn load_service_config(path: &std::path::Path) -> io::Result<ServiceConfig> {
     if !path.exists() {
         let mut config = ServiceConfig::default();
-        if let Ok(url) = std::env::var("AGENTDESK_RELAY_URL").or_else(|_| std::env::var("AGENTDESK_RELAY")) {
-            if !url.trim().is_empty() {
-                config.relay_url = Some(url.trim().to_string());
-            }
-        }
+        config.relay_url = env_nonempty(&["AGENTDESK_RELAY_URL", "AGENTDESK_RELAY"]);
+        config.relay_token = env_nonempty(&["AGENTDESK_RELAY_TOKEN"]);
         return Ok(config);
     }
     let content = fs::read_to_string(path)?;
@@ -106,7 +165,6 @@ pub fn load_service_config(path: &std::path::Path) -> io::Result<ServiceConfig> 
         };
         let value = value.trim().trim_matches('"');
         match key.trim() {
-            "AGENTDESK_BIND" if !value.is_empty() => config.bind = value.to_string(),
             "AGENTDESK_PORT" => {
                 config.port = value.parse().map_err(|_| {
                     io::Error::new(
@@ -120,15 +178,17 @@ pub fn load_service_config(path: &std::path::Path) -> io::Result<ServiceConfig> 
             "AGENTDESK_RELAY" | "AGENTDESK_RELAY_URL" if !value.is_empty() => {
                 config.relay_url = Some(value.to_string())
             }
+            "AGENTDESK_RELAY_TOKEN" if !value.is_empty() => {
+                config.relay_token = Some(value.to_string())
+            }
             _ => {}
         }
     }
     if config.relay_url.is_none() {
-        if let Ok(url) = std::env::var("AGENTDESK_RELAY_URL").or_else(|_| std::env::var("AGENTDESK_RELAY")) {
-            if !url.trim().is_empty() {
-                config.relay_url = Some(url.trim().to_string());
-            }
-        }
+        config.relay_url = env_nonempty(&["AGENTDESK_RELAY_URL", "AGENTDESK_RELAY"]);
+    }
+    if config.relay_token.is_none() {
+        config.relay_token = env_nonempty(&["AGENTDESK_RELAY_TOKEN"]);
     }
     validate_port(config.port).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     Ok(config)
@@ -136,15 +196,13 @@ pub fn load_service_config(path: &std::path::Path) -> io::Result<ServiceConfig> 
 
 pub fn update_service_config(path: &std::path::Path, config: &ServiceConfig) -> io::Result<()> {
     validate_port(config.port).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-    if config.bind.trim().is_empty() || config.bind.contains(['\n', '\r', '=']) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid bind address",
-        ));
+    if let Some(ref url) = config.relay_url {
+        if url.contains(['\n', '\r']) {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid relay URL"));
+        }
     }
     let original = fs::read_to_string(path).unwrap_or_default();
     let replacements = [
-        ("AGENTDESK_BIND", config.bind.clone()),
         ("AGENTDESK_PORT", config.port.to_string()),
         (
             "AGENTDESK_ANTIGRAVITY",
@@ -159,9 +217,13 @@ pub fn update_service_config(path: &std::path::Path, config: &ServiceConfig) -> 
             config.relay_url.clone().unwrap_or_default(),
         ),
     ];
-    let mut seen = [false; 4];
+    let mut seen = [false; 3];
     let mut output = Vec::new();
     for line in original.lines() {
+        // Obsolete: the daemon socket is loopback-only; drop legacy bind overrides.
+        if line.starts_with("AGENTDESK_BIND=") {
+            continue;
+        }
         let mut replaced = false;
         for (index, (key, value)) in replacements.iter().enumerate() {
             if line.starts_with(&format!("{key}=")) {
@@ -235,7 +297,6 @@ impl Default for RunOptions {
             seed: 42,
             mode: PipelineMode::Agentdesk,
             insecure_dev: false,
-            bind: "127.0.0.1".into(),
             port: 8765,
             token: None,
             config_dir: None,
@@ -386,6 +447,33 @@ where
         }
     }
 
+    if first == "relay" {
+        let usage = "Usage: agentdesk relay <show|set <wss://relay.example.com>> [--config-dir <path>]";
+        let sub = args.get(2).ok_or(usage)?;
+        let (url, rest_start) = match sub.as_str() {
+            "show" => (None, 3),
+            "set" => (Some(args.get(3).ok_or(usage)?.clone()), 4),
+            _ => return Err(usage.into()),
+        };
+        let mut config_dir = None;
+        let mut idx = rest_start;
+        while idx < args.len() {
+            if args[idx] == "--config-dir" && idx + 1 < args.len() {
+                config_dir = Some(PathBuf::from(&args[idx + 1]));
+                idx += 2;
+            } else {
+                return Err(format!("Unknown option for relay: '{}'", args[idx]));
+            }
+        }
+        return Ok(match url {
+            None => CliCommand::RelayShow(DeviceOptions { config_dir }),
+            Some(url) => {
+                validate_relay_url(&url)?;
+                CliCommand::RelaySet { url: url.trim().to_string(), config_dir }
+            }
+        });
+    }
+
     if first == "run" {
         let mut opts = RunOptions::default();
         let mut idx = 2;
@@ -423,12 +511,11 @@ where
                     opts.insecure_dev = true;
                     idx += 1;
                 }
-                "--bind" => {
-                    if idx + 1 >= args.len() {
-                        return Err("--bind requires an address".into());
-                    }
-                    opts.bind = args[idx + 1].clone();
-                    idx += 2;
+                "--bind" | "--no-lan" | "--lan" | "--usb" => {
+                    return Err(format!(
+                        "'{}' was removed: AgentDesk is relay-only. The laptop only makes an outbound WSS connection to the configured relay (see `agentdesk relay`).",
+                        args[idx]
+                    ));
                 }
                 "--port" => {
                     if idx + 1 >= args.len() {
@@ -490,7 +577,7 @@ where
     }
 
     Err(format!(
-        "Unknown command: '{}'. Expected 'pair', 'devices', 'run', or 'token'.",
+        "Unknown command: '{}'. Expected 'pair', 'devices', 'relay', 'run', or 'token'.",
         first
     ))
 }
@@ -504,8 +591,17 @@ pub fn print_help() {
              agentdesk devices list [OPTIONS]       List paired devices\n\
              agentdesk devices revoke <id> [OPTS]   Revoke a paired device\n\
              agentdesk devices remove <id> [OPTS]   Remove a paired device from registry\n\
-             agentdesk run [OPTIONS]                Run server directly\n\
+             agentdesk relay show [OPTS]            Show the configured relay endpoint\n\
+             agentdesk relay set <wss-url> [OPTS]   Set the relay endpoint (relay_url)\n\
+             agentdesk run [OPTIONS]                Run daemon directly (headless)\n\
              agentdesk token <show|rotate> [OPTS]   Show or rotate master token\n\n\
+         CONNECTIVITY:\n\
+             Relay-only. The laptop and phone each open an outbound WSS connection to\n\
+             the configured relay; they never connect to each other directly and may\n\
+             be on completely different networks (e.g. hostel Wi-Fi and 4G/5G).\n\
+             No LAN IP, USB/ADB, port forwarding or inbound firewall rule is needed.\n\
+             Configure with `agentdesk relay set wss://relay.example.com` or the\n\
+             AGENTDESK_RELAY_URL environment variable.\n\n\
          PAIR OPTIONS:\n\
              --config-dir <path>      Override configuration directory\n\
              --relay <url>            Override relay URL\n\n\
@@ -513,9 +609,9 @@ pub fn print_help() {
              --scenario <path>        Path to simulator scenario JSON (default: standard scenario)\n\
              --seed <u64>             Deterministic random seed (default: 42)\n\
              --mode <mode>            Pipeline mode: raw_lines | raw_events | agentdesk (default: agentdesk)\n\
-             --insecure-dev           Run plain ws:// on 127.0.0.1 (strict loopback only)\n\
-             --bind <addr>            Bind address (default: 127.0.0.1)\n\
-             --port <u16>             Bind port (default: 8765)\n\
+             --insecure-dev           Plain ws:// on the loopback-only local socket (dev only)\n\
+             --port <u16>             Local loopback TUI port (default: 8765; never exposed)\n\
+             --relay <url>            Override relay URL for this run\n\
              --token <str>            Override authentication token\n\
              --config-dir <path>      Override configuration directory for token storage\n\
              --debug                  Enable payload debug logging (opt-in)\n\
@@ -683,7 +779,47 @@ mod tests {
         assert!(saved.contains("# keep this"));
         assert!(saved.contains("OTHER=value"));
         assert!(saved.contains("AGENTDESK_PORT=8080"));
+        assert!(!saved.contains("AGENTDESK_BIND"), "legacy bind override must be dropped");
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn direct_connectivity_flags_are_rejected() {
+        for flag in ["--bind", "--no-lan", "--lan", "--usb"] {
+            let err = parse_args(["agentdesk", "run", flag, "0.0.0.0"]).unwrap_err();
+            assert!(err.contains("relay-only"), "{flag}: {err}");
+        }
+    }
+
+    #[test]
+    fn relay_url_validation() {
+        assert!(validate_relay_url("wss://relay.example.com").is_ok());
+        assert!(validate_relay_url("wss://relay.example.com:443/path").is_ok());
+        assert!(validate_relay_url("wss://203.0.113.7:8766").is_ok());
+        // Local development relay on loopback only
+        assert!(validate_relay_url("ws://127.0.0.1:8766").is_ok());
+        assert!(validate_relay_url("ws://localhost:8766").is_ok());
+        // Rejected: plaintext public, LAN/private addresses, bad schemes
+        assert!(validate_relay_url("ws://relay.example.com").is_err());
+        assert!(validate_relay_url("wss://192.168.1.10:8766").is_err());
+        assert!(validate_relay_url("wss://10.0.0.4").is_err());
+        assert!(validate_relay_url("wss://172.16.3.2").is_err());
+        assert!(validate_relay_url("wss://laptop.local").is_err());
+        assert!(validate_relay_url("https://relay.example.com").is_err());
+        assert!(validate_relay_url("relay.example.com").is_err());
+    }
+
+    #[test]
+    fn parse_relay_commands() {
+        assert_eq!(
+            parse_args(["agentdesk", "relay", "show"]).unwrap(),
+            CliCommand::RelayShow(DeviceOptions { config_dir: None })
+        );
+        assert_eq!(
+            parse_args(["agentdesk", "relay", "set", "wss://relay.example.com"]).unwrap(),
+            CliCommand::RelaySet { url: "wss://relay.example.com".into(), config_dir: None }
+        );
+        assert!(parse_args(["agentdesk", "relay", "set", "wss://192.168.1.2:8766"]).is_err());
     }
 
     #[test]

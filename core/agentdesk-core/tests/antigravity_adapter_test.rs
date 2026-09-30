@@ -145,9 +145,13 @@ fn test_command_confirmation_approval_flow() {
     assert_eq!(
         event.request,
         Some(RequestInfo {
-            prompt: "cargo test --workspace".into(),
-            options: vec!["approve".into(), "deny".into()],
-            question_type: None,
+            prompt: "Run this command?\ncargo test --workspace".into(),
+            options: vec![
+                "Yes, run command".into(),
+                "Yes, and always allow in this conversation".into(),
+                "No, deny".into(),
+            ],
+            question_type: Some(QuestionType::SingleChoice),
         })
     );
 
@@ -524,9 +528,14 @@ Run this command?\r\n\
     assert_eq!(
         req.request,
         Some(RequestInfo {
-            prompt: "echo AGY_PERMISSION_OK".into(),
-            options: vec!["approve".into(), "deny".into()],
-            question_type: None,
+            prompt: "Run this command?\necho AGY_PERMISSION_OK".into(),
+            options: vec![
+                "Yes, run command".into(),
+                "Yes, and always allow in this conversation for commands that start with 'echo'".into(),
+                "Yes, and always allow for commands that start with 'echo' (Persist to settings.json)".into(),
+                "No, cancel".into(),
+            ],
+            question_type: Some(QuestionType::SingleChoice),
         })
     );
 
@@ -809,8 +818,11 @@ fn run_real_agy_question_e2e(
     let mut seen = false;
     while resume.elapsed() < Duration::from_secs(60) {
         for out in adapter.poll(Utc::now()) {
+            // agy finishing its turn with a chat reply is a separate free-form request
+            // (`interaction: agent_reply`), not a re-asked question.
             if let AdapterOutput::Event(raw) = out
                 && raw.kind == "input_required"
+                && raw.details.get("interaction").and_then(|v| v.as_str()) != Some("agent_reply")
             {
                 panic!(
                     "[{label}] agy re-asked after our answer ({:?}). Screen:\n{}",
@@ -829,6 +841,8 @@ fn run_real_agy_question_e2e(
             .collect();
         if compact.contains(marker) {
             seen = true;
+            std::thread::sleep(Duration::from_millis(500));
+            let _ = adapter.poll(Utc::now());
             break;
         }
         std::thread::sleep(Duration::from_millis(100));
@@ -839,10 +853,13 @@ fn run_real_agy_question_e2e(
         seen,
         "[{label}] agy must acknowledge the answer with {marker:?}. Screen:\n{screen}"
     );
-    assert!(
-        adapter.pending_request().is_none(),
-        "[{label}] request must be consumed"
-    );
+    if let Some(pending) = adapter.pending_request() {
+        assert!(
+            matches!(pending.state, AntigravityState::AwaitingReply { .. }),
+            "[{label}] question request must be consumed; got {:?}",
+            pending.state
+        );
+    }
 
     if let Ok(dir) = std::env::var("AGY_E2E_RECORD_DIR") {
         let path = std::path::Path::new(&dir).join(format!("real_agy_question_{label}.json"));
@@ -1026,3 +1043,125 @@ fn test_real_agy_live_adversarial_question_text_is_not_a_request() {
     }
     adapter.transport_mut().terminate();
 }
+
+/// Real `agy` end-to-end: prompt asking agy to ask which language to use in plain chat,
+/// detecting `AwaitingReply`, responding with `SelectOption("Rust")`, verifying PTY receives
+/// "Rust\r" and agy continues.
+#[test]
+fn test_real_agy_live_awaiting_reply_select_option_e2e() {
+    if !agy_available() {
+        eprintln!("Skipping: 'agy' not found in PATH");
+        return;
+    }
+    let _live = live_agy_guard();
+
+    let prompt = "Without calling any tools, ask me in plain chat text which programming language I would like to use. Wait for my answer. After I answer, continue.";
+    let config = AntigravityConfig {
+        command: "agy".into(),
+        args: live_agy_args(),
+        cwd: None,
+        agent_id: "antigravity-reply-live".into(),
+        agent_name: "Antigravity Live".into(),
+        project: "AgentDesk".into(),
+        initial_prompt: Some(prompt.into()),
+        cols: 120,
+        rows: 40,
+    };
+    let mut adapter = AntigravityPtyAdapter::spawn(config).expect("spawn real agy");
+    let task_id = adapter.current_task_id().clone();
+
+    let start = Instant::now();
+    let mut reply_request: Option<RawAgentEvent> = None;
+    let mut answered_trust = false;
+
+    // Poll until AwaitingReply is detected (handling workspace trust if presented first)
+    while start.elapsed() < Duration::from_secs(180) && reply_request.is_none() {
+        for out in adapter.poll(Utc::now()) {
+            if let AdapterOutput::Event(raw) = out {
+                if raw.kind == "input_required" {
+                    if raw.details.get("interaction").and_then(|v| v.as_str()) == Some("workspace_trust")
+                        && !answered_trust
+                    {
+                        let _ = adapter.respond_with_response(
+                            &task_id,
+                            Some(raw.agent_seq),
+                            &RequestResponse::SelectOption {
+                                option: "Yes, I trust this folder".into(),
+                            },
+                            Utc::now(),
+                        );
+                        answered_trust = true;
+                    } else if raw.details.get("interaction").and_then(|v| v.as_str()) == Some("agent_reply")
+                        || raw.details.get("interaction").and_then(|v| v.as_str()) == Some("question")
+                    {
+                        reply_request = Some(raw);
+                        break;
+                    }
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+
+    let request = reply_request.unwrap_or_else(|| {
+        panic!(
+            "real agy must reach AwaitingReply (plain chat question). Screen:\n{}",
+            adapter.screen().all_lines().join("\n")
+        )
+    });
+
+    println!("[real_reply_e2e] Detected AwaitingReply prompt: {:?}", request.message);
+    assert!(
+        request.message.to_lowercase().contains("language"),
+        "AwaitingReply message must ask about programming language: {:?}",
+        request.message
+    );
+
+    // Give screen a moment to settle, then deliver SelectOption("Rust")
+    std::thread::sleep(Duration::from_millis(500));
+    let _ = adapter.poll(Utc::now());
+
+    let phone_response = RequestResponse::SelectOption {
+        option: "Rust".into(),
+    };
+
+    println!("[real_reply_e2e] Delivering phone response: {:?}", phone_response);
+    adapter
+        .respond_with_response(&task_id, Some(request.agent_seq), &phone_response, Utc::now())
+        .expect("SelectOption('Rust') must be accepted and delivered to PTY");
+
+    // Wait for Antigravity to receive the answer and resume working / continue turn
+    let resume = Instant::now();
+    let mut agy_continued = false;
+    while resume.elapsed() < Duration::from_secs(60) {
+        for out in adapter.poll(Utc::now()) {
+            if let AdapterOutput::Event(raw) = out {
+                if raw.kind == "progress" || raw.kind == "task_completed" {
+                    agy_continued = true;
+                    break;
+                }
+            }
+        }
+        let screen = adapter.screen().all_lines().join("\n");
+        // Check if Rust was received in transcript or if agy started thinking/working
+        if screen.contains("Rust") || screen.contains("Thought") || agy_continued {
+            agy_continued = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+
+    let final_screen = adapter.screen().all_lines().join("\n");
+    println!("[real_reply_e2e] Final screen:\n{}", final_screen);
+    assert!(
+        agy_continued,
+        "Antigravity must receive answer and continue. Screen:\n{final_screen}"
+    );
+    assert!(
+        adapter.pending_request().is_none(),
+        "Request must be consumed after delivery"
+    );
+
+    adapter.transport_mut().terminate();
+}
+

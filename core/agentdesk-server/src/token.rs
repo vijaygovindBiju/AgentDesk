@@ -135,10 +135,12 @@ pub fn validate_bind_security(
         ));
     }
 
-    // P6.5: Refuse non-loopback bind without a token.
-    if !is_loopback_addr(clean) && token.trim().is_empty() {
+    // Relay-only architecture: the local daemon socket exists solely for the
+    // on-laptop TUI and must never accept inbound LAN/Internet connections.
+    // Phones reach the laptop exclusively through the outbound relay trunk.
+    if !is_loopback_addr(clean) {
         return Err(format!(
-            "refusing to bind to non-loopback address '{bind_addr}' without a configured token"
+            "refusing to bind to non-loopback address '{bind_addr}': AgentDesk is relay-only and never accepts inbound phone connections"
         ));
     }
 
@@ -202,9 +204,13 @@ mod tests {
     }
 
     #[test]
-    fn non_loopback_refuses_empty_token() {
+    fn non_loopback_bind_always_rejected() {
         assert!(validate_bind_security("0.0.0.0", "", false).is_err());
         assert!(validate_bind_security("192.168.1.10", "   ", false).is_err());
-        assert!(validate_bind_security("0.0.0.0", "some-token", false).is_ok());
+        assert!(validate_bind_security("0.0.0.0", "some-token", false).is_err());
+        assert!(validate_bind_security("10.0.0.5", "some-token", false).is_err());
+        assert!(validate_bind_security("172.16.0.1", "some-token", false).is_err());
+        assert!(validate_bind_security("127.0.0.1", "some-token", false).is_ok());
+        assert!(validate_bind_security("127.0.0.1", "", false).is_err());
     }
 }

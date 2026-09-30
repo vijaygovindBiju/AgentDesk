@@ -11,10 +11,10 @@ use agentdesk_core::{
     ThresholdTable,
 };
 use agentdesk_server::{
-    CliCommand, DeviceOptions, DeviceRegistry, DeviceRevokeOptions, LogLevel, PairOptions,
-    RunOptions, Server, ServerConfig, TokenOptions, default_config_dir, load_or_generate_token,
-    load_service_config, parse_args, print_help, rotate_token, service_env_path, set_log_level,
-    token_path,
+    AgentDiscovery, CliCommand, DeviceOptions, DeviceRegistry, DeviceRevokeOptions, LogLevel,
+    PairOptions, RunOptions, Server, ServerConfig, TokenOptions, default_config_dir,
+    load_or_generate_token, load_service_config, parse_args, print_help, rotate_token,
+    service_env_path, set_log_level, token_path,
 };
 use agentdesk_sim::{Scenario, Simulator};
 
@@ -54,6 +54,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         CliCommand::Help => {
             print_help();
+            Ok(())
+        }
+        CliCommand::RelayShow(opts) => {
+            let config_dir = opts.config_dir.unwrap_or_else(default_config_dir);
+            let config = load_service_config(&service_env_path(&config_dir))?;
+            match config.relay_url {
+                Some(url) => println!("relay_url = {url}"),
+                None => println!(
+                    "relay_url is not set (run `agentdesk relay set wss://relay.example.com`)"
+                ),
+            }
+            println!("Transport: outbound WSS to relay only (no LAN, no USB, no inbound ports)");
+            Ok(())
+        }
+        CliCommand::RelaySet { url, config_dir } => {
+            let config_dir = config_dir.unwrap_or_else(default_config_dir);
+            let env_path = service_env_path(&config_dir);
+            let mut config = load_service_config(&env_path)?;
+            config.relay_url = Some(url.clone());
+            agentdesk_server::update_service_config(&env_path, &config)?;
+            println!("relay_url = {url}");
+            println!(
+                "Saved to {}. Restart AgentDesk to apply.",
+                env_path.display()
+            );
             Ok(())
         }
         CliCommand::TokenShow(opts) => {
@@ -152,8 +177,8 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
     let token_file = token_path(&config_dir);
 
     // Resolve or generate token
-    let token = match opts.token {
-        Some(t) => t,
+    let token = match opts.token.as_deref() {
+        Some(t) => t.to_string(),
         None => load_or_generate_token(&token_file)?,
     };
 
@@ -163,14 +188,21 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             .clone()
             .or_else(|| {
                 let env_path = service_env_path(&config_dir);
-                load_service_config(&env_path).ok().and_then(|c| c.relay_url)
+                load_service_config(&env_path)
+                    .ok()
+                    .and_then(|c| c.relay_url)
             })
             .or_else(|| std::env::var("AGENTDESK_RELAY_URL").ok())
             .or_else(|| std::env::var("AGENTDESK_RELAY").ok()),
     );
 
+    if let Err(e) = agentdesk_server::validate_relay_url(&relay_url) {
+        eprintln!("Relay configuration error: {e}");
+        std::process::exit(1);
+    }
+
     let server_config = ServerConfig {
-        bind_addr: opts.bind.clone(),
+        bind_addr: agentdesk_server::LOCAL_DAEMON_BIND.into(),
         port: opts.port,
         token: token.clone(),
         insecure_dev: opts.insecure_dev,
@@ -188,6 +220,19 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
 
     let clock = Arc::new(SystemClock);
     let start_time = clock.now();
+
+    let mut opts = opts;
+    if !opts.antigravity && opts.agent.is_none() && opts.scenario.is_none() {
+        if AgentDiscovery::discover()
+            .iter()
+            .any(|a| a.id == "antigravity" && a.is_ready())
+        {
+            opts.antigravity = true;
+            agentdesk_server::info(
+                "Auto-detected Antigravity (agy) on PATH; using real Antigravity PTY adapter",
+            );
+        }
+    }
 
     let mut adapter: Box<dyn Adapter> = if opts.antigravity {
         let agent_cmd = opts.agent.as_deref().unwrap_or("agy");
@@ -332,9 +377,65 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
     // Adapter driving loop
     let adapter_sender = core_sender.clone();
     tokio::spawn(async move {
+        // A phone prompt is typed into the agent only when its live screen is at the idle
+        // chat prompt. Typing it while a dialog (workspace trust, command approval, question)
+        // is on screen would answer that dialog without an explicit phone response.
+        let mut pending_prompt: Option<String> = None;
+        // Opt-in local diagnostic (`AGENTDESK_SCREEN_DUMP=<file>`): the parsed VT screen and the
+        // detected semantic state, written only when they change. Never sent over the network.
+        let screen_dump = std::env::var_os("AGENTDESK_SCREEN_DUMP").map(std::path::PathBuf::from);
+        let mut last_dump = String::new();
         loop {
             let now = chrono::Utc::now();
             let outputs = adapter.poll(now);
+            if let (Some(path), Some(screen)) = (screen_dump.as_ref(), adapter.screen()) {
+                let snap = screen.snapshot();
+                let dump = format!(
+                    "detected: {:?}\ncursor: row={} col={} visible={} alt_screen={}\nreversed_rows: {:?}\n{}\n",
+                    agentdesk_core::detect_state(&snap),
+                    snap.cursor_row,
+                    snap.cursor_col,
+                    snap.cursor_visible,
+                    snap.in_alt_screen,
+                    snap.reversed_lines
+                        .iter()
+                        .map(|(r, _)| *r)
+                        .collect::<Vec<_>>(),
+                    snap.lines
+                        .iter()
+                        .enumerate()
+                        .map(|(i, l)| format!("{i:02}|{l}"))
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+                if dump != last_dump {
+                    let _ = fs::write(path, &dump);
+                    last_dump = dump;
+                }
+            }
+            if let Some(prompt) = pending_prompt.take() {
+                let live = adapter
+                    .screen()
+                    .map(|s| agentdesk_core::detect_state(&s.snapshot()));
+                if live.as_ref().is_none_or(|s| s.accepts_chat_input()) {
+                    let payload = if prompt.contains('\n') {
+                        format!("\x1b[200~{prompt}\x1b[201~\r")
+                    } else {
+                        format!("{prompt}\r")
+                    };
+                    match adapter.send_raw_input(payload.as_bytes()) {
+                        Ok(()) => {
+                            agentdesk_server::info("Delivered phone prompt to agent at idle prompt")
+                        }
+                        Err(e) => agentdesk_server::logging::warn(format!(
+                            "Failed sending prompt to adapter: {}",
+                            e
+                        )),
+                    }
+                } else {
+                    pending_prompt = Some(prompt);
+                }
+            }
             for out in outputs {
                 if adapter_sender
                     .send(CoreCommand::Adapter(out))
@@ -379,8 +480,39 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
                                 }
                             }
                         }
-                        Some(AdapterCommand::StartTask { prompt, .. }) => {
-                            let _ = adapter.send_raw_input(format!("{prompt}\r").as_bytes());
+                        Some(AdapterCommand::StartTask { prompt, workspace, .. }) => {
+                            agentdesk_server::info(format!("Received prompt from phone via relay (len: {})", prompt.len()));
+                            if adapter.is_finished() && opts.antigravity {
+                                let new_config = AntigravityConfig {
+                                    command: "agy".into(),
+                                    args: Vec::new(),
+                                    cwd: workspace.map(std::path::PathBuf::from),
+                                    agent_id: "antigravity".into(),
+                                    agent_name: "Antigravity".into(),
+                                    project: "AgentDesk".into(),
+                                    initial_prompt: Some(prompt.clone()),
+                                    cols: 120,
+                                    rows: 40,
+                                };
+                                match AntigravityPtyAdapter::spawn(new_config) {
+                                    Ok(new_adapter) => {
+                                        adapter = Box::new(new_adapter);
+                                        agentdesk_server::info("Spawned new Antigravity process with initial prompt");
+                                    }
+                                    Err(e) => {
+                                        agentdesk_server::logging::warn(format!("Failed to respawn Antigravity: {}", e));
+                                    }
+                                }
+                            } else {
+                                let live = adapter.screen().map(|s| agentdesk_core::detect_state(&s.snapshot()));
+                                if !live.as_ref().is_none_or(|s| s.accepts_chat_input()) {
+                                    agentdesk_server::info(format!(
+                                        "Agent is not at its idle prompt ({:?}); holding phone prompt until it is",
+                                        live
+                                    ));
+                                }
+                                pending_prompt = Some(prompt);
+                            }
                         }
                         None => {}
                     }

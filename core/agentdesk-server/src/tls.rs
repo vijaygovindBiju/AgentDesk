@@ -8,7 +8,11 @@ use std::sync::Arc;
 
 use rcgen::generate_simple_self_signed;
 use rustls::ServerConfig as RustlsServerConfig;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::client::danger::{
+    HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
+};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
+use rustls::{ClientConfig as RustlsClientConfig, DigitallySignedStruct, SignatureScheme};
 use sha2::{Digest, Sha256};
 use tokio_rustls::TlsAcceptor;
 
@@ -34,6 +38,7 @@ pub fn format_fingerprint_hex(fingerprint: &str) -> String {
     fingerprint.replace(':', "").to_lowercase()
 }
 
+#[derive(Clone, Debug)]
 pub struct TlsIdentity {
     pub cert_der: Vec<u8>,
     pub key_der: Vec<u8>,
@@ -128,6 +133,73 @@ impl TlsIdentity {
             .with_single_cert(vec![cert], key)?;
 
         Ok(TlsAcceptor::from(Arc::new(server_config)))
+    }
+
+    pub fn build_client_config(&self) -> Arc<RustlsClientConfig> {
+        let mut hasher = Sha256::new();
+        hasher.update(&self.cert_der);
+        let expected_fp = hasher.finalize().to_vec();
+        let verifier = Arc::new(PinnedFingerprintVerifier {
+            expected_fingerprint: expected_fp,
+        });
+        let client_config = RustlsClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(verifier)
+            .with_no_client_auth();
+        Arc::new(client_config)
+    }
+}
+
+#[derive(Debug)]
+pub struct PinnedFingerprintVerifier {
+    pub expected_fingerprint: Vec<u8>,
+}
+
+impl ServerCertVerifier for PinnedFingerprintVerifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        let mut hasher = Sha256::new();
+        hasher.update(end_entity.as_ref());
+        let hash = hasher.finalize();
+        if hash.as_slice() == self.expected_fingerprint.as_slice() {
+            Ok(ServerCertVerified::assertion())
+        } else {
+            Err(rustls::Error::InvalidCertificate(
+                rustls::CertificateError::UnknownIssuer,
+            ))
+        }
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        vec![
+            SignatureScheme::RSA_PKCS1_SHA256,
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            SignatureScheme::ED25519,
+        ]
     }
 }
 

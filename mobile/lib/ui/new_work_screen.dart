@@ -88,13 +88,22 @@ class _NewWorkScreenState extends State<NewWorkScreen> {
 
         return Scaffold(
           appBar: AppBar(title: const Text('New Work')),
-          body: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                'Send prompt to coding agent',
-                style: Theme.of(context).textTheme.headlineSmall,
+          body: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            behavior: HitTestBehavior.opaque,
+            child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.of(context).viewInsets.bottom > 0 ? 120 : 32,
               ),
+              children: [
+                Text(
+                  'Send prompt to coding agent',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               const SizedBox(height: 8),
               const Text(
                 'Send instructions directly to the active coding agent on your laptop. '
@@ -151,8 +160,9 @@ class _NewWorkScreenState extends State<NewWorkScreen> {
               ],
             ],
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 }

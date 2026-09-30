@@ -438,6 +438,20 @@ fn test_device_offline() {
     assert!(rendered.contains("PHONE OFFLINE"));
 }
 
+// Relay trunk indicator: no LAN/USB states are ever shown.
+#[test]
+fn test_relay_connection_indicator() {
+    let mut state = TuiState::default();
+    let rendered = render_to_string(&state, 140, 30);
+    assert!(rendered.contains("○ Relay Disconnected"));
+
+    state.relay_connected = true;
+    let rendered = render_to_string(&state, 140, 30);
+    assert!(rendered.contains("● Relay Connected"));
+    assert!(!rendered.contains("LAN Connected"));
+    assert!(!rendered.contains("USB Connected"));
+}
+
 // 15. Project with multiple agents
 #[test]
 fn test_project_with_multiple_agents() {

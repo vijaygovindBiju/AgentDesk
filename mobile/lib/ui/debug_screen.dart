@@ -116,7 +116,7 @@ class _DebugScreenState extends State<DebugScreen> {
                   ),
                   const Divider(),
                   _row('Status', widget.connection.status.name),
-                  _row('Server URL', widget.connection.url),
+                  _row('Relay', widget.connection.relayUrl ?? 'Not paired'),
                   _row('Device ID', widget.connection.deviceId),
                   if (widget.connection.lastError != null)
                     _row('Last Error', widget.connection.lastError!,

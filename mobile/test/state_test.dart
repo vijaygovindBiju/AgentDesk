@@ -184,6 +184,38 @@ void main() {
       expect(state.entries.length, 1);
       expect(state.entriesForTier(0).length, 1);
     });
+
+    test('resolved request clears pendingRequestCount and pendingRequests', () {
+      final state = AgentDeskState();
+      final ev = createTestEvent(id: 'req-3', seq: 1, category: Category.request);
+      state.applyEvent(EventPush(
+        event: ev,
+        entry: QueueEntry(
+          eventId: 'req-3',
+          tier: Category.request.tier,
+          score: 80,
+          state: EntryState.new_,
+          resolution: Resolution.unresolved,
+          seq: 1,
+        ),
+      ));
+
+      expect(state.pendingRequestCount, 1);
+      expect(state.pendingRequests.length, 1);
+      expect(state.pendingRequests.first.eventId, 'req-3');
+
+      // Resolve the request (e.g. approved)
+      state.applyStateUpdate(const StateUpdate(
+        eventId: 'req-3',
+        state: EntryState.new_,
+        resolution: Resolution.approved,
+      ));
+
+      expect(state.pendingRequestCount, 0);
+      expect(state.pendingRequests.isEmpty, isTrue);
+      // Still in tier 0 entries for resolved history until dismissed
+      expect(state.entriesForTier(0).length, 1);
+    });
   });
 
   group('P7.T3 - Queue ordering matches laptop rule', () {

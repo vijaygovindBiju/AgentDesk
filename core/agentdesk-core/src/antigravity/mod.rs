@@ -16,8 +16,8 @@ pub use adapter::{
     AntigravityConfig, AntigravityLifecycle, AntigravityPtyAdapter, PendingRequest, RequestOutcome,
 };
 pub use input_encoder::{
-    QuestionInput, encode_decision, encode_question_response, encode_text_submission, keys,
-    validate_text_input,
+    QuestionInput, encode_decision, encode_question_response, encode_response_for_state,
+    encode_text_submission, keys, validate_text_input,
 };
 pub use pty::{MockPtyTransport, PtyChunk, PtyRecording, PtySession, PtyTransport};
 pub use screen::{Cell, CellAttributes, Screen, ScreenSnapshot};

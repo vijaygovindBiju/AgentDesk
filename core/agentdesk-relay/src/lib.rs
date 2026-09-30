@@ -24,6 +24,16 @@ use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use uuid::Uuid;
 
 pub const DEFAULT_RELAY_PORT: u16 = 8766;
+/// Minimum length of the per-instance host key presented by laptop daemons.
+pub const MIN_HOST_KEY_LEN: usize = 32;
+
+fn is_loopback_bind(addr: &str) -> bool {
+    matches!(addr.trim().trim_matches(['[', ']']), "127.0.0.1" | "::1" | "localhost")
+}
+
+fn hash_host_key(key: &str) -> String {
+    compute_sha256_fingerprint(key.as_bytes())
+}
 
 pub fn compute_sha256_fingerprint(der: &[u8]) -> String {
     let mut hasher = Sha256::new();
@@ -172,6 +182,9 @@ struct ClientSession {
 
 struct SessionEntry {
     host_tx: Option<mpsc::Sender<WsMessage>>,
+    /// SHA-256 of the per-instance host key. The first host to register an
+    /// instance binds it; later hosts must present the same key (TOFU).
+    host_key_hash: Option<String>,
     clients: HashMap<String, ClientSession>,
     authorized_devices: HashMap<String, DeviceAuthInfo>,
     active_pairing: Option<PairingAuthInfo>,
@@ -211,6 +224,13 @@ impl RelayServer {
     }
 
     pub async fn run(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if self.config.insecure_dev && !is_loopback_bind(&self.config.bind_addr) {
+            return Err(format!(
+                "--insecure-dev relay must bind to loopback (got '{}'); terminate TLS in front of it for public use",
+                self.config.bind_addr
+            )
+            .into());
+        }
         let addr = format!("{}:{}", self.config.bind_addr, self.config.port);
         let listener = TcpListener::bind(&addr).await?;
         let local_addr = listener.local_addr()?;
@@ -296,6 +316,7 @@ impl RelayServer {
         let mut client_token = None;
         let mut pairing_session_id = None;
         let mut pairing_secret = None;
+        let mut host_key = None;
 
         let expected_token = self.config.auth_token.clone();
 
@@ -337,12 +358,22 @@ impl RelayServer {
                     }
                 };
 
-                if parsed_role == PeerRole::Host && expected_token.as_ref().is_some_and(|exp| {
-                    params.get("token").map(|s| s.as_str()).unwrap_or("") != exp
-                }) {
-                    let mut err = ErrorResponse::new(Some("unauthorized".into()));
-                    *err.status_mut() = StatusCode::UNAUTHORIZED;
-                    return Err(err);
+                if parsed_role == PeerRole::Host {
+                    if expected_token.as_ref().is_some_and(|exp| {
+                        params.get("token").map(|s| s.as_str()).unwrap_or("") != exp
+                    }) {
+                        let mut err = ErrorResponse::new(Some("unauthorized".into()));
+                        *err.status_mut() = StatusCode::UNAUTHORIZED;
+                        return Err(err);
+                    }
+                    match params.get("host_key") {
+                        Some(k) if k.len() >= MIN_HOST_KEY_LEN => host_key = Some(k.clone()),
+                        _ => {
+                            let mut err = ErrorResponse::new(Some("missing or weak host_key".into()));
+                            *err.status_mut() = StatusCode::UNAUTHORIZED;
+                            return Err(err);
+                        }
+                    }
                 }
 
                 role = Some(parsed_role);
@@ -374,23 +405,52 @@ impl RelayServer {
 
         match role {
             PeerRole::Host => {
+                let presented_hash = hash_host_key(host_key.as_deref().unwrap_or_default());
+
+                // Register host (rejecting instance hijack attempts)
+                let previous_host = {
+                    let mut lock = self.sessions.lock().unwrap();
+                    let entry = lock.entry(instance_id.clone()).or_insert_with(|| SessionEntry {
+                        host_tx: None,
+                        host_key_hash: None,
+                        clients: HashMap::new(),
+                        authorized_devices: HashMap::new(),
+                        active_pairing: None,
+                    });
+                    match &entry.host_key_hash {
+                        Some(bound) if *bound != presented_hash => Err(()),
+                        _ => {
+                            entry.host_key_hash = Some(presented_hash.clone());
+                            Ok(entry.host_tx.replace(out_tx.clone()))
+                        }
+                    }
+                };
+                let previous_host = match previous_host {
+                    Ok(prev) => prev,
+                    Err(()) => {
+                        eprintln!("Rejected host for instance '{}' from {}: host_key mismatch", instance_id, peer_addr);
+                        let _ = out_tx
+                            .send(WsMessage::Close(Some(CloseFrame {
+                                code: CloseCode::from(4003),
+                                reason: "instance bound to a different host key".into(),
+                            })))
+                            .await;
+                        let _ = out_handle.await;
+                        return Ok(());
+                    }
+                };
+                // A reconnecting host supersedes its stale trunk (no duplicate sessions).
+                if let Some(prev) = previous_host {
+                    let _ = prev.try_send(WsMessage::Close(Some(CloseFrame {
+                        code: CloseCode::from(4000),
+                        reason: "superseded by reconnecting host".into(),
+                    })));
+                }
                 self.metrics.active_hosts.fetch_add(1, Ordering::SeqCst);
                 eprintln!(
                     "Host connected: instance '{}' from {}",
                     instance_id, peer_addr
                 );
-
-                // Register host
-                {
-                    let mut lock = self.sessions.lock().unwrap();
-                    let entry = lock.entry(instance_id.clone()).or_insert_with(|| SessionEntry {
-                        host_tx: None,
-                        clients: HashMap::new(),
-                        authorized_devices: HashMap::new(),
-                        active_pairing: None,
-                    });
-                    entry.host_tx = Some(out_tx.clone());
-                }
 
                 // Inbound loop: frames from host -> forwarded to clients or handled as control
                 while let Some(msg_res) = ws_stream.next().await {
@@ -484,11 +544,13 @@ impl RelayServer {
 
                 let client_txs: Vec<mpsc::Sender<WsMessage>> = {
                     let mut lock = self.sessions.lock().unwrap();
-                    if let Some(entry) = lock.get_mut(&instance_id) {
-                        entry.host_tx = None;
-                        entry.clients.drain().map(|(_, c)| c.tx).collect()
-                    } else {
-                        Vec::new()
+                    match lock.get_mut(&instance_id) {
+                        // Only tear down if this trunk is still the active one.
+                        Some(entry) if entry.host_tx.as_ref().is_some_and(|tx| tx.same_channel(&out_tx)) => {
+                            entry.host_tx = None;
+                            entry.clients.drain().map(|(_, c)| c.tx).collect()
+                        }
+                        _ => Vec::new(),
                     }
                 };
 
