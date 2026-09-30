@@ -261,7 +261,7 @@ class HomeScreen extends StatelessWidget {
     required String emptyCopy,
     required MaterialColor accentColor,
   }) {
-    final tierEntries = state.entriesForTier(tier);
+    final tierEntries = tier == 0 ? state.pendingRequests : state.entriesForTier(tier);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

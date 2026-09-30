@@ -69,7 +69,11 @@ class _AppShellState extends State<AppShell> {
             connection: widget.connection,
             metrics: widget.metrics,
           ),
-          CompletedScreen(state: widget.state),
+          CompletedScreen(
+            state: widget.state,
+            connection: widget.connection,
+            metrics: widget.metrics,
+          ),
           NewWorkScreen(connection: widget.connection),
         ];
 

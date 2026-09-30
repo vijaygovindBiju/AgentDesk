@@ -484,8 +484,18 @@ impl AntigravityStateMachine {
                 self.current_state = detected;
                 return None;
             }
-            self.current_state = detected.clone();
+            let prev_state = std::mem::replace(&mut self.current_state, detected.clone());
             self.confirmed_state_count = 1;
+            if matches!(prev_state, AntigravityState::Working { .. })
+                && matches!(detected, AntigravityState::IdlePrompt)
+            {
+                let summary = extract_work_summary(snapshot)
+                    .unwrap_or_else(|| "Task completed".to_string());
+                self.current_state = AntigravityState::Completed {
+                    message: summary.clone(),
+                };
+                return self.state_to_event(&self.current_state.clone());
+            }
             self.state_to_event(&detected)
         } else {
             self.confirmed_state_count += 1;
@@ -783,7 +793,7 @@ impl AntigravityStateMachine {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
                     task_id,
-                    kind: "completed".to_string(),
+                    kind: "task_completed".to_string(),
                     operation: Operation::Other,
                     message: message.clone(),
                     details: BTreeMap::new(),
@@ -925,7 +935,11 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
 
     if is_idle {
         if let Some(message) = extract_agent_reply(snapshot) {
-            return AntigravityState::AwaitingReply { message };
+            if message.trim().ends_with('?') {
+                return AntigravityState::AwaitingReply { message };
+            } else {
+                return AntigravityState::Completed { message };
+            }
         }
         return AntigravityState::IdlePrompt;
     }
@@ -984,6 +998,57 @@ fn extract_agent_reply(snapshot: &ScreenSnapshot) -> Option<String> {
     }
     let message = reply.join("\n");
     (!message.is_empty()).then_some(message)
+}
+
+/// Extract summary of the work done prior to the idle prompt.
+pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
+    if let Some(reply) = extract_agent_reply(snapshot) {
+        if !reply.trim().ends_with('?') {
+            return Some(reply);
+        }
+    }
+
+    let lines = &snapshot.lines;
+    let rules: Vec<usize> = (0..lines.len()).filter(|&i| is_rule_line(&lines[i])).collect();
+    let transcript_end = rules
+        .iter()
+        .rev()
+        .nth(1)
+        .copied()
+        .or_else(|| rules.last().copied())
+        .unwrap_or(lines.len());
+
+    let mut summary_lines = Vec::new();
+    for i in (0..transcript_end).rev() {
+        let trimmed = lines[i].trim();
+        if trimmed.is_empty() || is_rule_line(trimmed) {
+            if !summary_lines.is_empty() {
+                break;
+            }
+            continue;
+        }
+        if trimmed.starts_with("> ") || trimmed == ">" || trimmed.starts_with("? ") || trimmed == "?" {
+            continue;
+        }
+        if (trimmed.contains("Navigate") && trimmed.contains("esc to cancel"))
+            || (trimmed.contains("F1 Agent") && trimmed.contains("F2 Project"))
+            || trimmed.contains("ctrl+g edit/expand")
+            || trimmed.starts_with("Gemini")
+        {
+            continue;
+        }
+        summary_lines.push(trimmed);
+        if summary_lines.len() >= 6 {
+            break;
+        }
+    }
+
+    if summary_lines.is_empty() {
+        None
+    } else {
+        summary_lines.reverse();
+        Some(summary_lines.join("\n"))
+    }
 }
 
 /// Selection markers Antigravity/Bubbletea may render in front of the focused menu row.
@@ -1722,5 +1787,45 @@ mod tests {
         };
 
         assert_eq!(detect_state(&snapshot), AntigravityState::IdlePrompt);
+    }
+
+    #[test]
+    fn state_machine_emits_task_completed_when_transitioning_from_working_to_idle() {
+        let mut sm = AntigravityStateMachine::new("test-agent");
+
+        let working_snap = ScreenSnapshot {
+            cols: 80,
+            rows: 24,
+            cursor_row: 0,
+            cursor_col: 0,
+            in_alt_screen: false,
+            cursor_visible: true,
+            lines: vec!["⠙ Working...".to_string()],
+            reversed_lines: vec![],
+            line_fg: vec![],
+        };
+        let ev1 = sm.update(&working_snap);
+        assert!(ev1.is_some());
+        assert_eq!(ev1.unwrap().kind, "progress");
+
+        let idle_snap = ScreenSnapshot {
+            cols: 80,
+            rows: 24,
+            cursor_row: 3,
+            cursor_col: 2,
+            in_alt_screen: false,
+            cursor_visible: true,
+            lines: vec![
+                "● Bash(uname -a)".to_string(),
+                "Linux Pirate 6.8.0-45-generic".to_string(),
+                "──────────────────────────────────────────────────".to_string(),
+                ">".to_string(),
+            ],
+            reversed_lines: vec![],
+            line_fg: vec![],
+        };
+        let ev2 = sm.update(&idle_snap).expect("Must emit task_completed event");
+        assert_eq!(ev2.kind, "task_completed");
+        assert!(ev2.message.contains("Linux Pirate 6.8.0-45-generic"));
     }
 }

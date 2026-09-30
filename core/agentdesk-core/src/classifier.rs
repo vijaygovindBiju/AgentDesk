@@ -67,6 +67,7 @@ pub const RULES: &[Rule] = &[
     rule("cancelled_by_agent", Error, Important, "Cancelled"),
     rule("aborted", Error, Important, "Aborted"),
     // Completed: terminal state — success or an expected stop.
+    rule("completed", Completed, Important, "Completed"),
     rule("build_completed", Completed, Important, "Build Completed"),
     rule("task_completed", Completed, Important, "Task Completed"),
     rule("tests_passed", Completed, Notable, "Tests Passed"),

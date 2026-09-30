@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
+import '../services/client_metrics.dart';
+import '../services/connection_service.dart';
 import '../state/agentdesk_state.dart';
+import 'event_screen.dart';
 
 class CompletedScreen extends StatelessWidget {
   final AgentDeskState state;
+  final ConnectionService? connection;
+  final ClientMetrics? metrics;
 
-  const CompletedScreen({super.key, required this.state});
+  const CompletedScreen({
+    super.key,
+    required this.state,
+    this.connection,
+    this.metrics,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +46,21 @@ class CompletedScreen extends StatelessWidget {
                         ),
                         isThreeLine: true,
                         trailing: const Icon(Icons.chevron_right),
+                        onTap: connection == null
+                            ? null
+                            : () {
+                                metrics?.recordTap();
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => EventScreen(
+                                      eventId: event.eventId,
+                                      state: state,
+                                      connection: connection!,
+                                      metrics: metrics ?? ClientMetrics(),
+                                    ),
+                                  ),
+                                );
+                              },
                       ),
                     );
                   },

@@ -31,7 +31,7 @@ use crate::antigravity::screen::Screen;
 use crate::antigravity::state_machine::{
     AntigravityState, QuestionDetails, classify_command_operation, detect_state,
     agent_reply_details_map, agent_reply_request, approval_menu_details_map,
-    approval_menu_request, command_approval_prompt, file_edit_approval_prompt,
+    approval_menu_request, command_approval_prompt, extract_work_summary, file_edit_approval_prompt,
     question_details_map,
     workspace_trust_details_map, workspace_trust_request,
 };
@@ -537,8 +537,22 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
 
             AntigravityState::IdlePrompt => {
                 self.pending_write_in = None;
+                let was_working = matches!(self.lifecycle, AntigravityLifecycle::Working { .. });
                 if self.lifecycle != AntigravityLifecycle::Running {
                     self.lifecycle = AntigravityLifecycle::Running;
+                }
+                if was_working {
+                    let summary = extract_work_summary(&self.screen.snapshot())
+                        .unwrap_or_else(|| "Task completed".to_string());
+                    let ev = self.event(
+                        "task_completed",
+                        Operation::Other,
+                        summary.clone(),
+                        Details::new(),
+                        vec![summary],
+                        None,
+                    );
+                    out.push(ev);
                 }
             }
 

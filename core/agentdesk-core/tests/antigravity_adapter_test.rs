@@ -1165,3 +1165,37 @@ fn test_real_agy_live_awaiting_reply_select_option_e2e() {
     adapter.transport_mut().terminate();
 }
 
+#[test]
+fn test_transition_from_working_to_idle_prompt_emits_task_completed_with_summary() {
+    let mut adapter = AntigravityPtyAdapter::new_with_transport(
+        AntigravityConfig::default(),
+        MockPtyTransport::new(120, 40),
+    );
+
+    // Initial poll
+    let _ = adapter.poll(Utc::now());
+
+    // 1. Enter Working state
+    adapter.transport_mut().push_text("⠙ Generating response...\r\n");
+    let out = adapter.poll(Utc::now());
+    assert!(out.iter().any(|o| matches!(o, AdapterOutput::Event(e) if e.kind == "progress")));
+
+    // 2. Complete work and return to idle prompt with command output / summary
+    adapter.transport_mut().push_text(
+        "\x1b[2J\x1b[H● Bash(uname -a)\r\n  Linux Pirate 6.8.0-45-generic x86_64\r\n\
+         ────────────────────────────────────────────────────────────────────────────\r\n\
+         >\r\n"
+    );
+    let out = adapter.poll(Utc::now());
+    let completed = out
+        .into_iter()
+        .find_map(|o| match o {
+            AdapterOutput::Event(e) if e.kind == "task_completed" => Some(e),
+            _ => None,
+        })
+        .expect("Must emit task_completed when transitioning from Working to IdlePrompt");
+
+    assert!(completed.message.contains("Linux Pirate 6.8.0-45-generic"));
+    assert!(completed.message.contains("● Bash(uname -a)"));
+}
+

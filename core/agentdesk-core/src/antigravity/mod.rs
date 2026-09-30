@@ -24,4 +24,5 @@ pub use screen::{Cell, CellAttributes, Screen, ScreenSnapshot};
 pub use state_machine::{
     AntigravityState, AntigravityStateMachine, QuestionDetails, QuestionDialog, QuestionForm,
     WRITE_IN_LABEL, classify_command_operation, detect_state, extract_question_dialog,
+    extract_work_summary,
 };
