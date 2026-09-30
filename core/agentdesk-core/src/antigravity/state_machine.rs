@@ -621,6 +621,19 @@ impl AntigravityStateMachine {
             }
             AntigravityState::Completed { message } => {
                 let seq = self.next_seq();
+                let mut details = BTreeMap::new();
+                details.insert(
+                    "status".to_string(),
+                    serde_json::Value::String("completed".to_string()),
+                );
+                details.insert(
+                    "description".to_string(),
+                    serde_json::Value::String(message.clone()),
+                );
+                details.insert(
+                    "summary".to_string(),
+                    serde_json::Value::String(message.clone()),
+                );
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -628,7 +641,7 @@ impl AntigravityStateMachine {
                     kind: "task_completed".to_string(),
                     operation: Operation::Other,
                     message: message.clone(),
-                    details: BTreeMap::new(),
+                    details,
                     log_lines: vec![message.clone()],
                     request: None,
                 })
@@ -789,6 +802,19 @@ impl AntigravityStateMachine {
             }
             AntigravityState::Completed { message } => {
                 let seq = self.next_seq();
+                let mut details = BTreeMap::new();
+                details.insert(
+                    "status".to_string(),
+                    serde_json::Value::String("completed".to_string()),
+                );
+                details.insert(
+                    "description".to_string(),
+                    serde_json::Value::String(message.clone()),
+                );
+                details.insert(
+                    "summary".to_string(),
+                    serde_json::Value::String(message.clone()),
+                );
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -796,7 +822,7 @@ impl AntigravityStateMachine {
                     kind: "task_completed".to_string(),
                     operation: Operation::Other,
                     message: message.clone(),
-                    details: BTreeMap::new(),
+                    details,
                     log_lines: vec![message.clone()],
                     request: None,
                 })
@@ -857,19 +883,19 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
         return trust;
     }
 
-    // 2. Interactive Command Confirmation Menu
-    if let Some((command, options, selected)) = extract_command_dialog(snapshot) {
-        return AntigravityState::CommandConfirmation {
-            command,
+    // 2. Interactive File Edit / Creation Confirmation Menu
+    if let Some((file_path, options, selected)) = extract_file_edit_dialog(snapshot) {
+        return AntigravityState::FileEditConfirmation {
+            file_path,
             selected_option_index: selected,
             options,
         };
     }
 
-    // 3. Interactive File Edit Confirmation Menu
-    if let Some((file_path, options, selected)) = extract_file_edit_dialog(snapshot) {
-        return AntigravityState::FileEditConfirmation {
-            file_path,
+    // 3. Interactive Command / Tool Confirmation Menu
+    if let Some((command, options, selected)) = extract_command_dialog(snapshot) {
+        return AntigravityState::CommandConfirmation {
+            command,
             selected_option_index: selected,
             options,
         };
@@ -918,20 +944,57 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
     }
 
     // 7. Idle Prompt
-    let is_idle = non_empty_lines.iter().rev().take(4).any(|line| {
+    let is_menu_row = |line: &str| {
         let t = line.trim();
+        if let Some(rest) = t.strip_prefix('>') {
+            let rest = rest.trim_start();
+            rest.chars().next().is_some_and(|c| c.is_ascii_digit() || c == '[' || c == '●')
+        } else {
+            false
+        }
+    };
+
+    let has_menu_footer = non_empty_lines.iter().any(|l| {
+        let t = l.trim();
+        (t.contains("Navigate") && t.contains("esc to cancel"))
+            || (t.contains("tab Amend") && t.contains("Navigate"))
+    });
+
+    let has_permission_header = non_empty_lines.iter().any(|l| {
+        let t = l.trim();
+        t.starts_with("Requesting permission for:")
+            || t.starts_with("Run this command?")
+            || t.starts_with("Allow creation of this file?")
+            || t.starts_with("Allow editing this file?")
+            || t.starts_with("Allow access to this file?")
+            || t.starts_with("Allow calling this tool?")
+            || t.starts_with("Allow access to this URL?")
+            || t == "Create file"
+            || t == "Edit file"
+    });
+
+    let is_chat_prompt_line = |line: &str| {
+        let t = line.trim();
+        if is_menu_row(t) {
+            return false;
+        }
         t.starts_with("> ")
             || t == ">"
             || t.starts_with("? ")
             || t == "?"
             || t.contains("Send message")
-    }) || (snapshot.cursor_row > 0
-        && snapshot.cursor_visible
-        && usize::from(snapshot.cursor_row) < snapshot.lines.len()
-        && {
-            let cur = snapshot.lines[usize::from(snapshot.cursor_row)].trim();
-            cur.starts_with("> ") || cur == ">" || cur.is_empty()
-        });
+    };
+
+    let is_idle = !has_menu_footer && !has_permission_header && (
+        non_empty_lines.iter().rev().take(4).any(|line| is_chat_prompt_line(line))
+        || (snapshot.cursor_row > 0
+            && snapshot.cursor_visible
+            && usize::from(snapshot.cursor_row) < snapshot.lines.len()
+            && {
+                let cur = snapshot.lines[usize::from(snapshot.cursor_row)].trim();
+                !is_menu_row(cur) && (cur.starts_with("> ") || cur == ">" || cur.is_empty())
+            })
+    );
 
     if is_idle {
         if let Some(message) = extract_agent_reply(snapshot) {
@@ -1019,14 +1082,25 @@ pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
         .unwrap_or(lines.len());
 
     let mut summary_lines = Vec::new();
+    let mut consecutive_empty = 0;
     for i in (0..transcript_end).rev() {
         let trimmed = lines[i].trim();
-        if trimmed.is_empty() || is_rule_line(trimmed) {
+        if is_rule_line(trimmed) {
             if !summary_lines.is_empty() {
                 break;
             }
             continue;
         }
+        if trimmed.is_empty() {
+            if !summary_lines.is_empty() {
+                consecutive_empty += 1;
+                if consecutive_empty >= 2 {
+                    break;
+                }
+            }
+            continue;
+        }
+        consecutive_empty = 0;
         if trimmed.starts_with("> ") || trimmed == ">" || trimmed.starts_with("? ") || trimmed == "?" {
             continue;
         }
@@ -1038,7 +1112,7 @@ pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
             continue;
         }
         summary_lines.push(trimmed);
-        if summary_lines.len() >= 6 {
+        if summary_lines.len() >= 10 {
             break;
         }
     }
@@ -1214,14 +1288,21 @@ fn extract_command_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<Stri
         }
     }
 
-    let has_run_cmd = options
-        .iter()
-        .any(|o| o.contains("run command") || o.contains("Run command"));
-    let has_deny = options
-        .iter()
-        .any(|o| o.contains("deny") || o.contains("cancel"));
+    let has_run_cmd = options.iter().any(|o| {
+        o.starts_with("Yes,")
+            || o.contains("run command")
+            || o.contains("Run command")
+            || o.contains("allow")
+    });
+    let has_deny = options.iter().any(|o| {
+        o.starts_with("No,") || o.contains("deny") || o.contains("cancel")
+    });
 
-    if options.len() >= 2 && has_run_cmd && has_deny && (has_selection || snapshot.in_alt_screen) {
+    if options.len() >= 2
+        && has_run_cmd
+        && has_deny
+        && (has_selection || snapshot.in_alt_screen)
+    {
         let command = if !explicit_command.is_empty() {
             explicit_command
         } else if !fallback_command.is_empty() {
@@ -1240,6 +1321,7 @@ fn extract_file_edit_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<St
     let mut selected_index = 0;
     let mut file_path = String::new();
     let mut has_selection = false;
+    let mut is_file_prompt = false;
 
     for (r, line) in snapshot.lines.iter().enumerate() {
         let trimmed = line.trim();
@@ -1249,6 +1331,30 @@ fn extract_file_edit_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<St
                 .trim_start_matches("Editing:")
                 .trim()
                 .to_string();
+            is_file_prompt = true;
+        } else if trimmed == "Create file" || trimmed == "Edit file" || trimmed == "Write to file" {
+            is_file_prompt = true;
+        } else if trimmed.starts_with("Allow creation of this file?")
+            || trimmed.starts_with("Allow editing this file?")
+            || trimmed.starts_with("Allow access to this file?")
+        {
+            is_file_prompt = true;
+        } else if trimmed.starts_with("Allow edit to ") {
+            file_path = trimmed
+                .trim_start_matches("Allow edit to ")
+                .trim_end_matches('?')
+                .trim()
+                .to_string();
+            is_file_prompt = true;
+        } else if is_file_prompt && file_path.is_empty() {
+            // Check for diff header line or file path: e.g. "/home/pirate/grep.py  +200"
+            let candidate = trimmed.split_whitespace().next().unwrap_or("").trim();
+            if (candidate.starts_with('/') || (candidate.contains('/') && candidate.contains('.')))
+                && !candidate.starts_with('>')
+                && !candidate.starts_with('●')
+            {
+                file_path = candidate.to_string();
+            }
         } else {
             let opt_candidate = trimmed.trim_start_matches(|c: char| {
                 c == '>' || c == '●' || c == ' ' || c.is_ascii_digit() || c == '.'
@@ -1274,16 +1380,27 @@ fn extract_file_edit_dialog(snapshot: &ScreenSnapshot) -> Option<(String, Vec<St
         }
     }
 
-    let has_accept = options
-        .iter()
-        .any(|o| o.contains("accept") || o.contains("overwrite"));
-    let has_reject = options
-        .iter()
-        .any(|o| o.contains("reject") || o.contains("cancel"));
+    let has_accept = options.iter().any(|o| {
+        o.starts_with("Yes,")
+            || o.contains("accept")
+            || o.contains("allow")
+            || o.contains("overwrite")
+    });
+    let has_reject = options.iter().any(|o| {
+        o.starts_with("No,") || o.contains("reject") || o.contains("deny") || o.contains("cancel")
+    });
+    let has_file_opt = options.iter().any(|o| {
+        o.contains("creation") || o.contains("file") || o.contains("change") || o.contains("edit")
+    });
 
-    if options.len() >= 2 && has_accept && has_reject && (has_selection || snapshot.in_alt_screen) {
+    if options.len() >= 2
+        && has_accept
+        && has_reject
+        && (is_file_prompt || has_file_opt)
+        && (has_selection || snapshot.in_alt_screen)
+    {
         if file_path.is_empty() {
-            file_path = "unknown_file".to_string();
+            file_path = "file".to_string();
         }
         Some((file_path, options, selected_index))
     } else {

@@ -1199,3 +1199,57 @@ fn test_transition_from_working_to_idle_prompt_emits_task_completed_with_summary
     assert!(completed.message.contains("● Bash(uname -a)"));
 }
 
+#[test]
+fn test_real_agy_create_file_approval_menu() {
+    let mut transport = MockPtyTransport::new(120, 40);
+    let real_agy_screen = b"\
+Create file\r\n\
+\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\r\n\
+\r\n\
+/home/pirate/grep.py  +200\r\n\
+   1 +  #!/usr/bin/env python3\r\n\
+   2 +  \"\"\"\r\n\
+\r\n\
+Allow creation of this file?\r\n\
+> 1. Yes, allow creation\r\n\
+  2. No, deny creation\r\n\
+\r\n\
+  ^ Navigate - tab Amend - f full diff\r\n\
+esc to cancel\r\n";
+    transport.push_bytes(real_agy_screen);
+
+    let config = AntigravityConfig::default();
+    let mut adapter = AntigravityPtyAdapter::new_with_transport(config, transport);
+
+    let outputs = adapter.poll(Utc::now());
+    let req = outputs
+        .into_iter()
+        .find_map(|o| match o {
+            AdapterOutput::Event(raw) if raw.kind == "approval_required" => Some(raw),
+            _ => None,
+        })
+        .expect("Must detect approval_required for real agy file creation menu");
+
+    assert_eq!(req.operation, Operation::Edit);
+    assert_eq!(
+        req.message,
+        "File edit requires approval: /home/pirate/grep.py"
+    );
+    assert_eq!(
+        req.request,
+        Some(RequestInfo {
+            prompt: "Allow edit to /home/pirate/grep.py?".into(),
+            options: vec![
+                "Yes, allow creation".into(),
+                "No, deny creation".into(),
+            ],
+            question_type: Some(QuestionType::SingleChoice),
+        })
+    );
+
+    let task_id = adapter.current_task_id().clone();
+    adapter
+        .respond(&task_id, agentdesk_model::Decision::Approve, Utc::now())
+        .unwrap();
+    assert_eq!(adapter.transport_mut().sent_inputs[0], b"\r");
+}

@@ -505,11 +505,16 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
                     self.lifecycle = AntigravityLifecycle::Completed {
                         message: message.clone(),
                     };
+                    let mut details = Details::new();
+                    details.insert("status".to_string(), serde_json::json!("completed"));
+                    details.insert("description".to_string(), serde_json::json!(message));
+                    details.insert("summary".to_string(), serde_json::json!(message));
+                    details.insert("task_id".to_string(), serde_json::json!(&self.task_id));
                     let ev = self.event(
                         "task_completed",
                         Operation::Other,
                         message.clone(),
-                        Details::new(),
+                        details,
                         vec![message.clone()],
                         None,
                     );
@@ -544,11 +549,16 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
                 if was_working {
                     let summary = extract_work_summary(&self.screen.snapshot())
                         .unwrap_or_else(|| "Task completed".to_string());
+                    let mut details = Details::new();
+                    details.insert("status".to_string(), serde_json::json!("completed"));
+                    details.insert("description".to_string(), serde_json::json!(summary));
+                    details.insert("summary".to_string(), serde_json::json!(summary));
+                    details.insert("task_id".to_string(), serde_json::json!(&self.task_id));
                     let ev = self.event(
                         "task_completed",
                         Operation::Other,
                         summary.clone(),
-                        Details::new(),
+                        details,
                         vec![summary],
                         None,
                     );
