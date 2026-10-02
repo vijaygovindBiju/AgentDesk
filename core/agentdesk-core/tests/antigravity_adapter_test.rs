@@ -1253,3 +1253,111 @@ esc to cancel\r\n";
         .unwrap();
     assert_eq!(adapter.transport_mut().sent_inputs[0], b"\r");
 }
+
+#[test]
+fn test_prompt_submission_file_creation_and_detailed_summary_e2e() {
+    let transport = MockPtyTransport::new(120, 40);
+    let config = AntigravityConfig::default();
+    let mut adapter = AntigravityPtyAdapter::new_with_transport(config, transport);
+
+    // Initial idle screen
+    adapter.transport_mut().push_text("────────────────────────────────────────────────────────────────────────────\r\n>\r\n");
+    let _ = adapter.poll(Utc::now());
+
+    // 1. Phone sends prompt: "create a grep python script"
+    adapter.start_prompt("create a grep python script").unwrap();
+    assert_eq!(adapter.transport_mut().sent_inputs[0], b"create a grep python script\r");
+
+    let out = adapter.poll(Utc::now());
+    assert!(out.iter().any(|o| matches!(o, AdapterOutput::Event(e) if e.kind == "progress" && e.message.contains("Executing prompt"))));
+
+    // 2. Antigravity prompts for file creation approval
+    let agy_file_dialog = b"\
+Create file\r\n\
+\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\r\n\
+\r\n\
+/home/pirate/grep.py  +200\r\n\
+   1 +  #!/usr/bin/env python3\r\n\
+   2 +  \"\"\"\r\n\
+\r\n\
+Allow creation of this file?\r\n\
+> 1. Yes, allow creation\r\n\
+  2. No, deny creation\r\n\
+\r\n\
+  ^ Navigate - tab Amend - f full diff\r\n\
+esc to cancel\r\n";
+    adapter.transport_mut().push_bytes(agy_file_dialog);
+    let out = adapter.poll(Utc::now());
+    let req = out
+        .into_iter()
+        .find_map(|o| match o {
+            AdapterOutput::Event(e) if e.kind == "approval_required" => Some(e),
+            _ => None,
+        })
+        .expect("Must detect approval_required for file creation");
+    assert_eq!(req.operation, Operation::Edit);
+
+    // 3. User approves on phone
+    let task_id = adapter.current_task_id().clone();
+    adapter
+        .respond(&task_id, agentdesk_model::Decision::Approve, Utc::now())
+        .unwrap();
+
+    // 4. Antigravity writes the file, runs command, prints completion, and returns to idle prompt
+    adapter.transport_mut().push_text(
+        "\x1b[2J\x1b[H> create a grep python script\r\n\
+         Create file\r\n\
+         /home/pirate/grep.py  +200\r\n\
+         Allow creation of this file?\r\n\
+         ● Write(/home/pirate/grep.py)\r\n\
+           Wrote 200 lines to /home/pirate/grep.py\r\n\
+         ● Bash(python3 /home/pirate/grep.py --help)\r\n\
+           usage: grep.py [-h] pattern [file]\r\n\
+         I have created the Python script at /home/pirate/grep.py which implements a grep utility.\r\n\
+         ────────────────────────────────────────────────────────────────────────────\r\n\
+         >\r\n"
+    );
+
+    let out = adapter.poll(Utc::now());
+    let completed = out
+        .into_iter()
+        .find_map(|o| match o {
+            AdapterOutput::Event(e) if e.kind == "task_completed" => Some(e),
+            _ => None,
+        })
+        .expect("Must emit task_completed event with detailed work summary");
+
+    assert!(completed.message.contains("● Write(/home/pirate/grep.py)"), "Message must contain write action: {}", completed.message);
+    assert!(completed.message.contains("Wrote 200 lines to /home/pirate/grep.py"), "Message must contain write details: {}", completed.message);
+    assert!(completed.message.contains("● Bash(python3 /home/pirate/grep.py --help)"), "Message must contain bash command: {}", completed.message);
+    assert!(completed.message.contains("usage: grep.py [-h] pattern [file]"), "Message must contain command output: {}", completed.message);
+    assert!(completed.message.contains("I have created the Python script at /home/pirate/grep.py"), "Message must contain agent response: {}", completed.message);
+
+    assert_eq!(completed.details.get("file").and_then(|v| v.as_str()), Some("/home/pirate/grep.py"));
+    assert_eq!(completed.details.get("command").and_then(|v| v.as_str()), Some("python3 /home/pirate/grep.py --help"));
+    assert_eq!(completed.details.get("status").and_then(|v| v.as_str()), Some("completed"));
+
+    // 5. Verify subsequent prompt works seamlessly
+    adapter.start_prompt("check git status").unwrap();
+    let _ = adapter.poll(Utc::now());
+    adapter.transport_mut().push_text(
+        "\x1b[2J\x1b[H> check git status\r\n\
+         ● Bash(git status -s)\r\n\
+         ?? grep.py\r\n\
+         Workspace has untracked grep.py.\r\n\
+         ────────────────────────────────────────────────────────────────────────────\r\n\
+         >\r\n"
+    );
+    let out2 = adapter.poll(Utc::now());
+    let completed2 = out2
+        .into_iter()
+        .find_map(|o| match o {
+            AdapterOutput::Event(e) if e.kind == "task_completed" => Some(e),
+            _ => None,
+        })
+        .expect("Must emit task_completed event for second prompt");
+
+    assert!(completed2.message.contains("● Bash(git status -s)"));
+    assert!(completed2.message.contains("?? grep.py"));
+    assert!(completed2.message.contains("Workspace has untracked grep.py."));
+}

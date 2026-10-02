@@ -31,7 +31,8 @@ use crate::antigravity::screen::Screen;
 use crate::antigravity::state_machine::{
     AntigravityState, QuestionDetails, classify_command_operation, detect_state,
     agent_reply_details_map, agent_reply_request, approval_menu_details_map,
-    approval_menu_request, command_approval_prompt, extract_work_summary, file_edit_approval_prompt,
+    approval_menu_request, command_approval_prompt, extract_command_from_summary,
+    extract_file_path_from_summary, extract_work_summary, file_edit_approval_prompt,
     question_details_map,
     workspace_trust_details_map, workspace_trust_request,
 };
@@ -142,6 +143,7 @@ pub struct AntigravityPtyAdapter<T: PtyTransport> {
     last_outcome: Option<RequestOutcome>,
     last_consumed: Option<ConsumedRequest>,
     pending_write_in: Option<PendingWriteIn>,
+    active_prompt: Option<String>,
 }
 
 impl AntigravityPtyAdapter<PtySession> {
@@ -177,6 +179,7 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
         };
         let task_id = format!("{}-session", config.agent_id);
         let screen = Screen::new(config.cols, config.rows);
+        let active_prompt = config.initial_prompt.clone();
 
         Self {
             config,
@@ -193,6 +196,7 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
             last_outcome: None,
             last_consumed: None,
             pending_write_in: None,
+            active_prompt,
         }
     }
 
@@ -501,25 +505,31 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
 
             AntigravityState::Completed { ref message } => {
                 self.pending_write_in = None;
-                if !matches!(self.lifecycle, AntigravityLifecycle::Completed { .. }) {
-                    self.lifecycle = AntigravityLifecycle::Completed {
-                        message: message.clone(),
-                    };
-                    let mut details = Details::new();
-                    details.insert("status".to_string(), serde_json::json!("completed"));
-                    details.insert("description".to_string(), serde_json::json!(message));
-                    details.insert("summary".to_string(), serde_json::json!(message));
-                    details.insert("task_id".to_string(), serde_json::json!(&self.task_id));
-                    let ev = self.event(
-                        "task_completed",
-                        Operation::Other,
-                        message.clone(),
-                        details,
-                        vec![message.clone()],
-                        None,
-                    );
-                    out.push(ev);
+                self.active_prompt = None;
+                self.lifecycle = AntigravityLifecycle::Running;
+                let summary = extract_work_summary(&self.screen.snapshot())
+                    .unwrap_or_else(|| message.clone());
+                let mut details = Details::new();
+                details.insert("status".to_string(), serde_json::json!("completed"));
+                details.insert("description".to_string(), serde_json::json!(&summary));
+                details.insert("summary".to_string(), serde_json::json!(&summary));
+                details.insert("task_id".to_string(), serde_json::json!(&self.task_id));
+                if let Some(file) = extract_file_path_from_summary(&summary) {
+                    details.insert("file".to_string(), serde_json::json!(file));
                 }
+                if let Some(cmd) = extract_command_from_summary(&summary) {
+                    details.insert("command".to_string(), serde_json::json!(cmd));
+                }
+                let log_lines = summary.lines().map(|s| s.to_string()).collect();
+                let ev = self.event(
+                    "task_completed",
+                    Operation::Other,
+                    summary,
+                    details,
+                    log_lines,
+                    None,
+                );
+                out.push(ev);
             }
 
             AntigravityState::FatalError { ref error } => {
@@ -542,24 +552,33 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
 
             AntigravityState::IdlePrompt => {
                 self.pending_write_in = None;
-                let was_working = matches!(self.lifecycle, AntigravityLifecycle::Working { .. });
+                let was_working = matches!(self.lifecycle, AntigravityLifecycle::Working { .. })
+                    || self.active_prompt.is_some();
                 if self.lifecycle != AntigravityLifecycle::Running {
                     self.lifecycle = AntigravityLifecycle::Running;
                 }
                 if was_working {
+                    self.active_prompt = None;
                     let summary = extract_work_summary(&self.screen.snapshot())
                         .unwrap_or_else(|| "Task completed".to_string());
                     let mut details = Details::new();
                     details.insert("status".to_string(), serde_json::json!("completed"));
-                    details.insert("description".to_string(), serde_json::json!(summary));
-                    details.insert("summary".to_string(), serde_json::json!(summary));
+                    details.insert("description".to_string(), serde_json::json!(&summary));
+                    details.insert("summary".to_string(), serde_json::json!(&summary));
                     details.insert("task_id".to_string(), serde_json::json!(&self.task_id));
+                    if let Some(file) = extract_file_path_from_summary(&summary) {
+                        details.insert("file".to_string(), serde_json::json!(file));
+                    }
+                    if let Some(cmd) = extract_command_from_summary(&summary) {
+                        details.insert("command".to_string(), serde_json::json!(cmd));
+                    }
+                    let log_lines = summary.lines().map(|s| s.to_string()).collect();
                     let ev = self.event(
                         "task_completed",
                         Operation::Other,
-                        summary.clone(),
+                        summary,
                         details,
-                        vec![summary],
+                        log_lines,
                         None,
                     );
                     out.push(ev);
@@ -801,5 +820,31 @@ impl<T: PtyTransport> Adapter for AntigravityPtyAdapter<T> {
 
     fn resize(&mut self, cols: u16, rows: u16) -> std::io::Result<()> {
         self.resize(cols, rows)
+    }
+
+    fn start_prompt(&mut self, prompt: &str) -> std::io::Result<()> {
+        let payload = if prompt.contains('\n') {
+            format!("\x1b[200~{prompt}\x1b[201~\r")
+        } else {
+            format!("{prompt}\r")
+        };
+        self.transport.send_input(payload.as_bytes())?;
+        self.active_prompt = Some(prompt.to_string());
+        self.lifecycle = AntigravityLifecycle::Working {
+            details: format!("Executing prompt: {prompt}"),
+        };
+        self.current_state = AntigravityState::Working {
+            details: format!("Executing prompt: {prompt}"),
+        };
+        let ev = self.event(
+            "progress",
+            Operation::Other,
+            format!("Executing prompt: {prompt}"),
+            Details::new(),
+            vec![],
+            None,
+        );
+        self.buffered_outputs.push(ev);
+        Ok(())
     }
 }

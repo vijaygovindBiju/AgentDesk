@@ -112,4 +112,14 @@ pub trait Adapter: Send {
     fn resize(&mut self, _cols: u16, _rows: u16) -> std::io::Result<()> {
         Ok(())
     }
+
+    /// Submit a prompt / instruction directly to the adapter's agent.
+    fn start_prompt(&mut self, prompt: &str) -> std::io::Result<()> {
+        let payload = if prompt.contains('\n') {
+            format!("\x1b[200~{prompt}\x1b[201~\r")
+        } else {
+            format!("{prompt}\r")
+        };
+        self.send_raw_input(payload.as_bytes())
+    }
 }

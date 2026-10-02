@@ -418,12 +418,7 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
                     .screen()
                     .map(|s| agentdesk_core::detect_state(&s.snapshot()));
                 if live.as_ref().is_none_or(|s| s.accepts_chat_input()) {
-                    let payload = if prompt.contains('\n') {
-                        format!("\x1b[200~{prompt}\x1b[201~\r")
-                    } else {
-                        format!("{prompt}\r")
-                    };
-                    match adapter.send_raw_input(payload.as_bytes()) {
+                    match adapter.start_prompt(&prompt) {
                         Ok(()) => {
                             agentdesk_server::info("Delivered phone prompt to agent at idle prompt")
                         }

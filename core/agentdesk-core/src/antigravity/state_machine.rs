@@ -459,6 +459,7 @@ pub struct AntigravityStateMachine {
     agent_seq: u64,
     current_state: AntigravityState,
     confirmed_state_count: usize,
+    active_prompt: Option<String>,
 }
 
 impl AntigravityStateMachine {
@@ -468,11 +469,24 @@ impl AntigravityStateMachine {
             agent_seq: 0,
             current_state: AntigravityState::Initializing,
             confirmed_state_count: 0,
+            active_prompt: None,
         }
     }
 
     pub fn current_state(&self) -> &AntigravityState {
         &self.current_state
+    }
+
+    pub fn active_prompt(&self) -> Option<&str> {
+        self.active_prompt.as_deref()
+    }
+
+    pub fn start_prompt(&mut self, prompt: &str) -> Option<RawAgentEvent> {
+        self.active_prompt = Some(prompt.to_string());
+        self.current_state = AntigravityState::Working {
+            details: format!("Executing prompt: {prompt}"),
+        };
+        self.state_to_event(&self.current_state.clone())
     }
 
     /// Update with a new screen snapshot and return a `RawAgentEvent` if an actionable
@@ -486,15 +500,27 @@ impl AntigravityStateMachine {
             }
             let prev_state = std::mem::replace(&mut self.current_state, detected.clone());
             self.confirmed_state_count = 1;
-            if matches!(prev_state, AntigravityState::Working { .. })
+            let had_active_prompt = self.active_prompt.is_some();
+            if (matches!(prev_state, AntigravityState::Working { .. })
+                || matches!(
+                    prev_state,
+                    AntigravityState::CommandConfirmation { .. }
+                        | AntigravityState::FileEditConfirmation { .. }
+                        | AntigravityState::WorkspaceTrust { .. }
+                )
+                || had_active_prompt)
                 && matches!(detected, AntigravityState::IdlePrompt)
             {
+                self.active_prompt = None;
                 let summary = extract_work_summary(snapshot)
                     .unwrap_or_else(|| "Task completed".to_string());
                 self.current_state = AntigravityState::Completed {
                     message: summary.clone(),
                 };
                 return self.state_to_event(&self.current_state.clone());
+            }
+            if matches!(detected, AntigravityState::Completed { .. }) {
+                self.active_prompt = None;
             }
             self.state_to_event(&detected)
         } else {
@@ -634,6 +660,13 @@ impl AntigravityStateMachine {
                     "summary".to_string(),
                     serde_json::Value::String(message.clone()),
                 );
+                if let Some(file) = extract_file_path_from_summary(message) {
+                    details.insert("file".to_string(), serde_json::Value::String(file));
+                }
+                if let Some(cmd) = extract_command_from_summary(message) {
+                    details.insert("command".to_string(), serde_json::Value::String(cmd));
+                }
+                let log_lines = message.lines().map(|s| s.to_string()).collect();
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -642,7 +675,7 @@ impl AntigravityStateMachine {
                     operation: Operation::Other,
                     message: message.clone(),
                     details,
-                    log_lines: vec![message.clone()],
+                    log_lines,
                     request: None,
                 })
             }
@@ -815,6 +848,13 @@ impl AntigravityStateMachine {
                     "summary".to_string(),
                     serde_json::Value::String(message.clone()),
                 );
+                if let Some(file) = extract_file_path_from_summary(message) {
+                    details.insert("file".to_string(), serde_json::Value::String(file));
+                }
+                if let Some(cmd) = extract_command_from_summary(message) {
+                    details.insert("command".to_string(), serde_json::Value::String(cmd));
+                }
+                let log_lines = message.lines().map(|s| s.to_string()).collect();
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -823,7 +863,7 @@ impl AntigravityStateMachine {
                     operation: Operation::Other,
                     message: message.clone(),
                     details,
-                    log_lines: vec![message.clone()],
+                    log_lines,
                     request: None,
                 })
             }
@@ -944,35 +984,6 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
     }
 
     // 7. Idle Prompt
-    let is_menu_row = |line: &str| {
-        let t = line.trim();
-        if let Some(rest) = t.strip_prefix('>') {
-            let rest = rest.trim_start();
-            rest.chars().next().is_some_and(|c| c.is_ascii_digit() || c == '[' || c == '●')
-        } else {
-            false
-        }
-    };
-
-    let has_menu_footer = non_empty_lines.iter().any(|l| {
-        let t = l.trim();
-        (t.contains("Navigate") && t.contains("esc to cancel"))
-            || (t.contains("tab Amend") && t.contains("Navigate"))
-    });
-
-    let has_permission_header = non_empty_lines.iter().any(|l| {
-        let t = l.trim();
-        t.starts_with("Requesting permission for:")
-            || t.starts_with("Run this command?")
-            || t.starts_with("Allow creation of this file?")
-            || t.starts_with("Allow editing this file?")
-            || t.starts_with("Allow access to this file?")
-            || t.starts_with("Allow calling this tool?")
-            || t.starts_with("Allow access to this URL?")
-            || t == "Create file"
-            || t == "Edit file"
-    });
-
     let is_chat_prompt_line = |line: &str| {
         let t = line.trim();
         if is_menu_row(t) {
@@ -985,7 +996,44 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
             || t.contains("Send message")
     };
 
-    let is_idle = !has_menu_footer && !has_permission_header && (
+    let last_rule_idx = snapshot.lines.iter().rposition(|l| is_rule_line(l));
+
+    let has_active_menu_footer = snapshot.lines.iter().enumerate().any(|(idx, l)| {
+        let t = l.trim();
+        let is_footer = (t.contains("Navigate") && t.contains("esc to cancel"))
+            || (t.contains("tab Amend") && t.contains("Navigate"));
+        if !is_footer {
+            return false;
+        }
+        if let Some(r) = last_rule_idx {
+            idx >= r
+        } else {
+            non_empty_lines.iter().rev().take(6).any(|nl| nl.trim() == t)
+        }
+    });
+
+    let has_active_permission_header = snapshot.lines.iter().enumerate().any(|(idx, l)| {
+        let t = l.trim();
+        let is_header = t.starts_with("Requesting permission for:")
+            || t.starts_with("Run this command?")
+            || t.starts_with("Allow creation of this file?")
+            || t.starts_with("Allow editing this file?")
+            || t.starts_with("Allow access to this file?")
+            || t.starts_with("Allow calling this tool?")
+            || t.starts_with("Allow access to this URL?")
+            || t == "Create file"
+            || t == "Edit file";
+        if !is_header {
+            return false;
+        }
+        if let Some(r) = last_rule_idx {
+            idx >= r
+        } else {
+            non_empty_lines.iter().rev().take(6).any(|nl| nl.trim() == t)
+        }
+    });
+
+    let is_idle = !has_active_menu_footer && !has_active_permission_header && (
         non_empty_lines.iter().rev().take(4).any(|line| is_chat_prompt_line(line))
         || (snapshot.cursor_row > 0
             && snapshot.cursor_visible
@@ -1012,6 +1060,115 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
 
 /// ANSI colour indices Antigravity uses for transcript roles (see `ScreenSnapshot::line_fg`).
 const FG_USER_PROMPT: u8 = 4; // `ESC[34;1m> ...`
+
+fn is_menu_row(line: &str) -> bool {
+    let t = line.trim();
+    if let Some(rest) = t
+        .strip_prefix('>')
+        .or_else(|| t.strip_prefix('❯'))
+        .or_else(|| t.strip_prefix('›'))
+    {
+        let rest = rest.trim_start();
+        rest.starts_with("Yes,")
+            || rest.starts_with("No,")
+            || rest.starts_with("Always")
+            || rest.starts_with("Never")
+            || rest.starts_with("Allow")
+            || rest.starts_with("Deny")
+            || rest.starts_with("Trust")
+            || rest.starts_with("Don't")
+            || rest.starts_with("Review in")
+            || rest.starts_with("1.")
+            || rest.starts_with("2.")
+            || rest.starts_with("3.")
+            || rest.starts_with("4.")
+            || rest.starts_with("[1]")
+            || rest.starts_with("[2]")
+            || rest.starts_with("[x]")
+            || rest.starts_with("[ ]")
+            || rest.starts_with('●')
+    } else {
+        false
+    }
+}
+
+/// Extract file path mentioned in a work summary or file creation screen.
+pub fn extract_file_path_from_summary(text: &str) -> Option<String> {
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if let Some(start) = trimmed.find("● Write(") {
+            let after = &trimmed[start + "● Write(".len()..];
+            if let Some(end) = after.find(')') {
+                let path = after[..end].trim();
+                if !path.is_empty() {
+                    return Some(path.to_string());
+                }
+            }
+        }
+        if let Some(start) = trimmed.find("● Edit(") {
+            let after = &trimmed[start + "● Edit(".len()..];
+            if let Some(end) = after.find(')') {
+                let path = after[..end].trim();
+                if !path.is_empty() {
+                    return Some(path.to_string());
+                }
+            }
+        }
+        if let Some(start) = trimmed.find("● Create(") {
+            let after = &trimmed[start + "● Create(".len()..];
+            if let Some(end) = after.find(')') {
+                let path = after[..end].trim();
+                if !path.is_empty() {
+                    return Some(path.to_string());
+                }
+            }
+        }
+        if trimmed.starts_with("Allow edit to ") {
+            let path = trimmed
+                .trim_start_matches("Allow edit to ")
+                .trim_end_matches('?')
+                .trim();
+            if !path.is_empty() {
+                return Some(path.to_string());
+            }
+        }
+        if trimmed.starts_with("Created file: ") || trimmed.starts_with("Created file ") {
+            let path = trimmed
+                .trim_start_matches("Created file: ")
+                .trim_start_matches("Created file ")
+                .trim();
+            if !path.is_empty() {
+                return Some(path.to_string());
+            }
+        }
+        let first = trimmed.split_whitespace().next().unwrap_or("");
+        if (first.starts_with('/') || first.contains('/'))
+            && first.contains('.')
+            && !first.starts_with('>')
+            && !first.starts_with('●')
+        {
+            return Some(first.to_string());
+        }
+    }
+    None
+}
+
+/// Extract command executed mentioned in a work summary.
+pub fn extract_command_from_summary(text: &str) -> Option<String> {
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if let Some(start) = trimmed.find("● Bash(") {
+            let after = &trimmed[start + "● Bash(".len()..];
+            if let Some(end) = after.find(')') {
+                let cmd = after[..end].trim();
+                if !cmd.is_empty() {
+                    return Some(cmd.to_string());
+                }
+            }
+        }
+    }
+    None
+}
 
 fn is_rule_line(line: &str) -> bool {
     let t = line.trim();
@@ -1065,12 +1222,6 @@ fn extract_agent_reply(snapshot: &ScreenSnapshot) -> Option<String> {
 
 /// Extract summary of the work done prior to the idle prompt.
 pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
-    if let Some(reply) = extract_agent_reply(snapshot) {
-        if !reply.trim().ends_with('?') {
-            return Some(reply);
-        }
-    }
-
     let lines = &snapshot.lines;
     let rules: Vec<usize> = (0..lines.len()).filter(|&i| is_rule_line(&lines[i])).collect();
     let transcript_end = rules
@@ -1081,46 +1232,63 @@ pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
         .or_else(|| rules.last().copied())
         .unwrap_or(lines.len());
 
+    // Find the user prompt row above transcript_end, if visible.
+    let user_row = (0..transcript_end).rev().find(|&i| {
+        let t = lines[i].trim();
+        (snapshot.line_fg.get(i).copied().flatten() == Some(FG_USER_PROMPT) && t.starts_with("> "))
+            || (t.starts_with("> ")
+                && !is_menu_row(t)
+                && !t.contains("Navigate")
+                && !t.contains("Yes,")
+                && !t.contains("No,"))
+    });
+
+    let start_idx = user_row.map(|r| r + 1).unwrap_or_else(|| {
+        transcript_end.saturating_sub(30)
+    });
+
     let mut summary_lines = Vec::new();
-    let mut consecutive_empty = 0;
-    for i in (0..transcript_end).rev() {
+    for i in start_idx..transcript_end {
         let trimmed = lines[i].trim();
         if is_rule_line(trimmed) {
-            if !summary_lines.is_empty() {
-                break;
-            }
             continue;
         }
         if trimmed.is_empty() {
-            if !summary_lines.is_empty() {
-                consecutive_empty += 1;
-                if consecutive_empty >= 2 {
-                    break;
-                }
+            if !summary_lines.is_empty() && summary_lines.last() != Some(&"") {
+                summary_lines.push("");
             }
             continue;
         }
-        consecutive_empty = 0;
         if trimmed.starts_with("> ") || trimmed == ">" || trimmed.starts_with("? ") || trimmed == "?" {
             continue;
         }
-        if (trimmed.contains("Navigate") && trimmed.contains("esc to cancel"))
+        if (trimmed.contains("Navigate") && trimmed.contains("cancel"))
             || (trimmed.contains("F1 Agent") && trimmed.contains("F2 Project"))
+            || (trimmed.contains("tab Amend") && trimmed.contains("Navigate"))
             || trimmed.contains("ctrl+g edit/expand")
             || trimmed.starts_with("Gemini")
+            || trimmed.starts_with("Send message")
         {
             continue;
         }
         summary_lines.push(trimmed);
-        if summary_lines.len() >= 10 {
-            break;
-        }
+    }
+
+    while summary_lines.last() == Some(&"") {
+        summary_lines.pop();
+    }
+    while summary_lines.first() == Some(&"") {
+        summary_lines.remove(0);
     }
 
     if summary_lines.is_empty() {
+        if let Some(reply) = extract_agent_reply(snapshot) {
+            if !reply.trim().ends_with('?') {
+                return Some(reply);
+            }
+        }
         None
     } else {
-        summary_lines.reverse();
         Some(summary_lines.join("\n"))
     }
 }

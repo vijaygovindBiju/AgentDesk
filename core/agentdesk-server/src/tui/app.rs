@@ -214,6 +214,10 @@ impl TuiApp {
 
                 let exe = self.state.selected_agent().map(|a| a.executable.clone()).unwrap_or_else(|| "agy".into());
 
+                if let Some(ev) = self.state_machine.start_prompt(&prompt) {
+                    let _ = self.bridge.send_adapter_event(ev).await;
+                }
+
                 if let Some(ref mut session) = self.state.shell_session {
                     let _ = session.pump_output();
                     let snapshot = session.screen.snapshot();
