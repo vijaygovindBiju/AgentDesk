@@ -15,14 +15,18 @@ class BrandLogo extends StatelessWidget {
       semanticLabel: 'AgentDesk logo',
     );
     if (!showWordmark) return mark;
+    final isCompact = size <= 28;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         mark,
-        const SizedBox(width: 12),
+        SizedBox(width: isCompact ? 6 : 12),
         Text(
           'AgentDesk',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          style: (isCompact
+                  ? Theme.of(context).textTheme.titleMedium
+                  : Theme.of(context).textTheme.titleLarge)
+              ?.copyWith(
             fontWeight: FontWeight.w800,
             letterSpacing: -0.4,
           ),

@@ -2,24 +2,25 @@
 //! Displays: AGENTDESK | Attention & Control Surface | ● X AGENTS | ● Relay Connected | ● PHONE CONNECTED
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 use crate::tui::state::TuiState;
+use crate::tui::theme::Theme;
 
 /// Relay trunk indicator shared by all views: "● Relay Connected" / "○ Relay Disconnected".
 pub fn relay_status_spans(state: &TuiState) -> Vec<Span<'static>> {
     if state.relay_connected {
         vec![
-            Span::styled("● ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::styled("Relay Connected", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled("● ", Theme::primary()),
+            Span::styled("Relay Connected", Theme::primary()),
         ]
     } else {
         vec![
-            Span::styled("○ ", Style::default().fg(Color::Red)),
-            Span::styled("Relay Disconnected", Style::default().fg(Color::Red)),
+            Span::styled("○ ", Theme::error()),
+            Span::styled("Relay Disconnected", Theme::error()),
         ]
     }
 }
@@ -38,17 +39,9 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &TuiState) {
 
     // 1. Title & Brand
     let brand = Line::from(vec![
-        Span::styled(
-            " AGENTDESK",
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        ),
+        Span::styled("◈ AGENTDESK", Theme::brand()),
         Span::raw(" "),
-        Span::styled(
-            "Attention Surface",
-            Style::default().fg(Color::DarkGray),
-        ),
+        Span::styled("Attention Surface", Theme::text_secondary()),
     ]);
     f.render_widget(Paragraph::new(brand), chunks[0]);
 
@@ -56,18 +49,18 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &TuiState) {
     let agent_count = state.active_agents_count();
     let has_requests = !state.requests().is_empty();
     let (agent_icon, agent_style) = if has_requests {
-        ("!", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        ("!", Theme::warning())
     } else if !state.working().is_empty() {
-        ("●", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        ("●", Theme::accent().add_modifier(Modifier::BOLD))
     } else {
-        ("✓", Style::default().fg(Color::Green))
+        ("✓", Theme::primary())
     };
 
     let agents_text = Line::from(vec![
         Span::styled(format!(" {agent_icon} "), agent_style),
         Span::styled(
             format!("{agent_count} AGENT{}", if agent_count == 1 { "" } else { "S" }),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            Theme::text_bold(),
         ),
     ]);
     f.render_widget(
@@ -87,14 +80,14 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &TuiState) {
             .unwrap_or("CONNECTED")
             .to_uppercase();
         Line::from(vec![
-            Span::styled("● ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::styled("PHONE CONNECTED ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::styled(format!("· {mode}"), Style::default().fg(Color::DarkGray)),
+            Span::styled("● ", Theme::primary()),
+            Span::styled("PHONE CONNECTED ", Theme::primary()),
+            Span::styled(format!("· {mode}"), Theme::text_secondary()),
         ])
     } else {
         Line::from(vec![
-            Span::styled("○ ", Style::default().fg(Color::DarkGray)),
-            Span::styled("PHONE OFFLINE", Style::default().fg(Color::DarkGray)),
+            Span::styled("○ ", Theme::text_muted()),
+            Span::styled("PHONE OFFLINE", Theme::text_muted()),
         ])
     };
 

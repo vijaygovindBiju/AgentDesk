@@ -33,8 +33,8 @@ pub fn is_pid_alive(pid: u32) -> bool {
             for line in content.lines() {
                 if line.starts_with("State:") {
                     let state = line.trim_start_matches("State:").trim();
-                    // 'Z' (zombie) or 'X' (dead) processes have terminated
-                    if state.starts_with('Z') || state.starts_with('X') {
+                    // 'Z' (zombie), 'X' (dead), 'T' (stopped), or 't' (tracing stop) processes are not functioning
+                    if state.starts_with('Z') || state.starts_with('X') || state.starts_with('T') || state.starts_with('t') {
                         return false;
                     }
                     return true;
@@ -74,29 +74,100 @@ pub fn extract_hostname(url: &str) -> Option<String> {
     }
 }
 
+fn check_dns_via_public_resolver(host: &str) -> bool {
+    for resolver in ["1.1.1.1:53", "8.8.8.8:53"] {
+        if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0") {
+            let _ = socket.set_read_timeout(Some(Duration::from_millis(800)));
+            let mut packet = vec![
+                0x12, 0x34, // ID
+                0x01, 0x00, // standard query with recursion desired
+                0x00, 0x01, // 1 question
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ];
+            for part in host.split('.') {
+                if part.is_empty() || part.len() > 63 {
+                    return false;
+                }
+                packet.push(part.len() as u8);
+                packet.extend_from_slice(part.as_bytes());
+            }
+            packet.push(0x00); // end of name
+            packet.extend_from_slice(&[0x00, 0x01]); // Type A
+            packet.extend_from_slice(&[0x00, 0x01]); // Class IN
+
+            if socket.send_to(&packet, resolver).is_ok() {
+                let mut buf = [0u8; 512];
+                if let Ok((len, _)) = socket.recv_from(&mut buf) {
+                    if len >= 12 {
+                        let ancount = u16::from_be_bytes([buf[6], buf[7]]);
+                        let rcode = buf[3] & 0x0f;
+                        if ancount > 0 && rcode == 0 {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 pub fn check_dns_resolves(host: &str) -> bool {
-    (host, 443).to_socket_addrs().is_ok() || (host, 80).to_socket_addrs().is_ok()
+    (host, 443).to_socket_addrs().is_ok()
+        || (host, 80).to_socket_addrs().is_ok()
+        || check_dns_via_public_resolver(host)
 }
 
 pub fn parse_quick_tunnel_url(line: &str) -> Option<String> {
-    let idx = line.find("https://")?;
-    let slice = &line[idx..];
-    let end_idx = slice.find(".trycloudflare.com")?;
-    let domain = &slice[..end_idx + 18];
-    let host = domain.strip_prefix("https://").unwrap_or(domain).trim();
-    // Exclude root domain and API endpoints
-    if host == "trycloudflare.com" || host == "api.trycloudflare.com" || host.starts_with("api.") {
-        return None;
+    // 1. Cloudflare Quick Tunnel
+    if let Some(idx) = line.find("https://") {
+        let slice = &line[idx..];
+        if let Some(end_idx) = slice.find(".trycloudflare.com") {
+            let domain = &slice[..end_idx + 18];
+            let host = domain.strip_prefix("https://").unwrap_or(domain).trim();
+            // Exclude root domain and API endpoints
+            if host != "trycloudflare.com"
+                && host != "api.trycloudflare.com"
+                && !host.starts_with("api.")
+                && host.ends_with(".trycloudflare.com")
+                && host.len() > ".trycloudflare.com".len()
+            {
+                return Some(format!("wss://{}", host));
+            }
+        }
     }
-    if !host.ends_with(".trycloudflare.com") || host.len() <= ".trycloudflare.com".len() {
-        return None;
+
+    // 2. Pinggy Fallback Quick Tunnel
+    if let Some(idx) = line.find("https://") {
+        let slice = &line[idx..];
+        for suffix in [".free.pinggy.net", ".run.pinggy-free.link"] {
+            if let Some(end_idx) = slice.find(suffix) {
+                let domain = &slice[..end_idx + suffix.len()];
+                let host = domain.strip_prefix("https://").unwrap_or(domain).trim();
+                let clean_host = host.split(&['/', ' ', '|', '"', '\''][..]).next().unwrap_or(host);
+                if clean_host.ends_with(suffix) && clean_host.len() > suffix.len() {
+                    return Some(format!("wss://{}", clean_host));
+                }
+            }
+        }
     }
-    Some(format!("wss://{}", host))
+
+    None
 }
 
 pub fn is_cloudflared_installed() -> bool {
     Command::new("cloudflared")
         .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+pub fn is_ssh_installed() -> bool {
+    Command::new("ssh")
+        .arg("-V")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
@@ -149,7 +220,10 @@ pub fn is_tunnel_healthy(config_dir: &Path, state: &TunnelState) -> bool {
 
     if age >= 180 {
         if let Some(host) = extract_hostname(&state.relay_url) {
-            if host.ends_with(".trycloudflare.com") {
+            if host.ends_with(".trycloudflare.com")
+                || host.ends_with(".free.pinggy.net")
+                || host.ends_with(".run.pinggy-free.link")
+            {
                 let mut resolved = false;
                 for _ in 0..5 {
                     if check_dns_resolves(&host) {
@@ -215,6 +289,9 @@ pub fn stop_tunnel(config_dir: &Path) {
         let _ = Command::new("pkill")
             .args(["-9", "-f", "cloudflared tunnel.*127.0.0.1:8766"])
             .status();
+        let _ = Command::new("pkill")
+            .args(["-9", "-f", "ssh.*-R.*8766.*a.pinggy.io"])
+            .status();
     }
 }
 
@@ -269,77 +346,177 @@ pub fn ensure_tunnel(
         None
     };
 
-    // 3. Start cloudflared tunnel in background writing to log file
-    crate::logging::info("Requesting public tunnel from Cloudflare...");
+    // 3. Start tunnel provider in background writing to log file
     let _ = fs::create_dir_all(config_dir);
     let log_path = tunnel_log_path(config_dir);
-    let log_file = fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&log_path)?;
-    let log_file_err = log_file.try_clone()?;
 
-    let mut cmd = Command::new("cloudflared");
-    cmd.arg("tunnel")
-        .arg("--edge-ip-version")
-        .arg("4")
-        .arg("--url")
-        .arg(format!("http://127.0.0.1:{}", relay_port))
-        .stdout(Stdio::from(log_file))
-        .stderr(Stdio::from(log_file_err));
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        cmd.process_group(0);
-        #[cfg(target_os = "linux")]
-        unsafe {
-            cmd.pre_exec(|| {
-                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
-                Ok(())
-            });
-        }
-    }
-
-    let mut tunnel_child = cmd.spawn()?;
-    let tunnel_pid = tunnel_child.id();
-
-    // Spawn reaper thread so terminated cloudflared does not become a zombie
-    std::thread::spawn(move || {
-        let _ = tunnel_child.wait();
-    });
-
-    let start = Instant::now();
     let mut resolved_url: Option<String> = None;
-    let timeout = Duration::from_secs(25);
+    let mut tunnel_pid: Option<u32> = None;
 
-    while start.elapsed() < timeout {
-        if !is_pid_alive(tunnel_pid) {
-            let log_snippet = fs::read_to_string(&log_path).unwrap_or_default();
-            return Err(format!("cloudflared exited unexpectedly: {}", log_snippet).into());
-        }
+    // 3a. Try Cloudflare Quick Tunnel if installed
+    if is_cloudflared_installed() {
+        crate::logging::info("Requesting public tunnel from Cloudflare...");
+        let log_file = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&log_path)?;
+        let log_file_err = log_file.try_clone()?;
 
-        if let Ok(content) = fs::read_to_string(&log_path) {
-            for line in content.lines() {
-                if let Some(url) = parse_quick_tunnel_url(line) {
-                    resolved_url = Some(url);
-                    break;
-                }
+        let mut cmd = Command::new("cloudflared");
+        cmd.arg("tunnel")
+            .arg("--edge-ip-version")
+            .arg("4")
+            .arg("--url")
+            .arg(format!("http://127.0.0.1:{}", relay_port))
+            .stdin(Stdio::null())
+            .stdout(Stdio::from(log_file))
+            .stderr(Stdio::from(log_file_err));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            cmd.process_group(0);
+            #[cfg(target_os = "linux")]
+            unsafe {
+                cmd.pre_exec(|| {
+                    libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                    Ok(())
+                });
             }
         }
 
-        if resolved_url.is_some() {
-            break;
+        if let Ok(mut tunnel_child) = cmd.spawn() {
+            let pid = tunnel_child.id();
+            std::thread::spawn(move || {
+                let _ = tunnel_child.wait();
+            });
+
+            let start = Instant::now();
+            let timeout = Duration::from_secs(20);
+            let mut rate_limited = false;
+
+            while start.elapsed() < timeout {
+                if !is_pid_alive(pid) {
+                    break;
+                }
+                if let Ok(content) = fs::read_to_string(&log_path) {
+                    if content.contains("429") {
+                        rate_limited = true;
+                        break;
+                    }
+                    for line in content.lines() {
+                        if let Some(url) = parse_quick_tunnel_url(line) {
+                            resolved_url = Some(url);
+                            tunnel_pid = Some(pid);
+                            break;
+                        }
+                    }
+                }
+                if resolved_url.is_some() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(250));
+            }
+
+            if resolved_url.is_none() {
+                if rate_limited {
+                    crate::logging::warn("Cloudflare quick tunnel is rate limited (HTTP 429).");
+                }
+                let _ = Command::new("kill").arg("-KILL").arg(pid.to_string()).status();
+            }
+        }
+    }
+
+    // 3b. Try Pinggy fallback via SSH if Cloudflare failed or is not available
+    if resolved_url.is_none() && is_ssh_installed() {
+        crate::logging::info("Attempting fallback tunnel via Pinggy (SSH)...");
+        let log_file = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&log_path)?;
+        let log_file_err = log_file.try_clone()?;
+
+        let mut cmd = Command::new("ssh");
+        cmd.arg("-T")
+            .arg("-n")
+            .arg("-o")
+            .arg("StrictHostKeyChecking=no")
+            .arg("-o")
+            .arg("UserKnownHostsFile=/dev/null")
+            .arg("-o")
+            .arg("ConnectTimeout=8")
+            .arg("-o")
+            .arg("ServerAliveInterval=30")
+            .arg("-o")
+            .arg("ServerAliveCountMax=3")
+            .arg("-o")
+            .arg("ExitOnForwardFailure=yes")
+            .arg("-p")
+            .arg("443")
+            .arg("-R")
+            .arg(format!("0:localhost:{}", relay_port))
+            .arg("a.pinggy.io")
+            .stdin(Stdio::null())
+            .stdout(Stdio::from(log_file))
+            .stderr(Stdio::from(log_file_err));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            cmd.process_group(0);
+            #[cfg(target_os = "linux")]
+            unsafe {
+                cmd.pre_exec(|| {
+                    libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                    Ok(())
+                });
+            }
         }
 
-        std::thread::sleep(Duration::from_millis(250));
+        if let Ok(mut tunnel_child) = cmd.spawn() {
+            let pid = tunnel_child.id();
+            std::thread::spawn(move || {
+                let _ = tunnel_child.wait();
+            });
+
+            let start = Instant::now();
+            let timeout = Duration::from_secs(12);
+
+            while start.elapsed() < timeout {
+                if !is_pid_alive(pid) {
+                    break;
+                }
+                if let Ok(content) = fs::read_to_string(&log_path) {
+                    for line in content.lines() {
+                        if let Some(url) = parse_quick_tunnel_url(line) {
+                            resolved_url = Some(url);
+                            tunnel_pid = Some(pid);
+                            break;
+                        }
+                    }
+                }
+                if resolved_url.is_some() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(250));
+            }
+
+            if resolved_url.is_none() {
+                let _ = Command::new("kill").arg("-KILL").arg(pid.to_string()).status();
+            }
+        }
     }
 
     let url = resolved_url.ok_or_else(|| {
         let log_snippet = fs::read_to_string(&log_path).unwrap_or_default();
-        format!("Timed out waiting for Cloudflare tunnel URL. Tunnel logs:\n{}", log_snippet)
+        format!(
+            "Unable to provision automatic tunnel (Cloudflare rate-limited or unavailable, Pinggy unreachable). Tunnel logs:\n{}",
+            log_snippet
+        )
     })?;
+    let tunnel_pid = tunnel_pid.ok_or("tunnel process died unexpectedly")?;
 
     // Wait for DNS propagation so phone pairing doesn't fail on immediate scan
     if let Some(host) = extract_hostname(&url) {
@@ -363,7 +540,7 @@ pub fn ensure_tunnel(
         }
     }
 
-    crate::logging::info(format!("Cloudflare public tunnel active: {}", url));
+    crate::logging::info(format!("Public tunnel active: {}", url));
 
     // 4. Save tunnel state
     let state = TunnelState {
@@ -403,12 +580,11 @@ pub fn sync_relay_to_service_env(config_dir: &Path, relay_url: &str) {
 /// Resolves the authoritative public relay URL to use across the system.
 ///
 /// Priority:
-/// 1. If an explicit, non-default, non-trycloudflare relay was supplied (e.g. self-hosted VPS),
+/// 1. If an explicit, non-default, non-tunnel relay was supplied (e.g. self-hosted VPS),
 ///    honor it directly.
-/// 2. If a locally managed active tunnel exists and is alive, its URL is the authoritative trycloudflare URL.
-/// 3. If the candidate was a trycloudflare URL but no active tunnel was alive, or candidate was None/DEFAULT,
-///    and cloudflared is installed: ensure a fresh tunnel.
-/// 4. Fallback: If requested_relay is valid and not trycloudflare, use it; otherwise DEFAULT_RELAY_URL.
+/// 2. If a locally managed active tunnel exists and is alive, its URL is the authoritative tunnel URL.
+/// 3. If candidate was an auto-tunnel or None/DEFAULT, and cloudflared or ssh is installed: ensure a fresh tunnel.
+/// 4. Fallback: If requested_relay is valid and resolves in DNS, use it; otherwise warn and do not poison service.env.
 pub fn resolve_or_ensure_relay_url(
     config_dir: &Path,
     requested_relay: Option<String>,
@@ -430,6 +606,7 @@ pub fn resolve_or_ensure_relay_url(
         if !trimmed.is_empty()
             && trimmed != crate::config::DEFAULT_RELAY_URL
             && !trimmed.contains("trycloudflare.com")
+            && !trimmed.contains("pinggy")
         {
             return trimmed.to_string();
         }
@@ -441,25 +618,40 @@ pub fn resolve_or_ensure_relay_url(
         return active.relay_url;
     }
 
-    // 3. Auto-provision Cloudflare tunnel on demand
-    if is_cloudflared_installed() {
+    // 3. Auto-provision tunnel on demand (Cloudflare or Pinggy)
+    if is_cloudflared_installed() || is_ssh_installed() {
         match ensure_tunnel(config_dir, 8766) {
             Ok(new_url) => {
                 sync_relay_to_service_env(config_dir, &new_url);
                 return new_url;
             }
             Err(e) => {
-                crate::logging::warn(format!("Failed to provision Cloudflare tunnel: {}", e));
+                crate::logging::warn(format!("Failed to auto-provision public tunnel: {}", e));
             }
         }
     }
 
-    // 4. Fallback
+    // 4. Fallback: only use requested_relay if it's NOT a temporary tunnel and resolves in DNS!
     let fallback = requested_relay
-        .filter(|c| !c.contains("trycloudflare.com") && !c.trim().is_empty())
-        .unwrap_or_else(|| crate::config::DEFAULT_RELAY_URL.to_string());
-    sync_relay_to_service_env(config_dir, &fallback);
-    fallback
+        .filter(|c| !c.contains("trycloudflare.com") && !c.contains("pinggy") && !c.trim().is_empty())
+        .filter(|c| {
+            if let Some(host) = extract_hostname(c) {
+                check_dns_resolves(&host)
+            } else {
+                false
+            }
+        });
+
+    if let Some(valid_url) = fallback {
+        sync_relay_to_service_env(config_dir, &valid_url);
+        valid_url
+    } else {
+        crate::logging::warn(
+            "No public tunnel or resolvable relay endpoint available. \
+             Run 'agentdesk relay set wss://<domain>' to configure a reachable relay."
+        );
+        crate::config::DEFAULT_RELAY_URL.to_string()
+    }
 }
 
 
@@ -489,6 +681,12 @@ mod tests {
         assert_eq!(
             parse_quick_tunnel_url(banner_line),
             Some("wss://random-words-1234.trycloudflare.com".to_string())
+        );
+
+        let pinggy_line = "https://ijjbb-120-61-38-197.free.pinggy.net";
+        assert_eq!(
+            parse_quick_tunnel_url(pinggy_line),
+            Some("wss://ijjbb-120-61-38-197.free.pinggy.net".to_string())
         );
 
         let api_line = "failed to request quick Tunnel: Post \"https://api.trycloudflare.com/tunnel\": ...";

@@ -335,6 +335,25 @@ impl LogStore {
         self.pinned_windows.get(event_id)
     }
 
+    pub fn agent_ids(&self) -> Vec<AgentId> {
+        self.agents.keys().cloned().collect()
+    }
+
+    pub fn append_to_pinned(&mut self, event_id: &EventId, text: String, ts: DateTime<Utc>) {
+        if let Some(pinned) = self.pinned_windows.get_mut(event_id) {
+            let next_off = pinned
+                .lines
+                .last()
+                .map(|l| l.offset + 1)
+                .unwrap_or(pinned.start_offset);
+            pinned.lines.push(LogLine {
+                offset: next_off,
+                text,
+                ts,
+            });
+        }
+    }
+
     /// Retrieve event logs per COMMUNICATION.md.
     /// Returns `None` if the event is unknown.
     pub fn get_event_logs(&self, event_id: &EventId, offset: i64, limit: u32) -> Option<EventLogs> {

@@ -5,7 +5,7 @@ import 'package:agentdesk/services/client_metrics.dart';
 import 'package:agentdesk/services/connection_service.dart';
 import 'package:agentdesk/state/agentdesk_state.dart';
 import 'package:agentdesk/ui/event_screen.dart';
-import 'package:agentdesk/ui/home_screen.dart';
+import 'package:agentdesk/ui/requests_screen.dart';
 import 'package:agentdesk/ui/log_viewer_screen.dart';
 
 class MockConnectionService extends ConnectionService {
@@ -143,7 +143,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: HomeScreen(
+          home: RequestsScreen(
             state: state,
             connection: connection,
             metrics: metrics,

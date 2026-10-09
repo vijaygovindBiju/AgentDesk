@@ -9,6 +9,7 @@ import 'new_work_screen.dart';
 import 'requests_screen.dart';
 import 'working_screen.dart';
 import 'onboarding_screen.dart';
+import 'app_theme.dart';
 
 class AppShell extends StatefulWidget {
   final AgentDeskState state;
@@ -31,9 +32,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
   bool _showOnboarding = false;
-
-
-
+  String? _newWorkInitialPrompt;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +50,7 @@ class _AppShellState extends State<AppShell> {
       builder: (context, _) {
         final requestCount = widget.state.pendingRequestCount;
         final activeWorkingCount = widget.state.activeWorkingCount;
+        final completedCount = widget.state.entriesForTier(2).length;
 
         final pages = [
           HomeScreen(
@@ -58,6 +58,14 @@ class _AppShellState extends State<AppShell> {
             connection: widget.connection,
             metrics: widget.metrics,
             onShowIntroduction: () => setState(() => _showOnboarding = true),
+            onNavigateToTab: (index, {prompt}) {
+              setState(() {
+                _index = index;
+                if (prompt != null) {
+                  _newWorkInitialPrompt = prompt;
+                }
+              });
+            },
           ),
           RequestsScreen(
             state: widget.state,
@@ -74,7 +82,16 @@ class _AppShellState extends State<AppShell> {
             connection: widget.connection,
             metrics: widget.metrics,
           ),
-          NewWorkScreen(connection: widget.connection),
+          NewWorkScreen(
+            connection: widget.connection,
+            initialPrompt: _newWorkInitialPrompt,
+            onPromptConsumed: () {
+              _newWorkInitialPrompt = null;
+            },
+            onSubmitted: () {
+              setState(() => _index = 0);
+            },
+          ),
         ];
 
         return Scaffold(
@@ -92,35 +109,61 @@ class _AppShellState extends State<AppShell> {
                 icon: Badge(
                   isLabelVisible: requestCount > 0,
                   label: Text('$requestCount'),
-                  backgroundColor: Colors.amber.shade800,
+                  backgroundColor: AppTheme.warningAmber,
+                  textColor: Colors.black,
                   child: const Icon(Icons.inbox_outlined),
                 ),
                 selectedIcon: Badge(
                   isLabelVisible: requestCount > 0,
                   label: Text('$requestCount'),
-                  backgroundColor: Colors.amber.shade800,
+                  backgroundColor: AppTheme.warningAmber,
+                  textColor: Colors.black,
                   child: const Icon(Icons.inbox),
                 ),
                 label: 'Requests',
               ),
               NavigationDestination(
+                icon: activeWorkingCount > 0
+                    ? Badge(
+                        label: Text('$activeWorkingCount'),
+                        backgroundColor: AppTheme.primaryCyan,
+                        textColor: Colors.black,
+                        child: const Icon(Icons.bolt, color: AppTheme.primaryCyan),
+                      )
+                    : Badge(
+                        smallSize: 8,
+                        backgroundColor: AppTheme.primaryEmerald,
+                        child: const Icon(Icons.check_circle_outline, color: AppTheme.primaryEmerald),
+                      ),
+                selectedIcon: activeWorkingCount > 0
+                    ? Badge(
+                        label: Text('$activeWorkingCount'),
+                        backgroundColor: AppTheme.primaryCyan,
+                        textColor: Colors.black,
+                        child: const Icon(Icons.bolt, color: AppTheme.primaryCyan),
+                      )
+                    : Badge(
+                        smallSize: 8,
+                        backgroundColor: AppTheme.primaryEmerald,
+                        child: const Icon(Icons.check_circle, color: AppTheme.primaryEmerald),
+                      ),
+                label: activeWorkingCount > 0 ? 'Working' : 'Idle',
+              ),
+              NavigationDestination(
                 icon: Badge(
-                  isLabelVisible: activeWorkingCount > 0,
-                  label: Text('$activeWorkingCount'),
-                  backgroundColor: Colors.blue.shade700,
-                  child: const Icon(Icons.bolt_outlined),
+                  isLabelVisible: completedCount > 0,
+                  label: Text('$completedCount'),
+                  backgroundColor: AppTheme.primaryEmerald,
+                  textColor: Colors.black,
+                  child: const Icon(Icons.check_circle_outline),
                 ),
                 selectedIcon: Badge(
-                  isLabelVisible: activeWorkingCount > 0,
-                  label: Text('$activeWorkingCount'),
-                  backgroundColor: Colors.blue.shade700,
-                  child: const Icon(Icons.bolt),
+                  isLabelVisible: completedCount > 0,
+                  label: Text('$completedCount'),
+                  backgroundColor: AppTheme.primaryEmerald,
+                  textColor: Colors.black,
+                  child: const Icon(Icons.check_circle),
                 ),
-                label: 'Working',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.check_circle_outline),
-                selectedIcon: Icon(Icons.check_circle),
                 label: 'Completed',
               ),
               const NavigationDestination(

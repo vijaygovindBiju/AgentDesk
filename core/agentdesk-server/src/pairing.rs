@@ -126,9 +126,6 @@ impl PairingPayload {
                         fingerprint = Some(val.into_owned());
                     }
                 }
-                "lan" => {
-                    // Deprecated & ignored: AgentDesk is relay-only. LAN endpoints are never used.
-                }
                 "relay" => {
                     if !val.trim().is_empty() {
                         relay_url = Some(val.into_owned());

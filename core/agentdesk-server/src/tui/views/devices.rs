@@ -8,27 +8,28 @@ use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Row, Table};
 use ratatui::Frame;
 
 use crate::tui::state::TuiState;
+use crate::tui::theme::Theme;
 
 pub fn render_devices(f: &mut Frame, area: Rect, state: &TuiState) {
     let block = Block::default()
         .title(" SUPERVISION DEVICES ")
-        .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .title_style(Theme::brand())
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(ratatui::style::Style::default().fg(Theme::BORDER));
 
     if state.paired_devices.is_empty() {
         let text = vec![
             Line::raw(""),
             Line::from(vec![
-                Span::styled("  ○ ", Style::default().fg(Color::DarkGray)),
-                Span::styled("No paired mobile devices found.", Style::default().fg(Color::White)),
+                Span::styled("  ○ ", Theme::text_muted()),
+                Span::styled("No paired mobile devices found.", Theme::text_bold()),
             ]),
             Line::raw(""),
             Line::from(vec![
-                Span::styled("  Press ", Style::default().fg(Color::DarkGray)),
-                Span::styled("[P]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                Span::styled(" to generate a QR code and pair an Android phone.", Style::default().fg(Color::DarkGray)),
+                Span::styled("  Press ", Theme::text_secondary()),
+                Span::styled("[P]", Theme::brand()),
+                Span::styled(" to generate a QR code and pair an Android phone.", Theme::text_secondary()),
             ]),
         ];
         f.render_widget(Paragraph::new(text).block(block), area);
@@ -37,7 +38,7 @@ pub fn render_devices(f: &mut Frame, area: Rect, state: &TuiState) {
 
     let header_cells = ["DEVICE NAME", "PLATFORM", "CONNECTION", "STATUS", "PAIRED AT"]
         .into_iter()
-        .map(|h| Span::styled(h, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+        .map(|h| Span::styled(h, Theme::brand()));
     let header = Row::new(header_cells).height(1).bottom_margin(1);
 
     let rows: Vec<Row> = state
@@ -50,11 +51,11 @@ pub fn render_devices(f: &mut Frame, area: Rect, state: &TuiState) {
                 && state.phone_device_name.as_deref().map(|n| n == dev.device_name || n == dev.device_id).unwrap_or(false);
 
             let (status_text, status_style) = if is_revoked {
-                ("○ Revoked", Style::default().fg(Color::Red))
+                ("○ Revoked", Theme::error())
             } else if is_connected {
-                ("● Connected", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+                ("● Connected", Theme::primary())
             } else {
-                ("○ Offline", Style::default().fg(Color::DarkGray))
+                ("○ Offline", Theme::text_muted())
             };
 
             let conn_type = if let Some(ref t) = state.phone_transport {

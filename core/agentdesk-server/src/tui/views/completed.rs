@@ -2,29 +2,30 @@
 //! Displays all successfully finished work items with relative timestamps.
 
 use ratatui::layout::{Constraint, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Row, Table};
 use ratatui::Frame;
 
 use crate::tui::state::TuiState;
+use crate::tui::theme::Theme;
 use crate::tui::views::dashboard::{format_time_ago, truncate_str};
 
 pub fn render_completed(f: &mut Frame, area: Rect, state: &TuiState) {
     let block = Block::default()
         .title(" COMPLETED TASKS ")
-        .title_style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+        .title_style(Theme::primary())
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::Green));
+        .border_style(ratatui::style::Style::default().fg(Theme::EMERALD));
 
     let completed = state.completed();
     if completed.is_empty() {
         let text = vec![
             Line::raw(""),
             Line::from(vec![
-                Span::styled("  ○ ", Style::default().fg(Color::DarkGray)),
-                Span::styled("No tasks completed yet in this session.", Style::default().fg(Color::White)),
+                Span::styled("  ○ ", Theme::text_muted()),
+                Span::styled("No tasks completed yet in this session.", Theme::text_muted()),
             ]),
         ];
         f.render_widget(Paragraph::new(text).block(block), area);
@@ -33,7 +34,7 @@ pub fn render_completed(f: &mut Frame, area: Rect, state: &TuiState) {
 
     let header_cells = ["✓", "AGENT", "PROJECT", "COMPLETED WORK / SUMMARY", "FINISHED"]
         .into_iter()
-        .map(|h| Span::styled(h, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)));
+        .map(|h| Span::styled(h, Theme::primary()));
     let header = Row::new(header_cells).height(1).bottom_margin(1);
 
     let rows: Vec<Row> = completed
@@ -41,17 +42,17 @@ pub fn render_completed(f: &mut Frame, area: Rect, state: &TuiState) {
         .enumerate()
         .map(|(idx, (_, ev))| {
             let row_style = if idx == state.completed_index {
-                Style::default().bg(Color::Rgb(20, 45, 30)).fg(Color::White).add_modifier(Modifier::BOLD)
+                ratatui::style::Style::default().bg(Theme::SURFACE_ELEVATED).fg(Theme::TEXT_PRIMARY).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::White)
+                ratatui::style::Style::default().fg(Theme::TEXT_PRIMARY)
             };
 
             Row::new(vec![
-                Span::styled("  ✓ ", Style::default().fg(Color::Green)),
-                Span::styled(ev.agent_name.clone(), Style::default().add_modifier(Modifier::BOLD)),
-                Span::styled(ev.project.clone(), Style::default().fg(Color::DarkGray)),
-                Span::styled(truncate_str(&ev.summary, 45), Style::default()),
-                Span::styled(format_time_ago(ev.ts), Style::default().fg(Color::DarkGray)),
+                Span::styled("  ✓ ", Theme::primary()),
+                Span::styled(ev.agent_name.clone(), Theme::text_bold()),
+                Span::styled(ev.project.clone(), Theme::text_muted()),
+                Span::styled(truncate_str(&ev.summary, 45), Theme::text_normal()),
+                Span::styled(format_time_ago(ev.ts), Theme::text_muted()),
             ])
             .style(row_style)
             .height(1)

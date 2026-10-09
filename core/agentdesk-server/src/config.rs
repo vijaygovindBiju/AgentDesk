@@ -60,6 +60,8 @@ pub struct RunOptions {
     pub prompt: Option<String>,
     pub antigravity: bool,
     pub relay: Option<String>,
+    pub workspace: Option<PathBuf>,
+    pub dangerously_skip_permissions: bool,
 }
 
 pub const DEFAULT_RELAY_URL: &str = "wss://relay.agentdesk.io";
@@ -102,7 +104,7 @@ fn env_nonempty(keys: &[&str]) -> Option<String> {
 
 /// Validate a relay endpoint. Production relays must be `wss://` on a public
 /// host. Plain `ws://` is accepted only for a loopback development relay.
-/// Private/LAN addresses are rejected: they would reintroduce a LAN dependency.
+/// Private network addresses are rejected: remote connections must traverse the public relay.
 pub fn validate_relay_url(url: &str) -> Result<(), String> {
     let url = url.trim();
     let (scheme, rest) = url
@@ -136,12 +138,12 @@ pub fn validate_relay_url(url: &str) -> Result<(), String> {
         };
         if private {
             return Err(format!(
-                "relay host '{host}' is a private/LAN address; phones on mobile data cannot reach it. Use a public relay."
+                "relay host '{host}' is a private network address; phones on mobile data cannot reach it. Use a public relay."
             ));
         }
     }
-    if host.ends_with(".local") || host.ends_with(".lan") {
-        return Err(format!("relay host '{host}' is a LAN-only name; use a public relay."));
+    if host.ends_with(".local") || host.ends_with(".internal") || host.ends_with(".lan") {
+        return Err(format!("relay host '{host}' is an internal network name; use a public relay."));
     }
     Ok(())
 }
@@ -305,6 +307,8 @@ impl Default for RunOptions {
             prompt: None,
             antigravity: false,
             relay: None,
+            workspace: None,
+            dangerously_skip_permissions: false,
         }
     }
 }
@@ -569,6 +573,20 @@ where
                     opts.relay = Some(args[idx + 1].clone());
                     idx += 2;
                 }
+                "--dir" | "--workspace" | "--cwd" => {
+                    if idx + 1 >= args.len() {
+                        return Err("--dir/--workspace requires a path".into());
+                    }
+                    opts.workspace = Some(PathBuf::from(&args[idx + 1]));
+                    idx += 2;
+                }
+                "--dangerously-skip-permissions"
+                | "--dangerskip-permission"
+                | "--dangerskip-permissions"
+                | "--danger-skip-permissions" => {
+                    opts.dangerously_skip_permissions = true;
+                    idx += 1;
+                }
                 "-h" | "--help" => return Ok(CliCommand::Help),
                 other => return Err(format!("Unknown argument: '{}'", other)),
             }
@@ -598,8 +616,8 @@ pub fn print_help() {
          CONNECTIVITY:\n\
              Relay-only. The laptop and phone each open an outbound WSS connection to\n\
              the configured relay; they never connect to each other directly and may\n\
-             be on completely different networks (e.g. hostel Wi-Fi and 4G/5G).\n\
-             No LAN IP, USB/ADB, port forwarding or inbound firewall rule is needed.\n\
+             be on completely different networks (e.g. coffee shop Wi-Fi and 4G/5G).\n\
+             No direct peer-to-peer connection, USB/ADB, port forwarding or inbound firewall rule is needed.\n\
              Configure with `agentdesk relay set wss://relay.example.com` or the\n\
              AGENTDESK_RELAY_URL environment variable.\n\n\
          PAIR OPTIONS:\n\

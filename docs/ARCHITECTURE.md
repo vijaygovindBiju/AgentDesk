@@ -133,6 +133,19 @@ Why separate crates: `model` is pure data and is mirrored into Dart; `core` is f
     - **Safe Human Feedback**: `respond(task_id, decision, now)` checks whether the task exists and is blocked. If valid, maps `Decision::Approve` to option selection (e.g. `allow_once`) and `Decision::Deny` to cancellation/rejection, dispatching the JSON-RPC response to the child process.
     - **Dead-Process Rejection**: If `respond` is invoked when the child process has exited or crashed, the call safely rejects the command with `RespondError::NotBlocked` or `RespondError::NoSuchTask` and queues an `adapter_error` raw event for the core pipeline.
 
+### Real-Agent Adapter (Antigravity PTY Adapter)
+
+- **Responsibility**: Connect the real interactive Antigravity CLI (`agy`) inside a POSIX pseudo-terminal (`openpty`), parse its 2D VT100 terminal grid, detect interactive Charm Bubbletea widgets, translate them into normalized attention events, inject phone-dispatched prompts, and synthesize mobile decisions into deterministic keystrokes.
+- **Architecture**:
+  - `PtySession`: Manages child `agy` process lifecycle, raw PTY file descriptors, non-blocking asynchronous output reading, and terminal resizing (`TIOCSWINSZ`).
+  - `Vt100Screen`: 2D terminal grid emulator tracking character positions, reverse-video attributes (`\x1b[7m`), cursor location, and alternate screen buffers.
+  - `AntigravityStateMachine`:
+    - **Visual State Detector**: Strictly recognizes Charm Bubbletea UI patterns for `CommandConfirmation` (with full option lists), `FileEditConfirmation`, `UserQuestions` (free-form, single-choice, multiple-choice, write-in), `WorkspaceTrust`, `Working`, and `IdlePrompt`.
+    - **Terminal-Noise Defense**: Plain terminal text in scrollback or tool output is never treated as authority for an attention event. Active cursor position, focus area, and menu attributes are strictly verified.
+    - **Prompt Injection at Idle Prompt**: When a user submits a prompt from the mobile "New Work" tab, the daemon verifies the agent's screen is at `IdlePrompt` before safely writing the prompt and newline into the PTY.
+    - **Multi-Paragraph Markdown Extraction**: On transition from working/tool execution to `IdlePrompt`, the state machine extracts the complete multi-paragraph markdown final result (summary headers, feature bullet points, code blocks), cleanly separating agent response prose from preceding tool stdout.
+    - **Keystroke Synthesis**: Translates mobile `Decision`s (option indices, binary approve/deny, write-in text) into exact PTY keystrokes (arrow keys, digit keys, enter, text bytes) verified against the detected menu layout.
+
 ### Log Store
 
 - **Responsibility**: bounded ring buffer of raw lines per agent; pinned copies of log windows for attention events.
@@ -220,7 +233,8 @@ Metrics are collected in all three so the bench can compare them on the same see
 - **Themes**: shared light and dark Material 3 themes use the same spacing, contrast, and status semantics.
 - **Onboarding**: first launch presents a five-page explanation of the laptop/phone attention model. Completion is persisted in the existing `SharedPreferences` store; Settings can reopen it without creating a second storage system.
 - **Branding**: the original AgentDesk geometric connection mark is stored as SVG source plus PNG fallback, used by Flutter onboarding/home, Android launch splash, and launcher resources.
-- **New Work**: the current daemon has one adapter/session created at startup and does not yet expose a generic start-task command. The mobile page states this capability boundary rather than pretending to create a task.
+- **New Work**: allows typing and dispatching new work prompts from the phone over the relay. The laptop daemon safely queues and delivers the prompt into the active agent session when its terminal is at the idle prompt.
+- **Completed & Details**: displays completed task cards with clean summaries, opening into a dedicated details view with the full multi-paragraph **Final Result** (headers, bullet points, usage code blocks) rendered prominently at the top in selectable text, with the chronological execution transcript cleanly positioned below.
 - **Log viewer**: tail-first paged log view driven by `get_event_logs { offset, limit }`.
 - **Debug screen**: client-side metrics (`summaries_rendered`, `taps`, `log_pages_requested`), insecure-dev warning banner, and laptop daemon metrics.
 - **Settings screen**: connection URL, auth token, device ID, and certificate fingerprint. URL/device ID/fingerprint persist in ordinary preferences; the token is stored only through the secure-storage abstraction. Incomplete configuration is shown as `configurationRequired`, rather than as a failed network connection.

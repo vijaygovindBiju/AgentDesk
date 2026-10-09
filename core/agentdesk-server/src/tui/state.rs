@@ -53,6 +53,193 @@ pub enum WorkspaceOverlay {
     SwitchConfirm,
     Menu,
     Pairing,
+    PromptInput,
+}
+
+/// Prompt input history with draft preservation and Up/Down navigation.
+#[derive(Debug, Default, Clone)]
+pub struct PromptHistory {
+    /// Submitted prompts, oldest first. Index 0 = oldest.
+    pub entries: Vec<String>,
+    /// Current navigation index. None = at the draft (newest position).
+    pub index: Option<usize>,
+    /// Draft text saved before entering history navigation.
+    pub draft: String,
+}
+
+impl PromptHistory {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Push a submitted prompt. Deduplicates consecutive identical entries.
+    /// Does not push empty strings.
+    pub fn push(&mut self, s: &str) {
+        let s = s.trim();
+        if s.is_empty() {
+            return;
+        }
+        // Avoid consecutive duplicates
+        if self.entries.last().map(|e| e.as_str()) != Some(s) {
+            self.entries.push(s.to_string());
+        }
+        // Reset navigation to newest position
+        self.index = None;
+        self.draft = String::new();
+    }
+
+    /// Navigate backward (Up). Returns the text to fill into the input, or None if history empty.
+    /// `current_draft` is the current input text to save as draft if we're leaving newest position.
+    pub fn up(&mut self, current_draft: &str) -> Option<&str> {
+        if self.entries.is_empty() {
+            return None;
+        }
+        match self.index {
+            None => {
+                // Save draft, go to newest history entry
+                self.draft = current_draft.to_string();
+                self.index = Some(self.entries.len() - 1);
+            }
+            Some(0) => {
+                // Already at oldest — stay there
+            }
+            Some(i) => {
+                self.index = Some(i - 1);
+            }
+        }
+        self.entries.get(self.index?).map(|s| s.as_str())
+    }
+
+    /// Navigate forward (Down). Returns the text to fill, or None if at draft.
+    pub fn down(&mut self) -> Option<&str> {
+        match self.index {
+            None => None, // Already at draft
+            Some(i) if i + 1 >= self.entries.len() => {
+                // Moving past the newest entry → return to draft
+                self.index = None;
+                Some(self.draft.as_str())
+            }
+            Some(i) => {
+                self.index = Some(i + 1);
+                self.entries.get(i + 1).map(|s| s.as_str())
+            }
+        }
+    }
+
+    /// Reset navigation state (e.g. on Esc).
+    pub fn reset_navigation(&mut self) {
+        self.index = None;
+    }
+}
+
+#[cfg(test)]
+mod prompt_history_tests {
+    use super::*;
+
+    #[test]
+    fn empty_history_up_returns_none() {
+        let mut h = PromptHistory::new();
+        assert_eq!(h.up("draft"), None);
+    }
+
+    #[test]
+    fn empty_history_down_returns_none() {
+        let mut h = PromptHistory::new();
+        assert_eq!(h.down(), None);
+    }
+
+    #[test]
+    fn single_entry_up_returns_entry() {
+        let mut h = PromptHistory::new();
+        h.push("hello world");
+        assert_eq!(h.up(""), Some("hello world"));
+    }
+
+    #[test]
+    fn single_entry_up_twice_stays_at_oldest() {
+        let mut h = PromptHistory::new();
+        h.push("hello world");
+        h.up("");
+        assert_eq!(h.up(""), Some("hello world"));
+    }
+
+    #[test]
+    fn multiple_entries_up_navigation() {
+        let mut h = PromptHistory::new();
+        h.push("prompt A");
+        h.push("prompt B");
+        h.push("prompt C");
+        assert_eq!(h.up("draft"), Some("prompt C"));
+        assert_eq!(h.up("draft"), Some("prompt B"));
+        assert_eq!(h.up("draft"), Some("prompt A"));
+        // at oldest, stays
+        assert_eq!(h.up("draft"), Some("prompt A"));
+    }
+
+    #[test]
+    fn multiple_entries_down_navigation() {
+        let mut h = PromptHistory::new();
+        h.push("prompt A");
+        h.push("prompt B");
+        h.push("prompt C");
+        h.up("my draft");
+        h.up("my draft");
+        h.up("my draft");
+        // At A, go down
+        assert_eq!(h.down(), Some("prompt B"));
+        assert_eq!(h.down(), Some("prompt C"));
+        // Past newest -> restore draft
+        let restored = h.down();
+        assert_eq!(restored, Some("my draft"));
+        // Now at draft, down does nothing
+        assert_eq!(h.down(), None);
+    }
+
+    #[test]
+    fn draft_preserved_through_navigation() {
+        let mut h = PromptHistory::new();
+        h.push("prompt A");
+        h.push("prompt B");
+        h.up("my current draft");
+        h.up("my current draft");
+        h.down();
+        let restored = h.down();
+        assert_eq!(restored, Some("my current draft"));
+    }
+
+    #[test]
+    fn no_duplicate_consecutive_entries() {
+        let mut h = PromptHistory::new();
+        h.push("same");
+        h.push("same");
+        assert_eq!(h.entries.len(), 1);
+    }
+
+    #[test]
+    fn empty_string_not_added_to_history() {
+        let mut h = PromptHistory::new();
+        h.push("");
+        h.push("   ");
+        assert!(h.entries.is_empty());
+    }
+
+    #[test]
+    fn oldest_boundary_up_stays() {
+        let mut h = PromptHistory::new();
+        h.push("A");
+        h.push("B");
+        for _ in 0..10 {
+            h.up("");
+        }
+        assert_eq!(h.index, Some(0));
+    }
+
+    #[test]
+    fn newest_boundary_down_returns_none() {
+        let mut h = PromptHistory::new();
+        h.push("A");
+        assert_eq!(h.down(), None);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -165,12 +352,37 @@ pub struct TuiState {
     pub agent_session_running: bool,
     pub agent_switch_pending_index: Option<usize>,
     pub config_menu_index: usize,
+
+    // Execution mode & recent workspaces & completions
+    pub dangerously_skip_permissions: bool,
+    pub recent_workspaces: Vec<PathBuf>,
+    pub project_select_index: usize,
+    pub project_completions: Vec<String>,
+    pub project_completion_index: usize,
+
+    // Prompt input bar state
+    pub prompt_input: String,          // Current text in the prompt input overlay
+    pub prompt_input_cursor: usize,    // Cursor position (for future cursor display)
+    pub prompt_history: PromptHistory, // Prompt history for Up/Down navigation
+    pub last_injected_prompt: Option<(String, std::time::Instant)>,
 }
 
 impl Default for TuiState {
     fn default() -> Self {
         Self::new(8765, "127.0.0.1".into(), None, None)
     }
+}
+
+fn find_common_prefix(strings: &[String]) -> String {
+    if strings.is_empty() {
+        return String::new();
+    }
+    let first = &strings[0];
+    let mut len = first.len();
+    for s in &strings[1..] {
+        len = first.chars().zip(s.chars()).take(len).take_while(|(a, b)| a == b).count();
+    }
+    first.chars().take(len).collect()
 }
 
 impl TuiState {
@@ -259,6 +471,160 @@ impl TuiState {
             agent_session_running: false,
             agent_switch_pending_index: None,
             config_menu_index: 0,
+
+            dangerously_skip_permissions: false,
+            recent_workspaces: Vec::new(),
+            project_select_index: 0,
+            project_completions: Vec::new(),
+            project_completion_index: 0,
+
+            prompt_input: String::new(),
+            prompt_input_cursor: 0,
+            prompt_history: PromptHistory::new(),
+            last_injected_prompt: None,
+        }
+    }
+
+    /// Open the ProjectSelect overlay, initializing the input with current workspace and resetting completions.
+    pub fn open_project_select(&mut self) {
+        self.project_input_text = self.workspace_dir.to_string_lossy().to_string();
+        self.project_select_index = 0;
+        self.project_completions.clear();
+        self.project_completion_index = 0;
+        self.workspace_overlay = WorkspaceOverlay::ProjectSelect;
+    }
+
+    /// Perform Tab auto-completion for `project_input_text` against directories on the filesystem.
+    pub fn tab_complete_project_input(&mut self) {
+        // If completions are already active, cycle through them
+        if !self.project_completions.is_empty() {
+            let next_idx = (self.project_completion_index + 1) % self.project_completions.len();
+            self.project_completion_index = next_idx;
+            if let Some(candidate) = self.project_completions.get(next_idx) {
+                self.project_input_text = candidate.clone();
+            }
+            return;
+        }
+
+        let input = self.project_input_text.trim();
+
+        // Expand leading ~ or ~/
+        let expanded = if input.starts_with("~/") {
+            if let Some(home) = std::env::var_os("HOME") {
+                let mut p = PathBuf::from(home);
+                if input.len() > 2 {
+                    p.push(&input[2..]);
+                }
+                p
+            } else {
+                PathBuf::from(input)
+            }
+        } else if input == "~" {
+            if let Some(home) = std::env::var_os("HOME") {
+                PathBuf::from(home)
+            } else {
+                PathBuf::from(input)
+            }
+        } else if input.is_empty() {
+            PathBuf::from(".")
+        } else {
+            PathBuf::from(input)
+        };
+
+        let (search_dir, prefix, base_display) = if input.ends_with('/') || input == "~" {
+            (expanded.clone(), String::new(), input.to_string())
+        } else {
+            let parent = expanded.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| PathBuf::from("."));
+            let file_name = expanded.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+            let base_display = if let Some(last_slash) = input.rfind('/') {
+                input[..=last_slash].to_string()
+            } else {
+                String::new()
+            };
+            (parent, file_name, base_display)
+        };
+
+        let search_path = if search_dir.as_os_str().is_empty() {
+            std::path::Path::new(".")
+        } else {
+            search_dir.as_path()
+        };
+
+        let mut matches: Vec<String> = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(search_path) {
+            for entry in entries.flatten() {
+                if let Ok(file_type) = entry.file_type() {
+                    if file_type.is_dir() {
+                        if let Ok(name) = entry.file_name().into_string() {
+                            if prefix.is_empty() {
+                                if !name.starts_with('.') {
+                                    matches.push(name);
+                                }
+                            } else if name.starts_with(&prefix) {
+                                if prefix.starts_with('.') || !name.starts_with('.') {
+                                    matches.push(name);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        matches.sort();
+
+        if matches.is_empty() {
+            self.project_completions.clear();
+            self.project_completion_index = 0;
+            return;
+        }
+
+        if matches.len() == 1 {
+            let matched_name = &matches[0];
+            let full_text = format!("{}{}/", base_display, matched_name);
+            self.project_input_text = full_text;
+            self.project_completions.clear();
+            self.project_completion_index = 0;
+            return;
+        }
+
+        // Multiple matches
+        let common = find_common_prefix(&matches);
+        let completions: Vec<String> = matches.iter().map(|m| format!("{}{}/", base_display, m)).collect();
+        self.project_completions = completions;
+        self.project_completion_index = 0;
+
+        if common.len() > prefix.len() {
+            self.project_input_text = format!("{}{}", base_display, common);
+        } else if let Some(first) = self.project_completions.first() {
+            self.project_input_text = first.clone();
+        }
+    }
+
+    /// Check if a prompt is an accidental duplicate received within 2.5 seconds.
+    pub fn is_duplicate_prompt(&mut self, prompt: &str) -> bool {
+        let now = std::time::Instant::now();
+        if let Some((ref last_prompt, last_time)) = self.last_injected_prompt {
+            if last_prompt == prompt && now.duration_since(last_time) < std::time::Duration::from_millis(2500) {
+                return true;
+            }
+        }
+        self.last_injected_prompt = Some((prompt.to_string(), now));
+        false
+    }
+
+    /// Toggle dangerously_skip_permissions execution mode and return the new value.
+    pub fn toggle_execution_mode(&mut self) -> bool {
+        self.dangerously_skip_permissions = !self.dangerously_skip_permissions;
+        self.dangerously_skip_permissions
+    }
+
+    /// Add or promote a workspace directory in recent workspaces list (max 10 entries).
+    pub fn add_recent_workspace(&mut self, path: PathBuf) {
+        self.recent_workspaces.retain(|p| p != &path);
+        self.recent_workspaces.insert(0, path);
+        if self.recent_workspaces.len() > 10 {
+            self.recent_workspaces.truncate(10);
         }
     }
 
@@ -267,10 +633,15 @@ impl TuiState {
         self.current_screen = Screen::AgentSelection;
         self.detected_agents = agents;
         self.last_used_agent_id = prefs.last_agent_id.clone();
+        self.dangerously_skip_permissions = prefs.dangerously_skip_permissions;
+        self.recent_workspaces = prefs.recent_workspaces;
         if let Some(dir) = prefs.last_workspace {
             if dir.is_dir() {
                 self.workspace_dir = dir;
             }
+        }
+        if !self.recent_workspaces.contains(&self.workspace_dir) {
+            self.recent_workspaces.insert(0, self.workspace_dir.clone());
         }
         if let Some(last_id) = &self.last_used_agent_id {
             if let Some(idx) = self.detected_agents.iter().position(|a| &a.id == last_id) {

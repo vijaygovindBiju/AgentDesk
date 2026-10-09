@@ -1,15 +1,15 @@
 //! Footer bar rendering with keyboard shortcuts and contextual feedback.
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 use crate::tui::state::{Screen, TuiState};
+use crate::tui::theme::Theme;
 
 pub fn render_footer(f: &mut Frame, area: Rect, state: &TuiState) {
-    let right_width = if area.width >= 120 { 22 } else { 0 };
+    let right_width = if area.width >= 120 { 24 } else { 0 };
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -18,8 +18,8 @@ pub fn render_footer(f: &mut Frame, area: Rect, state: &TuiState) {
         ])
         .split(area);
 
-    let key_style = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
-    let desc_style = Style::default().fg(Color::White);
+    let key_style = Theme::shortcut_key();
+    let desc_style = Theme::shortcut_desc();
 
     let shortcuts = match state.current_screen {
         Screen::Requests => vec![
@@ -105,8 +105,8 @@ pub fn render_footer(f: &mut Frame, area: Rect, state: &TuiState) {
 
     // Right side: feedback or current view indicator
     let right_text = if let Some((ref msg, is_err)) = state.request_feedback {
-        let color = if is_err { Color::Red } else { Color::Green };
-        Line::from(vec![Span::styled(msg, Style::default().fg(color))])
+        let style = if is_err { Theme::error() } else { Theme::primary() };
+        Line::from(vec![Span::styled(msg, style)])
     } else {
         let view_name = match state.current_screen {
             Screen::AgentSelection => "AGENT SELECTION",
@@ -129,8 +129,8 @@ pub fn render_footer(f: &mut Frame, area: Rect, state: &TuiState) {
             Screen::Help => "HELP",
         };
         Line::from(vec![
-            Span::styled("View: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(view_name, Style::default().fg(Color::Cyan)),
+            Span::styled("View: ", Theme::text_muted()),
+            Span::styled(view_name, Theme::accent()),
             Span::raw(" "),
         ])
     };

@@ -561,11 +561,13 @@ class StartTask {
   final String prompt;
   final String? workspace;
   final String? agentId;
+  final String? mode;
 
   const StartTask({
     required this.prompt,
     this.workspace,
     this.agentId,
+    this.mode,
   });
 
   factory StartTask.fromJson(Map<String, dynamic> json) {
@@ -573,6 +575,7 @@ class StartTask {
       prompt: json['prompt'] as String,
       workspace: json['workspace'] as String?,
       agentId: json['agent_id'] as String?,
+      mode: json['mode'] as String?,
     );
   }
 
@@ -580,6 +583,7 @@ class StartTask {
     'prompt': prompt,
     if (workspace != null) 'workspace': workspace,
     if (agentId != null) 'agent_id': agentId,
+    if (mode != null) 'mode': mode,
   };
 }
 

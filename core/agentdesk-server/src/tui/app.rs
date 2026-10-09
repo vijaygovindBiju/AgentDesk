@@ -182,22 +182,27 @@ impl TuiApp {
             TuiEvent::PairingFailed(err) => {
                 self.state.pairing_error = Some(err);
             }
-            TuiEvent::PromptReceived { prompt, workspace, agent_id: _ } => {
+            TuiEvent::PromptReceived { prompt, workspace, agent_id: _, mode } => {
                 if self.state.is_attached_mode {
                     // In attached mode, the background daemon service already runs the agent adapter
                     // and processes this prompt. Do not spawn a second duplicate agent session in the TUI shell.
                     return;
                 }
+                if self.state.is_duplicate_prompt(&prompt) {
+                    return;
+                }
                 if let Some(ref ws) = workspace {
                     let p = PathBuf::from(ws);
                     if p.is_dir() {
-                        self.state.workspace_dir = p;
-                        let prefs = WorkspacePreferences {
-                            last_agent_id: self.state.active_agent.as_ref().map(|a| a.id.clone()),
-                            last_workspace: Some(self.state.workspace_dir.clone()),
-                        };
-                        let _ = save_preferences(&self.config_dir, &prefs);
+                        self.state.workspace_dir = p.clone();
+                        self.state.add_recent_workspace(p);
+                        self.save_current_preferences();
                     }
+                }
+                if let Some(ref m) = mode {
+                    self.state.dangerously_skip_permissions = m == "dangerously-skip-permissions"
+                        || m == "--dangerously-skip-permissions";
+                    self.save_current_preferences();
                 }
 
                 let need_spawn = match &self.state.shell_session {
@@ -233,8 +238,14 @@ impl TuiApp {
                         let _ = session.pump_output();
                     } else {
                         let escaped = prompt.replace('\'', "'\\''");
+                        let skip_perm = mode.as_deref() == Some("dangerously-skip-permissions")
+                            || mode.as_deref() == Some("--dangerously-skip-permissions");
                         let cmd = if exe == "agy" || exe.ends_with("/agy") {
-                            format!("agy -i '{}'\r", escaped)
+                            if skip_perm {
+                                format!("agy --dangerously-skip-permissions -i '{}'\r", escaped)
+                            } else {
+                                format!("agy -i '{}'\r", escaped)
+                            }
                         } else {
                             format!("{} '{}'\r", exe, escaped)
                         };
@@ -322,6 +333,71 @@ impl TuiApp {
     async fn handle_key(&mut self, key: KeyEvent) -> Result<bool, Box<dyn std::error::Error>> {
         // Handle AgentSelection screen
         if self.state.current_screen == Screen::AgentSelection {
+            if self.state.workspace_overlay == WorkspaceOverlay::ProjectSelect {
+                match key.code {
+                    KeyCode::Up => {
+                        if !self.state.recent_workspaces.is_empty() {
+                            if self.state.project_select_index == 0 {
+                                self.state.project_select_index = self.state.recent_workspaces.len().saturating_sub(1);
+                            } else {
+                                self.state.project_select_index -= 1;
+                            }
+                            if let Some(p) = self.state.recent_workspaces.get(self.state.project_select_index) {
+                                self.state.project_input_text = p.to_string_lossy().to_string();
+                            }
+                        }
+                    }
+                    KeyCode::Down => {
+                        if !self.state.recent_workspaces.is_empty() {
+                            self.state.project_select_index = (self.state.project_select_index + 1) % self.state.recent_workspaces.len();
+                            if let Some(p) = self.state.recent_workspaces.get(self.state.project_select_index) {
+                                self.state.project_input_text = p.to_string_lossy().to_string();
+                            }
+                        }
+                    }
+                    KeyCode::Tab => {
+                        self.state.tab_complete_project_input();
+                    }
+                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        self.state.project_completions.clear();
+                        self.state.project_completion_index = 0;
+                        self.state.project_input_text.push(c);
+                    }
+                    KeyCode::Backspace => {
+                        self.state.project_completions.clear();
+                        self.state.project_completion_index = 0;
+                        self.state.project_input_text.pop();
+                    }
+                    KeyCode::Enter => {
+                        let path_str = self.state.project_input_text.trim();
+                        let path = if path_str.starts_with("~/") || path_str == "~" {
+                            if let Some(home) = std::env::var_os("HOME") {
+                                let mut p = PathBuf::from(home);
+                                if path_str.len() > 1 {
+                                    p.push(&path_str[2..]);
+                                }
+                                p
+                            } else {
+                                PathBuf::from(path_str)
+                            }
+                        } else {
+                            PathBuf::from(path_str)
+                        };
+                        if path.is_dir() {
+                            self.state.workspace_dir = path.clone();
+                            self.state.add_recent_workspace(path);
+                            self.save_current_preferences();
+                        }
+                        self.state.workspace_overlay = WorkspaceOverlay::None;
+                    }
+                    KeyCode::Esc => {
+                        self.state.workspace_overlay = WorkspaceOverlay::None;
+                    }
+                    _ => {}
+                }
+                return Ok(false);
+            }
+
             match key.code {
                 KeyCode::Up => {
                     self.state.select_previous_agent();
@@ -331,14 +407,17 @@ impl TuiApp {
                     self.state.select_next_agent();
                     return Ok(false);
                 }
-                KeyCode::Enter => {
-                    self.launch_selected_agent().await;
+                KeyCode::Char('m') | KeyCode::Tab | KeyCode::F(8) => {
+                    self.state.toggle_execution_mode();
+                    self.save_current_preferences();
                     return Ok(false);
                 }
-                KeyCode::Char('p') | KeyCode::Tab => {
-                    self.state.project_input_text = self.state.workspace_dir.to_string_lossy().to_string();
-                    self.state.workspace_overlay = WorkspaceOverlay::ProjectSelect;
-                    self.state.current_screen = Screen::Workspace;
+                KeyCode::Char('d') | KeyCode::Char('p') | KeyCode::F(2) => {
+                    self.state.open_project_select();
+                    return Ok(false);
+                }
+                KeyCode::Enter => {
+                    self.launch_selected_agent().await;
                     return Ok(false);
                 }
                 KeyCode::Esc | KeyCode::Char('q') => {
@@ -388,21 +467,58 @@ impl TuiApp {
                         _ => {}
                     },
                     WorkspaceOverlay::ProjectSelect => match key.code {
+                        KeyCode::Tab => {
+                            self.state.tab_complete_project_input();
+                        }
+                        KeyCode::Up => {
+                            if !self.state.recent_workspaces.is_empty() {
+                                if self.state.project_select_index == 0 {
+                                    self.state.project_select_index = self.state.recent_workspaces.len().saturating_sub(1);
+                                } else {
+                                    self.state.project_select_index -= 1;
+                                }
+                                if let Some(p) = self.state.recent_workspaces.get(self.state.project_select_index) {
+                                    self.state.project_input_text = p.to_string_lossy().to_string();
+                                }
+                            }
+                        }
+                        KeyCode::Down => {
+                            if !self.state.recent_workspaces.is_empty() {
+                                self.state.project_select_index = (self.state.project_select_index + 1) % self.state.recent_workspaces.len();
+                                if let Some(p) = self.state.recent_workspaces.get(self.state.project_select_index) {
+                                    self.state.project_input_text = p.to_string_lossy().to_string();
+                                }
+                            }
+                        }
                         KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            self.state.project_completions.clear();
+                            self.state.project_completion_index = 0;
                             self.state.project_input_text.push(c);
                         }
                         KeyCode::Backspace => {
+                            self.state.project_completions.clear();
+                            self.state.project_completion_index = 0;
                             self.state.project_input_text.pop();
                         }
                         KeyCode::Enter => {
-                            let path = PathBuf::from(&self.state.project_input_text);
+                            let path_str = self.state.project_input_text.trim();
+                            let path = if path_str.starts_with("~/") || path_str == "~" {
+                                if let Some(home) = std::env::var_os("HOME") {
+                                    let mut p = PathBuf::from(home);
+                                    if path_str.len() > 1 {
+                                        p.push(&path_str[2..]);
+                                    }
+                                    p
+                                } else {
+                                    PathBuf::from(path_str)
+                                }
+                            } else {
+                                PathBuf::from(path_str)
+                            };
                             if path.is_dir() {
-                                self.state.workspace_dir = path;
-                                let prefs = WorkspacePreferences {
-                                    last_agent_id: self.state.active_agent.as_ref().map(|a| a.id.clone()),
-                                    last_workspace: Some(self.state.workspace_dir.clone()),
-                                };
-                                let _ = save_preferences(&self.config_dir, &prefs);
+                                self.state.workspace_dir = path.clone();
+                                self.state.add_recent_workspace(path);
+                                self.save_current_preferences();
                                 let _ = self.state.shell_session.take();
                                 if let Ok(mut session) = TerminalSession::spawn_shell(&self.state.workspace_dir, 120, 40) {
                                     let _ = session.pump_output();
@@ -426,7 +542,7 @@ impl TuiApp {
                         }
                         KeyCode::Char('a') | KeyCode::Enter => {
                             if let Some((first_entry, _)) = self.state.requests().first() {
-                                let event_id = first_entry.event_id;
+                                    let event_id = first_entry.event_id;
                                 let req = agentdesk_model::RespondRequest {
                                     event_id,
                                     decision: Decision::Approve,
@@ -445,13 +561,13 @@ impl TuiApp {
                     WorkspaceOverlay::Menu => match key.code {
                         KeyCode::Up => {
                             if self.state.config_menu_index == 0 {
-                                self.state.config_menu_index = 5;
+                                self.state.config_menu_index = 7;
                             } else {
                                 self.state.config_menu_index -= 1;
                             }
                         }
                         KeyCode::Down => {
-                            self.state.config_menu_index = (self.state.config_menu_index + 1) % 6;
+                            self.state.config_menu_index = (self.state.config_menu_index + 1) % 8;
                         }
                         KeyCode::Char('1') => {
                             self.initiate_pairing(PairingMode::Relay);
@@ -473,6 +589,13 @@ impl TuiApp {
                             self.state.workspace_overlay = WorkspaceOverlay::AgentSwitch;
                         }
                         KeyCode::Char('6') => {
+                            self.state.open_project_select();
+                        }
+                        KeyCode::Char('7') => {
+                            self.state.toggle_execution_mode();
+                            self.save_current_preferences();
+                        }
+                        KeyCode::Char('8') => {
                             return Ok(true);
                         }
                         KeyCode::Enter => {
@@ -497,6 +620,13 @@ impl TuiApp {
                                     self.state.workspace_overlay = WorkspaceOverlay::AgentSwitch;
                                 }
                                 5 => {
+                                    self.state.open_project_select();
+                                }
+                                6 => {
+                                    self.state.toggle_execution_mode();
+                                    self.save_current_preferences();
+                                }
+                                7 => {
                                     return Ok(true);
                                 }
                                 _ => {}
@@ -513,6 +643,52 @@ impl TuiApp {
                         }
                         _ => {}
                     },
+                    WorkspaceOverlay::PromptInput => {
+                        match key.code {
+                            KeyCode::Esc => {
+                                self.state.workspace_overlay = WorkspaceOverlay::None;
+                                self.state.prompt_input.clear();
+                                self.state.prompt_history.reset_navigation();
+                            }
+                            KeyCode::Tab | KeyCode::F(8) => {
+                                self.state.toggle_execution_mode();
+                                self.save_current_preferences();
+                            }
+                            KeyCode::F(2) | KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::ALT) => {
+                                self.state.open_project_select();
+                            }
+                            KeyCode::Enter => {
+                                let prompt = self.state.prompt_input.trim().to_string();
+                                if !prompt.is_empty() {
+                                    self.state.prompt_history.push(&prompt);
+                                    self.state.prompt_input.clear();
+                                    self.state.workspace_overlay = WorkspaceOverlay::None;
+                                    self.handle_local_prompt(prompt).await;
+                                }
+                            }
+                            KeyCode::Backspace => {
+                                self.state.prompt_input.pop();
+                            }
+                            KeyCode::Up => {
+                                let current = self.state.prompt_input.clone();
+                                if let Some(text) = self.state.prompt_history.up(&current) {
+                                    self.state.prompt_input = text.to_string();
+                                }
+                            }
+                            KeyCode::Down => {
+                                if let Some(text) = self.state.prompt_history.down() {
+                                    self.state.prompt_input = text.to_string();
+                                }
+                            }
+                            KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                                self.state.prompt_input.push(c);
+                            }
+                            KeyCode::PageUp | KeyCode::PageDown => {
+                                // Overlay is open — ignore PgUp/PgDn
+                            }
+                            _ => {}
+                        }
+                    }
                     _ => {
                         self.state.workspace_overlay = WorkspaceOverlay::None;
                     }
@@ -528,8 +704,7 @@ impl TuiApp {
                 return Ok(false);
             }
             if key.code == KeyCode::F(2) || (key.code == KeyCode::Char('p') && key.modifiers.contains(KeyModifiers::ALT)) {
-                self.state.project_input_text = self.state.workspace_dir.to_string_lossy().to_string();
-                self.state.workspace_overlay = WorkspaceOverlay::ProjectSelect;
+                self.state.open_project_select();
                 return Ok(false);
             }
             if key.code == KeyCode::F(3) || (key.code == KeyCode::Char('n') && key.modifiers.contains(KeyModifiers::ALT)) {
@@ -551,8 +726,19 @@ impl TuiApp {
                 };
                 return Ok(false);
             }
+            if key.code == KeyCode::F(8) {
+                self.state.toggle_execution_mode();
+                self.save_current_preferences();
+                return Ok(false);
+            }
             if key.code == KeyCode::F(10) || (key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::ALT)) {
                 return Ok(true);
+            }
+
+            // Ctrl+I opens the TUI prompt input bar
+            if key.code == KeyCode::Char('i') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                self.state.workspace_overlay = WorkspaceOverlay::PromptInput;
+                return Ok(false);
             }
 
             // All other keystrokes go straight to the active PTY!
@@ -1107,19 +1293,22 @@ impl TuiApp {
             return;
         };
 
-        let prefs = WorkspacePreferences {
-            last_agent_id: Some(agent.id.clone()),
-            last_workspace: Some(self.state.workspace_dir.clone()),
-        };
-        let _ = save_preferences(&self.config_dir, &prefs);
-
         self.state.active_agent = Some(agent.clone());
         self.state.agent_session_running = agent.is_ready();
+        self.save_current_preferences();
 
         if self.state.shell_session.is_none() {
             if let Ok(mut session) = TerminalSession::spawn_shell(&self.state.workspace_dir, 120, 40) {
                 if agent.is_ready() {
-                    let cmd = format!("{}\r", agent.executable);
+                    let cmd = if agent.id == "antigravity" || agent.executable == "agy" || agent.executable.ends_with("/agy") {
+                        if self.state.dangerously_skip_permissions {
+                            format!("{} --dangerously-skip-permissions\r", agent.executable)
+                        } else {
+                            format!("{}\r", agent.executable)
+                        }
+                    } else {
+                        format!("{}\r", agent.executable)
+                    };
                     let _ = session.send_input(cmd.as_bytes());
                 }
                 let _ = session.pump_output();
@@ -1127,7 +1316,15 @@ impl TuiApp {
             }
         } else if agent.is_ready() {
             if let Some(ref mut session) = self.state.shell_session {
-                let cmd = format!("{}\r", agent.executable);
+                let cmd = if agent.id == "antigravity" || agent.executable == "agy" || agent.executable.ends_with("/agy") {
+                    if self.state.dangerously_skip_permissions {
+                        format!("{} --dangerously-skip-permissions\r", agent.executable)
+                    } else {
+                        format!("{}\r", agent.executable)
+                    }
+                } else {
+                    format!("{}\r", agent.executable)
+                };
                 let _ = session.send_input(cmd.as_bytes());
                 let _ = session.pump_output();
             }
@@ -1136,21 +1333,93 @@ impl TuiApp {
         self.state.current_screen = Screen::Workspace;
     }
 
+    fn save_current_preferences(&self) {
+        let prefs = WorkspacePreferences {
+            last_agent_id: self.state.active_agent.as_ref().map(|a| a.id.clone()),
+            last_workspace: Some(self.state.workspace_dir.clone()),
+            dangerously_skip_permissions: self.state.dangerously_skip_permissions,
+            recent_workspaces: self.state.recent_workspaces.clone(),
+        };
+        let _ = save_preferences(&self.config_dir, &prefs);
+    }
+
     async fn switch_to_agent(&mut self, agent: AgentDefinition) {
         self.state.active_agent = Some(agent.clone());
         self.state.agent_session_running = agent.is_ready();
-        let prefs = WorkspacePreferences {
-            last_agent_id: Some(agent.id.clone()),
-            last_workspace: Some(self.state.workspace_dir.clone()),
-        };
-        let _ = save_preferences(&self.config_dir, &prefs);
+        self.save_current_preferences();
 
         if agent.is_ready() {
             if let Some(ref mut session) = self.state.shell_session {
-                let cmd = format!("{}\r", agent.executable);
+                let cmd = if agent.id == "antigravity" || agent.executable == "agy" || agent.executable.ends_with("/agy") {
+                    if self.state.dangerously_skip_permissions {
+                        format!("{} --dangerously-skip-permissions\r", agent.executable)
+                    } else {
+                        format!("{}\r", agent.executable)
+                    }
+                } else {
+                    format!("{}\r", agent.executable)
+                };
                 let _ = session.send_input(cmd.as_bytes());
                 let _ = session.pump_output();
             }
         }
+    }
+
+    /// Handle a prompt typed locally in the TUI prompt input bar.
+    /// Mirrors the TuiEvent::PromptReceived logic without the workspace-dir update or screen switch.
+    async fn handle_local_prompt(&mut self, prompt: String) {
+        if self.state.is_duplicate_prompt(&prompt) {
+            return;
+        }
+        // Ensure a shell session exists
+        let need_spawn = match &self.state.shell_session {
+            None => true,
+            Some(s) => !s.is_alive(),
+        };
+        if need_spawn {
+            if let Ok(mut session) = TerminalSession::spawn_shell(&self.state.workspace_dir, 120, 40) {
+                let _ = session.pump_output();
+                self.state.shell_session = Some(session);
+            }
+        }
+
+        if let Some(ev) = self.state_machine.start_prompt(&prompt) {
+            let _ = self.bridge.send_adapter_event(ev).await;
+        }
+
+        // Extract exe before the mutable shell_session borrow to satisfy the borrow checker
+        let exe = self.state.selected_agent().map(|a| a.executable.clone()).unwrap_or_else(|| "agy".into());
+
+        if let Some(ref mut session) = self.state.shell_session {
+            let _ = session.pump_output();
+            let snapshot = session.screen.snapshot();
+            let live = agentdesk_core::detect_state(&snapshot);
+
+            if live.accepts_chat_input() {
+                let payload = if prompt.contains('\n') {
+                    format!("\x1b[200~{prompt}\x1b[201~\r")
+                } else {
+                    format!("{prompt}\r")
+                };
+                let _ = session.send_input(payload.as_bytes());
+                let _ = session.pump_output();
+            } else {
+                let escaped = prompt.replace('\'', "'\\''");
+                let cmd = if exe == "agy" || exe.ends_with("/agy") {
+                    if self.state.dangerously_skip_permissions {
+                        format!("agy --dangerously-skip-permissions -i '{}'\r", escaped)
+                    } else {
+                        format!("agy -i '{}'\r", escaped)
+                    }
+                } else {
+                    format!("{} '{}'\r", exe, escaped)
+                };
+                let _ = session.send_input(cmd.as_bytes());
+                let _ = session.pump_output();
+            }
+        }
+
+        self.inspect_shell_screen().await;
+        self.state.agent_session_running = true;
     }
 }

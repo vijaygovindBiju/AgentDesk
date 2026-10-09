@@ -83,6 +83,12 @@ impl QueueEntry {
         self.state != EntryState::Dismissed && !self.superseded
     }
 
+    /// True only for live, unresolved human-action requests.
+    /// Invariant: Completed events are NEVER actionable and NEVER pending requests.
+    pub fn is_actionable(&self) -> bool {
+        self.tier == 0 && self.resolution == Some(Resolution::Unresolved) && self.is_live()
+    }
+
     /// Sort key: lower tier first, higher score first, newer first.
     pub fn order_key(&self) -> (u8, std::cmp::Reverse<u16>, std::cmp::Reverse<u64>) {
         (
@@ -104,10 +110,16 @@ mod tests {
         let r = QueueEntry::new(Uuid::nil(), Category::Request, 1, 70);
         assert_eq!(r.resolution, Some(Resolution::Unresolved));
         assert_eq!(r.tier, 0);
+        assert!(r.is_actionable());
         let w = QueueEntry::new(Uuid::nil(), Category::Working, 2, 10);
         assert_eq!(w.resolution, None);
         assert_eq!(w.tier, 3);
         assert_eq!(w.state, EntryState::New);
+        assert!(!w.is_actionable());
+        let c = QueueEntry::new(Uuid::nil(), Category::Completed, 3, 50);
+        assert_eq!(c.resolution, None);
+        assert_eq!(c.tier, 2);
+        assert!(!c.is_actionable(), "Completed events must NEVER be actionable");
     }
 
     #[test]

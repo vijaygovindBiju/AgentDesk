@@ -69,6 +69,10 @@ impl EventProcessor {
         self.next_seq
     }
 
+    pub fn agents(&self) -> &HashMap<AgentId, AgentInfo> {
+        &self.agents
+    }
+
     pub fn register_agent(&mut self, info: AgentInfo) {
         self.agents.insert(info.agent_id.clone(), info);
     }
@@ -95,7 +99,7 @@ impl EventProcessor {
     /// Process a RawAgentEvent into a stored, queued, and classified Event.
     pub fn process_raw_event(
         &mut self,
-        raw: RawAgentEvent,
+        mut raw: RawAgentEvent,
         now: DateTime<Utc>,
         event_store: &mut EventStore,
         queue: &mut PriorityQueue,
@@ -134,10 +138,15 @@ impl EventProcessor {
 
         // 2. Classify kind -> category, severity, summary
         let mut classification = classify(&raw.kind);
-        // Safety invariant: Any event carrying a structured request MUST be in the Request category.
+        // Safety invariant: Any event carrying a structured request MUST be in the Request category,
+        // EXCEPT Completed events: Completed events are non-actionable results and must never be classified as Request.
         if raw.request.is_some() && classification.category != Category::Request {
-            classification.category = Category::Request;
-            classification.severity = agentdesk_model::Severity::Critical;
+            if classification.category == Category::Completed {
+                raw.request = None;
+            } else {
+                classification.category = Category::Request;
+                classification.severity = agentdesk_model::Severity::Critical;
+            }
         }
         if classification.matched == Matched::Fallback && raw.request.is_none() {
             metrics.unclassified_events += 1;
@@ -442,5 +451,36 @@ mod tests {
         assert_eq!(ev.category, Category::Request);
         assert_eq!(ev.severity, agentdesk_model::Severity::Critical);
         assert_eq!(entry.tier, 0);
+    }
+
+    #[test]
+    fn completed_event_is_never_promoted_to_request_even_if_request_info_attached() {
+        let mut processor = EventProcessor::new();
+        let mut store = EventStore::new();
+        let mut queue = PriorityQueue::new();
+        let mut logs = LogStore::new(Default::default());
+        let mut metrics = Metrics::new();
+
+        let mut raw = sample_raw("antigravity", "task_completed", 1);
+        raw.request = Some(agentdesk_model::RequestInfo {
+            prompt: "Fake prompt".into(),
+            options: vec!["OK".into()],
+            question_type: Some(agentdesk_model::QuestionType::SingleChoice),
+        });
+
+        let (ev, entry) = processor
+            .process_raw_event(
+                raw,
+                Utc::now(),
+                &mut store,
+                &mut queue,
+                &mut logs,
+                &mut metrics,
+            )
+            .unwrap();
+
+        assert_eq!(ev.category, Category::Completed);
+        assert!(ev.request.is_none());
+        assert!(!entry.is_actionable());
     }
 }

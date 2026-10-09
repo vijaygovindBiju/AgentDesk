@@ -7,12 +7,13 @@
 
 use chrono::Utc;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 use ratatui::Frame;
 
 use crate::tui::state::TuiState;
+use crate::tui::theme::Theme;
 
 pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
     let requests = state.requests();
@@ -57,14 +58,9 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
     // 1. NEEDS YOUR ATTENTION (Priority 1 - High visual dominance)
     // =========================================================================
     let (att_border_color, att_title_style) = if !requests.is_empty() {
-        (
-            Color::Yellow,
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        )
+        (Theme::AMBER, Theme::warning())
     } else {
-        (Color::DarkGray, Style::default().fg(Color::DarkGray))
+        (Theme::BORDER, Theme::text_muted())
     };
 
     let att_block = Block::default()
@@ -72,14 +68,14 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
         .title_style(att_title_style)
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(att_border_color));
+        .border_style(ratatui::style::Style::default().fg(att_border_color));
 
     if requests.is_empty() {
         let text = Line::from(vec![
-            Span::styled("  ✓ ", Style::default().fg(Color::Green)),
+            Span::styled("  ✓ ", Theme::primary()),
             Span::styled(
                 "All agents running autonomously (no pending approvals or input)",
-                Style::default().fg(Color::DarkGray),
+                Theme::text_secondary(),
             ),
         ]);
         f.render_widget(Paragraph::new(text).block(att_block), chunks[0]);
@@ -89,21 +85,21 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
 
         // Agent & Project tag line
         lines.push(Line::from(vec![
-            Span::styled("  ! ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled("  ! ", Theme::warning()),
             Span::styled(
                 &event.agent_name,
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                Theme::text_bold(),
             ),
-            Span::styled(format!("    {} ", event.project), Style::default().fg(Color::Cyan)),
+            Span::styled(format!("    {} ", event.project), Theme::accent()),
             if let Some(ref t) = event.task_id {
-                Span::styled(format!("/ {t} "), Style::default().fg(Color::DarkGray))
+                Span::styled(format!("/ {t} "), Theme::text_muted())
             } else {
                 Span::raw("")
             },
             if requests.len() > 1 {
                 Span::styled(
                     format!(" (+{} more requests waiting, press 'r')", requests.len() - 1),
-                    Style::default().fg(Color::Yellow),
+                    Theme::warning(),
                 )
             } else {
                 Span::raw("")
@@ -118,7 +114,7 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
                 Span::raw("    "),
                 Span::styled(
                     &req.prompt,
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    Theme::text_bold(),
                 ),
             ]));
 
@@ -131,42 +127,40 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
                     Span::raw("    "),
                     Span::styled(
                         " [1] Approve ",
-                        Style::default()
-                            .fg(Color::Black)
-                            .bg(Color::Green)
+                        ratatui::style::Style::default()
+                            .fg(ratatui::style::Color::Black)
+                            .bg(Theme::EMERALD)
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::raw("   "),
                     Span::styled(
                         " [2] Deny ",
-                        Style::default()
-                            .fg(Color::Black)
-                            .bg(Color::Red)
+                        ratatui::style::Style::default()
+                            .fg(ratatui::style::Color::Black)
+                            .bg(Theme::RED)
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::raw("   "),
-                    Span::styled("(Press 'r' for detailed response)", Style::default().fg(Color::DarkGray)),
+                    Span::styled("(Press 'r' for detailed response)", Theme::text_muted()),
                 ]));
             } else {
                 let mut opt_spans = vec![Span::raw("    ")];
                 for (idx, opt) in req.options.iter().enumerate().take(5) {
                     opt_spans.push(Span::styled(
                         format!("[{}] {}", idx + 1, opt),
-                        Style::default()
-                            .fg(Color::Cyan)
-                            .add_modifier(Modifier::BOLD),
+                        Theme::shortcut_key(),
                     ));
                     opt_spans.push(Span::raw("     "));
                 }
                 if req.options.len() > 5 {
-                    opt_spans.push(Span::styled("...", Style::default().fg(Color::DarkGray)));
+                    opt_spans.push(Span::styled("...", Theme::text_muted()));
                 }
                 lines.push(Line::from(opt_spans));
             }
         } else {
             lines.push(Line::from(vec![
                 Span::raw("    "),
-                Span::styled(&event.message, Style::default().fg(Color::White)),
+                Span::styled(&event.message, Theme::text_normal()),
             ]));
         }
 
@@ -177,12 +171,9 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
     // 2. ERRORS (Priority 2 - Red visual prominence)
     // =========================================================================
     let (err_border_color, err_title_style) = if !errors.is_empty() {
-        (
-            Color::Red,
-            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-        )
+        (Theme::RED, Theme::error())
     } else {
-        (Color::DarkGray, Style::default().fg(Color::DarkGray))
+        (Theme::BORDER, Theme::text_muted())
     };
 
     let err_block = Block::default()
@@ -190,14 +181,14 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
         .title_style(err_title_style)
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(err_border_color));
+        .border_style(ratatui::style::Style::default().fg(err_border_color));
 
     if errors.is_empty() {
         let text = Line::from(vec![
-            Span::styled("  ✓ ", Style::default().fg(Color::Green)),
+            Span::styled("  ✓ ", Theme::primary()),
             Span::styled(
                 "Zero active errors across all agents",
-                Style::default().fg(Color::DarkGray),
+                Theme::text_secondary(),
             ),
         ]);
         f.render_widget(Paragraph::new(text).block(err_block), chunks[1]);
@@ -210,20 +201,20 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
                 _ => "NOTABLE",
             };
             let sev_style = if event.severity == agentdesk_model::Severity::Critical {
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+                Theme::error()
             } else {
-                Style::default().fg(Color::LightRed)
+                ratatui::style::Style::default().fg(Theme::RED)
             };
 
             lines.push(Line::from(vec![
-                Span::styled("  ! ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                Span::styled("  ! ", Theme::error()),
                 Span::styled(
                     format!("{:<15}", event.agent_name),
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    Theme::text_bold(),
                 ),
                 Span::styled(
                     format!("{:<16}", event.project),
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_muted(),
                 ),
                 Span::styled(
                     format!("{:<8}", sev_str),
@@ -231,11 +222,11 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
                 ),
                 Span::styled(
                     format!("{:<35}", truncate_str(&event.summary, 35)),
-                    Style::default().fg(Color::White),
+                    Theme::text_normal(),
                 ),
                 Span::styled(
                     format_time_ago(event.ts),
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_muted(),
                 ),
             ]));
         }
@@ -245,19 +236,25 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
     // =========================================================================
     // 3. WORKING (Priority 3 - Quiet & Aggregated)
     // =========================================================================
+    let (work_border_color, work_title_style) = if !working.is_empty() {
+        (Theme::CYAN, Theme::brand())
+    } else {
+        (Theme::BORDER, Theme::text_muted())
+    };
+
     let work_block = Block::default()
         .title(" WORKING ")
-        .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .title_style(work_title_style)
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(ratatui::style::Style::default().fg(work_border_color));
 
     if working.is_empty() {
         let text = Line::from(vec![
-            Span::styled("  ○ ", Style::default().fg(Color::DarkGray)),
+            Span::styled("  ○ ", Theme::text_muted()),
             Span::styled(
                 "No agents currently executing tasks (all idle)",
-                Style::default().fg(Color::DarkGray),
+                Theme::text_muted(),
             ),
         ]);
         f.render_widget(Paragraph::new(text).block(work_block), chunks[2]);
@@ -265,22 +262,22 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
         let mut lines = Vec::new();
         for (_, event) in working.iter().take(5) {
             lines.push(Line::from(vec![
-                Span::styled("  ● ", Style::default().fg(Color::Cyan)),
+                Span::styled("  ● ", Theme::accent()),
                 Span::styled(
                     format!("{:<15}", event.agent_name),
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    Theme::text_bold(),
                 ),
                 Span::styled(
                     format!("{:<16}", event.project),
-                    Style::default().fg(Color::Cyan),
+                    Theme::accent(),
                 ),
                 Span::styled(
                     format!("{:<38}", truncate_str(&event.summary, 38)),
-                    Style::default().fg(Color::Gray),
+                    Theme::text_secondary(),
                 ),
                 Span::styled(
                     format_duration(event.ts),
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_muted(),
                 ),
             ]));
         }
@@ -292,37 +289,37 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &TuiState) {
     // =========================================================================
     let comp_block = Block::default()
         .title(" COMPLETED ")
-        .title_style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+        .title_style(Theme::primary())
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(ratatui::style::Style::default().fg(Theme::BORDER));
 
     if completed.is_empty() {
         let text = Line::from(vec![
-            Span::styled("  ○ ", Style::default().fg(Color::DarkGray)),
-            Span::styled("No completed tasks yet in this session", Style::default().fg(Color::DarkGray)),
+            Span::styled("  ○ ", Theme::text_muted()),
+            Span::styled("No completed tasks yet in this session", Theme::text_muted()),
         ]);
         f.render_widget(Paragraph::new(text).block(comp_block), chunks[3]);
     } else {
         let mut lines = Vec::new();
         for (_, event) in completed.iter().take(6) {
             lines.push(Line::from(vec![
-                Span::styled("  ✓ ", Style::default().fg(Color::Green)),
+                Span::styled("  ✓ ", Theme::primary()),
                 Span::styled(
                     format!("{:<15}", event.agent_name),
-                    Style::default().fg(Color::White),
+                    Theme::text_normal(),
                 ),
                 Span::styled(
                     format!("{:<16}", event.project),
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_muted(),
                 ),
                 Span::styled(
                     format!("{:<38}", truncate_str(&event.summary, 38)),
-                    Style::default().fg(Color::White),
+                    Theme::text_normal(),
                 ),
                 Span::styled(
                     format_time_ago(event.ts),
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_muted(),
                 ),
             ]));
         }

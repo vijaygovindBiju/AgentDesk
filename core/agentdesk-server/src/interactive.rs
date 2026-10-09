@@ -76,6 +76,32 @@ pub fn pair_flow(
             .or_else(|| std::env::var("AGENTDESK_RELAY").ok()),
     );
 
+    let host = crate::tunnel::extract_hostname(&resolved_relay);
+    let mut resolves = host.as_deref().map(crate::tunnel::check_dns_resolves).unwrap_or(false);
+    if !resolves {
+        if let Some(ref h) = host {
+            for _ in 0..10 {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                if crate::tunnel::check_dns_resolves(h) {
+                    resolves = true;
+                    break;
+                }
+            }
+        }
+    }
+    if !resolves && crate::tunnel::load_active_tunnel(config_dir).is_none() {
+        eprintln!("\n╭──────────────────────────────────────────────────────────────╮");
+        eprintln!("│                 Relay Host Is Unreachable                    │");
+        eprintln!("╰──────────────────────────────────────────────────────────────╯");
+        eprintln!("\nCould not reach relay server at '{}'.", resolved_relay);
+        eprintln!("The hostname does not resolve via public DNS.\n");
+        eprintln!("To fix this:");
+        eprintln!("  1) Set your public relay server:");
+        eprintln!("     agentdesk relay set wss://<your-relay-domain>");
+        eprintln!("  2) Or ensure an outbound tunnel (Cloudflare / Pinggy / SSH) forwards to 127.0.0.1:8766\n");
+        return Err("Relay host is unreachable".into());
+    }
+
     let active = service_is_active().unwrap_or(false);
     let is_listening = !port_available(&config.bind, config.port);
     if !active && !is_listening {

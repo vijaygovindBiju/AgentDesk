@@ -1,16 +1,16 @@
 import 'dart:io';
 
 /// AgentDesk is relay-only: the phone reaches the laptop exclusively through a
-/// publicly reachable relay over outbound WSS. It must never target a LAN
-/// address, a laptop hostname, or (in production) localhost.
+/// publicly reachable relay over outbound WSS. It must never target a direct
+/// private address, a laptop hostname, or (in production) localhost.
 bool isLoopbackHost(String host) {
   final h = host.toLowerCase();
   return h == '127.0.0.1' || h == '::1' || h == 'localhost';
 }
 
-bool isPrivateOrLanHost(String host) {
+bool isPrivateNetworkHost(String host) {
   final h = host.toLowerCase();
-  if (h.endsWith('.local') || h.endsWith('.lan') || h.endsWith('.home')) {
+  if (h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.home')) {
     return true;
   }
   final ip = InternetAddress.tryParse(h);
@@ -26,6 +26,9 @@ bool isPrivateOrLanHost(String host) {
   }
   return (b[0] & 0xfe) == 0xfc || (b[0] == 0xfe && (b[1] & 0xc0) == 0x80);
 }
+
+// Deprecated alias for backwards-compatibility
+bool isPrivateOrLanHost(String host) => isPrivateNetworkHost(host);
 
 /// Returns a user-facing error, or null if [url] is an acceptable relay.
 /// Loopback relays (`ws://127.0.0.1:8766`) are a development-only
@@ -44,8 +47,8 @@ String? validateRelayUrl(String url, {bool allowLoopback = false}) {
   if (uri.scheme != 'wss') {
     return 'Relay URL must use wss:// (TLS).';
   }
-  if (isPrivateOrLanHost(uri.host)) {
-    return 'Relay host ${uri.host} is a private/LAN address and is unreachable '
+  if (isPrivateNetworkHost(uri.host)) {
+    return 'Relay host ${uri.host} is a private network address and is unreachable '
         'from mobile data. Use a public relay.';
   }
   return null;

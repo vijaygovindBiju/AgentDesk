@@ -238,10 +238,15 @@ impl Server {
 
             tokio::spawn(async move {
                 let mut backoff = RELAY_BACKOFF_MIN;
+                let mut last_tunnel_attempt = std::time::Instant::now()
+                    .checked_sub(std::time::Duration::from_secs(300))
+                    .unwrap_or_else(std::time::Instant::now);
                 loop {
                     let active_tunnel = crate::tunnel::load_active_tunnel(&config_dir_relay);
                     let (connect_url, display_relay) = if std::net::TcpStream::connect("127.0.0.1:8766").is_ok()
-                        && (active_tunnel.is_some() || relay_base.contains("trycloudflare.com"))
+                        && (active_tunnel.is_some()
+                            || relay_base.contains("trycloudflare.com")
+                            || relay_base.contains("pinggy"))
                     {
                         let display = active_tunnel.map(|s| s.relay_url).unwrap_or_else(|| relay_base.clone());
                         ("ws://127.0.0.1:8766".to_string(), display)
@@ -303,7 +308,11 @@ impl Server {
                                     logging::info(format!("Relay connection failed to {}: {}", display_relay, e));
                                     backoff = std::cmp::min(backoff * 2, RELAY_BACKOFF_MAX);
 
-                                    if crate::tunnel::is_cloudflared_installed() && crate::tunnel::load_active_tunnel(&config_dir_relay).is_none() {
+                                    if (crate::tunnel::is_cloudflared_installed() || crate::tunnel::is_ssh_installed())
+                                        && crate::tunnel::load_active_tunnel(&config_dir_relay).is_none()
+                                        && last_tunnel_attempt.elapsed() > std::time::Duration::from_secs(60)
+                                    {
+                                        last_tunnel_attempt = std::time::Instant::now();
                                         let cfg_dir = config_dir_relay.clone();
                                         let r_base = relay_base.clone();
                                         let _ = tokio::task::spawn_blocking(move || {

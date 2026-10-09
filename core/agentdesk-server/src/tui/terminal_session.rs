@@ -4,7 +4,44 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
+use std::time::Duration;
+
 use agentdesk_core::{PtySession, Screen};
+
+/// Inspect bytes written by the child process to detect standard terminal attribute / status queries,
+/// generating appropriate ANSI/VT100 terminal responses (e.g. Primary Device Attributes DA1 for fish).
+fn handle_terminal_queries(bytes: &[u8], screen: &Screen) -> Vec<u8> {
+    let mut replies = Vec::new();
+
+    // Primary Device Attributes (DA1) query: ESC [ c or ESC [ 0 c
+    if bytes.windows(3).any(|w| w == b"\x1b[c")
+        || bytes.windows(4).any(|w| w == b"\x1b[0c")
+    {
+        replies.extend_from_slice(b"\x1b[?1;2c");
+    }
+
+    // Secondary Device Attributes (DA2) query: ESC [ > c or ESC [ > 0 c
+    if bytes.windows(4).any(|w| w == b"\x1b[>c")
+        || bytes.windows(5).any(|w| w == b"\x1b[>0c")
+    {
+        replies.extend_from_slice(b"\x1b[>0;10;0c");
+    }
+
+    // Device Status Report (DSR) query: ESC [ 5 n
+    if bytes.windows(4).any(|w| w == b"\x1b[5n") {
+        replies.extend_from_slice(b"\x1b[0n");
+    }
+
+    // Cursor Position Report (CPR) query: ESC [ 6 n
+    if bytes.windows(4).any(|w| w == b"\x1b[6n") {
+        let snap = screen.snapshot();
+        let r = snap.cursor_row + 1;
+        let c = snap.cursor_col + 1;
+        replies.extend_from_slice(format!("\x1b[{};{}R", r, c).as_bytes());
+    }
+
+    replies
+}
 
 /// An active interactive terminal session backed by an OS pseudo-terminal.
 pub struct TerminalSession {
@@ -39,12 +76,18 @@ impl TerminalSession {
         let pty = PtySession::spawn(shell, &[], Some(&cwd.to_path_buf()), cols, rows)?;
         let screen = Screen::new(cols, rows);
 
-        Ok(Self {
+        let mut session = Self {
             pty,
             screen,
             shell: shell.to_string(),
             cwd: cwd.to_path_buf(),
-        })
+        };
+
+        // Give shell brief startup window to emit initial DA queries and answer them
+        std::thread::sleep(Duration::from_millis(60));
+        let _ = session.pump_output();
+
+        Ok(session)
     }
 
     /// Send raw keystrokes or byte sequences to the shell PTY.
@@ -52,13 +95,22 @@ impl TerminalSession {
         self.pty.send_input(bytes)
     }
 
-    /// Read any available chunks from the PTY master and update the VT100 screen.
+    /// Read any available chunks from the PTY master, respond to terminal queries, and update the VT100 screen.
     pub fn pump_output(&mut self) -> bool {
         let mut received = false;
+        let mut query_replies = Vec::new();
+
         while let Ok(Some(chunk)) = self.pty.try_recv() {
             received = true;
+            let rep = handle_terminal_queries(&chunk.bytes, &self.screen);
+            query_replies.extend(rep);
             self.screen.process_bytes(&chunk.bytes);
         }
+
+        if !query_replies.is_empty() {
+            let _ = self.pty.send_input(&query_replies);
+        }
+
         received
     }
 

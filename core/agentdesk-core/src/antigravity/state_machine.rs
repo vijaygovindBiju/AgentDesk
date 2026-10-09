@@ -512,11 +512,15 @@ impl AntigravityStateMachine {
                 && matches!(detected, AntigravityState::IdlePrompt)
             {
                 self.active_prompt = None;
-                let summary = extract_work_summary(snapshot)
-                    .unwrap_or_else(|| "Task completed".to_string());
-                self.current_state = AntigravityState::Completed {
-                    message: summary.clone(),
-                };
+                if let Some(summary) = extract_work_summary(snapshot) {
+                    if has_positive_completion_evidence(&summary, had_active_prompt) {
+                        self.current_state = AntigravityState::Completed {
+                            message: summary,
+                        };
+                        return self.state_to_event(&self.current_state.clone());
+                    }
+                }
+                self.current_state = AntigravityState::IdlePrompt;
                 return self.state_to_event(&self.current_state.clone());
             }
             if matches!(detected, AntigravityState::Completed { .. }) {
@@ -660,11 +664,30 @@ impl AntigravityStateMachine {
                     "summary".to_string(),
                     serde_json::Value::String(message.clone()),
                 );
+                if let Some(final_res) = extract_final_result(message) {
+                    details.insert(
+                        "final_result".to_string(),
+                        serde_json::Value::String(final_res),
+                    );
+                }
                 if let Some(file) = extract_file_path_from_summary(message) {
                     details.insert("file".to_string(), serde_json::Value::String(file));
                 }
                 if let Some(cmd) = extract_command_from_summary(message) {
                     details.insert("command".to_string(), serde_json::Value::String(cmd));
+                }
+                let tool_count = message
+                    .lines()
+                    .filter(|l| l.trim().starts_with("● "))
+                    .count();
+                if tool_count > 0 {
+                    details.insert("tool_count".to_string(), serde_json::json!(tool_count));
+                }
+                let steps = parse_execution_steps(message);
+                if !steps.is_empty() {
+                    if let Ok(val) = serde_json::to_value(&steps) {
+                        details.insert("execution_steps".to_string(), val);
+                    }
                 }
                 let log_lines = message.lines().map(|s| s.to_string()).collect();
                 Some(RawAgentEvent {
@@ -848,11 +871,30 @@ impl AntigravityStateMachine {
                     "summary".to_string(),
                     serde_json::Value::String(message.clone()),
                 );
+                if let Some(final_res) = extract_final_result(message) {
+                    details.insert(
+                        "final_result".to_string(),
+                        serde_json::Value::String(final_res),
+                    );
+                }
                 if let Some(file) = extract_file_path_from_summary(message) {
                     details.insert("file".to_string(), serde_json::Value::String(file));
                 }
                 if let Some(cmd) = extract_command_from_summary(message) {
                     details.insert("command".to_string(), serde_json::Value::String(cmd));
+                }
+                let tool_count = message
+                    .lines()
+                    .filter(|l| l.trim().starts_with("● "))
+                    .count();
+                if tool_count > 0 {
+                    details.insert("tool_count".to_string(), serde_json::json!(tool_count));
+                }
+                let steps = parse_execution_steps(message);
+                if !steps.is_empty() {
+                    if let Ok(val) = serde_json::to_value(&steps) {
+                        details.insert("execution_steps".to_string(), val);
+                    }
                 }
                 let log_lines = message.lines().map(|s| s.to_string()).collect();
                 Some(RawAgentEvent {
@@ -965,8 +1007,10 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
     // 6. Working / Progress / Thinking
     // Any braille-pattern glyph (U+2800..=U+28FF) is a spinner frame; it is stripped so that
     // successive animation frames map to the same Working state instead of new events.
+    // The active spinner is displayed at the bottom of the terminal output (last 6 lines).
     let is_spinner = |c: char| ('\u{2800}'..='\u{28FF}').contains(&c);
-    for line in &non_empty_lines {
+    let working_candidates: Vec<&&String> = non_empty_lines.iter().rev().take(6).collect();
+    for line in working_candidates {
         if line.chars().any(is_spinner)
             || line.contains("Thinking...")
             || line.contains("Working...")
@@ -1046,10 +1090,8 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
 
     if is_idle {
         if let Some(message) = extract_agent_reply(snapshot) {
-            if message.trim().ends_with('?') {
+            if message.trim().ends_with('?') && !is_idle_welcome_text(&message) {
                 return AntigravityState::AwaitingReply { message };
-            } else {
-                return AntigravityState::Completed { message };
             }
         }
         return AntigravityState::IdlePrompt;
@@ -1170,9 +1212,455 @@ pub fn extract_command_from_summary(text: &str) -> Option<String> {
     None
 }
 
-fn is_rule_line(line: &str) -> bool {
+pub fn is_rule_line(line: &str) -> bool {
     let t = line.trim();
-    t.chars().count() >= 10 && t.chars().all(|c| c == '─')
+    if t.chars().count() < 3 {
+        return false;
+    }
+    t.chars().all(|c| {
+        matches!(
+            c,
+            '─' | '━' | '═' | '┄' | '┅' | '┈' | '┉' | '—' | '-' | '_' | '–' | '―'
+        )
+    })
+}
+
+/// Returns `true` if the text matches Antigravity's idle welcome banner or prompt hint
+/// (e.g. "Hello again! Ready whenever you are.", "What would you like to work on?", "> say hi").
+pub fn is_idle_welcome_text(text: &str) -> bool {
+    let t = text.trim();
+    if t.is_empty() {
+        return false;
+    }
+    let lower = t.to_lowercase();
+    lower.contains("ready whenever you are")
+        || lower.contains("what would you like to work on")
+        || lower.contains("hello again")
+        || lower.contains("say hi")
+        || lower.starts_with("> say hi")
+        || lower == "say hi"
+        || lower == ">"
+        || lower == "?"
+}
+
+/// Returns `true` if the line contains terminal rendering artifacts that should be excluded
+/// from semantic work summaries sent to the phone.
+///
+/// Covers:
+/// - Horizontal rule lines and box drawings
+/// - Idle welcome banners and prompt hints
+/// - Kitty graphics protocol fragments (`Ga=`, base64 blobs ending in `==` with semicolons)
+/// - Lines that are *entirely* braille/spinner characters (not meaningful text)
+/// - Lines containing a leaked ESC (`\x1b`) byte or CSI bracket sequences
+/// - Keyboard shortcuts, prompt chrome, and navigation bars
+pub fn is_terminal_artifact(line: &str) -> bool {
+    let t = line.trim();
+    if t.is_empty() {
+        return false;
+    }
+    if is_rule_line(t) || is_idle_welcome_text(t) {
+        return true;
+    }
+    // Kitty graphics protocol fragments (e.g. Ga=q,f=32,s=1,v=1,i=31;AAAAAAA==)
+    if t.starts_with("Ga=") || t.contains(";AAAA") || (t.contains("==") && t.contains(';')) {
+        return true;
+    }
+    // Terminal mode sequences or raw cursor control artifacts
+    if t.starts_with("[?") || t.starts_with("\x1b[") || t.contains('\x1b') {
+        return true;
+    }
+    // Lines starting with braille characters (spinners and status lines like "⠙ Working...")
+    let first_char = t.chars().next();
+    if let Some(c) = first_char {
+        if matches!(
+            c,
+            '⣾' | '⣽' | '⣻' | '⢿' | '⡿' | '⣟' | '⣯' | '⣷' | '⠋' | '⠙' | '⠹' | '⠸'
+                | '⠼' | '⠴' | '⠦' | '⠧' | '⠇' | '⠏'
+        ) {
+            return true;
+        }
+    }
+    // Status bar / footer shortcuts
+    if (t.contains("Navigate") && (t.contains("cancel") || t.contains("Confirm") || t.contains("esc")))
+        || (t.contains("F1 Agent") && t.contains("F2 Project"))
+        || (t.contains("tab Amend") && t.contains("Navigate"))
+        || t.contains("ctrl+g edit/expand")
+        || t.starts_with("Gemini")
+        || t.starts_with("Send message")
+    {
+        return true;
+    }
+    // Prompt line artifacts
+    if t == ">" || t == "?" || (t.starts_with("> ") && t.len() <= 12 && (t.contains("say hi") || t.contains("type"))) {
+        return true;
+    }
+    false
+}
+
+/// A structured step in an agent's execution transcript.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct StepInfo {
+    /// "thought", "tool_call", "message", or "result"
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tokens: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+}
+
+/// Parse a multi-line semantic work summary into structured execution steps while
+/// preserving strict chronological order.
+pub fn parse_execution_steps(summary: &str) -> Vec<StepInfo> {
+    let mut steps = Vec::new();
+    let raw_lines: Vec<&str> = summary.lines().collect();
+    let lines: Vec<&str> = raw_lines.iter().map(|l| l.trim()).collect();
+    let mut i = 0;
+
+    while i < lines.len() {
+        let line = lines[i];
+        if line.is_empty() {
+            i += 1;
+            continue;
+        }
+
+        // 1. Thought block: starts with `▸ Thought` or `Thought for`
+        if line.starts_with("▸ Thought") || line.starts_with("Thought for") {
+            let header = line.strip_prefix('▸').unwrap_or(line).trim();
+            let mut duration = None;
+            let mut tokens = None;
+            if let Some(after_for) = header.strip_prefix("Thought for ") {
+                let parts: Vec<&str> = after_for.split(',').map(|s| s.trim()).collect();
+                if let Some(d) = parts.first() {
+                    duration = Some(d.to_string());
+                }
+                if parts.len() > 1 {
+                    tokens = Some(parts[1].to_string());
+                }
+            }
+
+            i += 1;
+            let mut thought_lines = Vec::new();
+            while i < lines.len() {
+                let next = lines[i];
+                let raw_next = raw_lines[i];
+                if next.is_empty() {
+                    let peek_non_empty = lines[i..].iter().find(|l| !l.is_empty());
+                    if let Some(p) = peek_non_empty {
+                        if p.starts_with('●')
+                            || p.starts_with('▸')
+                            || p.starts_with("Final result")
+                            || p.starts_with("Result")
+                            || p.starts_with('•')
+                            || p.starts_with('#')
+                            || p.starts_with("```")
+                        {
+                            break;
+                        }
+                    }
+                    thought_lines.push("");
+                    i += 1;
+                    continue;
+                }
+                if next.starts_with('●')
+                    || next.starts_with('▸')
+                    || next.starts_with("Final result")
+                    || next.starts_with("Result")
+                    || next.starts_with('•')
+                    || next.starts_with('#')
+                    || next.starts_with("```")
+                {
+                    break;
+                }
+                // Antigravity thoughts are indented with 2+ spaces. A non-indented line indicates
+                // the end of thought prose and the start of user-facing response prose.
+                if !thought_lines.is_empty() && !raw_next.starts_with("  ") && !raw_next.starts_with('\t') {
+                    break;
+                }
+                thought_lines.push(next);
+                i += 1;
+                // If thought line was single-line summary (indented) and next line is not indented, break
+                if raw_next.starts_with("  ") && i < raw_lines.len() && !raw_lines[i].starts_with("  ") && !raw_lines[i].trim().is_empty() {
+                    break;
+                }
+            }
+            let text = thought_lines.join("\n").trim().to_string();
+            steps.push(StepInfo {
+                kind: "thought".to_string(),
+                tool: None,
+                command: None,
+                duration,
+                tokens,
+                text: if text.is_empty() { None } else { Some(text) },
+            });
+            continue;
+        }
+
+        // 2. Tool invocation: starts with `● `
+        if line.starts_with("● ") {
+            let tool_name = line.strip_prefix("● ").unwrap().trim();
+            let (tool, inline_cmd) = if let Some((t, rest)) = tool_name.split_once('(') {
+                let cmd = rest.strip_suffix(')').unwrap_or(rest).trim();
+                (t.trim(), Some(cmd.to_string()))
+            } else {
+                (tool_name, None)
+            };
+
+            i += 1;
+            let mut cmd = inline_cmd;
+            let mut output_lines = Vec::new();
+
+            while i < lines.len() {
+                let next = lines[i];
+                if next.is_empty() {
+                    i += 1;
+                    continue;
+                }
+                if next.starts_with('●')
+                    || next.starts_with('▸')
+                    || next.starts_with("Final result")
+                    || next.starts_with("Result")
+                {
+                    break;
+                }
+                if cmd.is_none() {
+                    let clean_cmd = next
+                        .strip_prefix('(')
+                        .and_then(|s| s.strip_suffix(')'))
+                        .unwrap_or(next)
+                        .trim();
+                    cmd = Some(clean_cmd.to_string());
+                    i += 1;
+                    continue;
+                }
+                if next == "(ctrl+o to expand)" || next.contains("(ctrl+o to expand)") {
+                    i += 1;
+                    continue;
+                }
+                if raw_lines[i].starts_with("  ") || raw_lines[i].starts_with('\t') {
+                    output_lines.push(next);
+                    i += 1;
+                    continue;
+                }
+                let has_subsequent_steps = lines[i..].iter().any(|l| {
+                    l.starts_with('●')
+                        || l.starts_with('▸')
+                        || l.starts_with("Final result")
+                        || l.starts_with("Result")
+                });
+                if !has_subsequent_steps {
+                    // Trailing non-indented text belongs to the final result / message, not tool output.
+                    break;
+                }
+                output_lines.push(next);
+                i += 1;
+            }
+
+            let output = if output_lines.is_empty() {
+                None
+            } else {
+                Some(output_lines.join("\n").trim().to_string())
+            };
+
+            steps.push(StepInfo {
+                kind: "tool_call".to_string(),
+                tool: Some(tool.to_string()),
+                command: cmd,
+                duration: None,
+                tokens: None,
+                text: output,
+            });
+            continue;
+        }
+
+        // 3. Final result section
+        if line.eq_ignore_ascii_case("Final result:")
+            || line.eq_ignore_ascii_case("Result:")
+            || line.starts_with("Final result")
+        {
+            i += 1;
+            let mut res_lines = Vec::new();
+            while i < lines.len() {
+                let next = lines[i];
+                if next.is_empty() {
+                    if !res_lines.is_empty() && res_lines.last() != Some(&"") {
+                        res_lines.push("");
+                    }
+                } else {
+                    res_lines.push(next);
+                }
+                i += 1;
+            }
+            let res = res_lines.join("\n").trim().to_string();
+            if !res.is_empty() {
+                steps.push(StepInfo {
+                    kind: "result".to_string(),
+                    tool: None,
+                    command: None,
+                    duration: None,
+                    tokens: None,
+                    text: Some(res),
+                });
+            }
+            continue;
+        }
+
+        // 4. General message / explanation block
+        let mut msg_lines = vec![line];
+        i += 1;
+        while i < lines.len() {
+            let next = lines[i];
+            if next.starts_with('●')
+                || next.starts_with('▸')
+                || next.starts_with("Final result")
+                || next.starts_with("Result")
+            {
+                break;
+            }
+            if next.is_empty() {
+                if !msg_lines.is_empty() && msg_lines.last() != Some(&"") {
+                    msg_lines.push("");
+                }
+            } else {
+                msg_lines.push(next);
+            }
+            i += 1;
+        }
+        let msg = msg_lines.join("\n").trim().to_string();
+        if !msg.is_empty() {
+            let is_last = i >= lines.len();
+            let kind = if is_last && steps.iter().any(|s| s.kind == "tool_call") {
+                "result"
+            } else {
+                "message"
+            };
+            steps.push(StepInfo {
+                kind: kind.to_string(),
+                tool: None,
+                command: None,
+                duration: None,
+                tokens: None,
+                text: Some(msg),
+            });
+        }
+    }
+
+    steps
+}
+
+/// Extract the final non-chrome, non-empty text block from a work summary string.
+///
+/// Uses `parse_execution_steps` to accurately parse tool calls, thought blocks, and
+/// the final user-facing result. If a "result" step is found, its complete text (including
+/// all multi-paragraph markdown, bulleted lists, and code blocks) is returned.
+/// Returns true if there is positive evidence of completed agent work.
+///
+/// Completion requires positive evidence:
+/// - If an active prompt was tracked (`had_active_prompt == true`), the summary must contain
+///   meaningful, non-welcome, non-artifact content.
+/// - If no active prompt was tracked (e.g. user typed directly into PTY), positive evidence
+///   requires tool invocations (`● Tool`), thought blocks (`▸ Thought`), or explicit result markers.
+///
+/// An idle welcome prompt or empty screen is NEVER positive evidence.
+pub fn has_positive_completion_evidence(summary: &str, had_active_prompt: bool) -> bool {
+    let trimmed = summary.trim();
+    if trimmed.is_empty() || trimmed == "Task completed" || is_idle_welcome_text(trimmed) {
+        return false;
+    }
+    if is_terminal_artifact(trimmed) {
+        return false;
+    }
+    if had_active_prompt {
+        return !is_idle_welcome_text(trimmed);
+    }
+    let steps = parse_execution_steps(trimmed);
+    let has_tools_or_thoughts = steps.iter().any(|s| s.kind == "tool_call" || s.kind == "thought");
+    let has_tool_markers = trimmed.lines().any(|l| {
+        let t = l.trim();
+        t.starts_with('●') || t.starts_with('▸') || t.starts_with("✓ ")
+    });
+    has_tools_or_thoughts || has_tool_markers
+}
+
+/// Extract the final non-chrome, non-empty text block from a work summary string.
+///
+/// Uses `parse_execution_steps` to accurately parse tool calls, thought blocks, and
+/// the final user-facing result. If a "result" step is found, its complete text (including
+/// all multi-paragraph markdown, bulleted lists, and code blocks) is returned.
+pub fn extract_final_result(summary: &str) -> Option<String> {
+    let steps = parse_execution_steps(summary);
+    if let Some(res_step) = steps.iter().rev().find(|s| s.kind == "result") {
+        if let Some(ref text) = res_step.text {
+            let t = text.trim();
+            if !t.is_empty() && !is_idle_welcome_text(t) && !is_terminal_artifact(t) {
+                return Some(t.to_string());
+            }
+        }
+    }
+    // Fallback if no "result" step was classified (e.g. pure message response without tool calls)
+    if let Some(last_step) = steps.last() {
+        if last_step.kind == "message" {
+            if let Some(ref text) = last_step.text {
+                let t = text.trim();
+                if !t.is_empty() && !is_idle_welcome_text(t) && !is_terminal_artifact(t) {
+                    return Some(t.to_string());
+                }
+            }
+        }
+    }
+    // Fallback 2: Reverse-line scanning for non-chrome human text
+    let lines: Vec<&str> = summary.lines().collect();
+    let mut collected = Vec::new();
+    for &line in lines.iter().rev() {
+        let t = line.trim();
+        if t.is_empty() {
+            if !collected.is_empty() && collected.last() != Some(&"") {
+                collected.push("");
+            }
+            continue;
+        }
+        if t.starts_with('●')
+            || t.starts_with('▸')
+            || t.starts_with("> ")
+            || t == ">"
+            || is_rule_line(t)
+            || is_terminal_artifact(t)
+            || is_idle_welcome_text(t)
+            || t.contains("(ctrl+o to expand)")
+        {
+            if !collected.is_empty() {
+                break;
+            }
+            continue;
+        }
+        collected.push(t);
+    }
+    if !collected.is_empty() {
+        collected.reverse();
+        while collected.first() == Some(&"") {
+            collected.remove(0);
+        }
+        while collected.last() == Some(&"") {
+            collected.pop();
+        }
+        let res = collected.join("\n");
+        let clean = if let Some(stripped) = res.strip_prefix("Final result:") {
+            stripped.trim()
+        } else if let Some(stripped) = res.strip_prefix("Result:") {
+            stripped.trim()
+        } else {
+            res.trim()
+        };
+        if !clean.is_empty() && !is_idle_welcome_text(clean) && !is_terminal_artifact(clean) {
+            return Some(clean.to_string());
+        }
+    }
+    None
 }
 
 /// Extract Antigravity's final reply for the current turn when the chat input is focused.
@@ -1204,7 +1692,7 @@ fn extract_agent_reply(snapshot: &ScreenSnapshot) -> Option<String> {
     let mut reply: Vec<&str> = Vec::new();
     for i in user_row + 1..transcript_end {
         let t = lines[i].trim();
-        if t.is_empty() {
+        if t.is_empty() || is_terminal_artifact(t) || is_idle_welcome_text(t) {
             continue;
         }
         match snapshot.line_fg[i] {
@@ -1217,7 +1705,7 @@ fn extract_agent_reply(snapshot: &ScreenSnapshot) -> Option<String> {
         }
     }
     let message = reply.join("\n");
-    (!message.is_empty()).then_some(message)
+    (!message.is_empty() && !is_idle_welcome_text(&message)).then_some(message)
 }
 
 /// Extract summary of the work done prior to the idle prompt.
@@ -1238,19 +1726,37 @@ pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
         (snapshot.line_fg.get(i).copied().flatten() == Some(FG_USER_PROMPT) && t.starts_with("> "))
             || (t.starts_with("> ")
                 && !is_menu_row(t)
+                && !is_terminal_artifact(t)
+                && !is_idle_welcome_text(t)
                 && !t.contains("Navigate")
                 && !t.contains("Yes,")
                 && !t.contains("No,"))
     });
 
+    // Check if there are visible tool calls or thought blocks
+    let has_visible_execution = (0..transcript_end).any(|i| {
+        let t = lines[i].trim();
+        t.starts_with('●') || t.starts_with('▸') || t.starts_with("✓ ")
+    });
+
+    // If no user prompt row is found AND no tool calls / thoughts occurred, there is no work summary.
+    if user_row.is_none() && !has_visible_execution {
+        return None;
+    }
+
     let start_idx = user_row.map(|r| r + 1).unwrap_or_else(|| {
-        transcript_end.saturating_sub(30)
+        (0..transcript_end)
+            .find(|&i| {
+                let t = lines[i].trim();
+                t.starts_with('●') || t.starts_with('▸') || t.starts_with("✓ ")
+            })
+            .unwrap_or_else(|| transcript_end.saturating_sub(30))
     });
 
     let mut summary_lines = Vec::new();
     for i in start_idx..transcript_end {
         let trimmed = lines[i].trim();
-        if is_rule_line(trimmed) {
+        if is_rule_line(trimmed) || is_terminal_artifact(trimmed) || is_idle_welcome_text(trimmed) {
             continue;
         }
         if trimmed.is_empty() {
@@ -1262,28 +1768,19 @@ pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
         if trimmed.starts_with("> ") || trimmed == ">" || trimmed.starts_with("? ") || trimmed == "?" {
             continue;
         }
-        if (trimmed.contains("Navigate") && trimmed.contains("cancel"))
-            || (trimmed.contains("F1 Agent") && trimmed.contains("F2 Project"))
-            || (trimmed.contains("tab Amend") && trimmed.contains("Navigate"))
-            || trimmed.contains("ctrl+g edit/expand")
-            || trimmed.starts_with("Gemini")
-            || trimmed.starts_with("Send message")
-        {
-            continue;
-        }
-        summary_lines.push(trimmed);
+        summary_lines.push(lines[i].trim_end());
     }
 
-    while summary_lines.last() == Some(&"") {
+    while summary_lines.last().map(|s| s.trim().is_empty()).unwrap_or(false) {
         summary_lines.pop();
     }
-    while summary_lines.first() == Some(&"") {
+    while summary_lines.first().map(|s| s.trim().is_empty()).unwrap_or(false) {
         summary_lines.remove(0);
     }
 
     if summary_lines.is_empty() {
         if let Some(reply) = extract_agent_reply(snapshot) {
-            if !reply.trim().ends_with('?') {
+            if !reply.trim().ends_with('?') && !is_idle_welcome_text(&reply) && !is_terminal_artifact(&reply) {
                 return Some(reply);
             }
         }
@@ -2113,4 +2610,232 @@ mod tests {
         assert_eq!(ev2.kind, "task_completed");
         assert!(ev2.message.contains("Linux Pirate 6.8.0-45-generic"));
     }
+
+    #[test]
+    fn test_execution_transcript_fixture_order_preservation_and_artifact_removal() {
+        let raw_lines = vec![
+            "> user prompt".to_string(),
+            // Terminal rendering / Kitty protocol / braille artifacts that MUST be removed:
+            "Ga=q,f=32,s=1,v=1,i=31;AAAAAAA==".to_string(),
+            "⣾⣽⣻⢿".to_string(),
+            "\x1b[?25h".to_string(),
+            // 1. Thought
+            "▸ Thought for 11s, 235 tokens".to_string(),
+            "The objective was to write \"hello world\" to the designated file.".to_string(),
+            "".to_string(),
+            // 2. Bash (rm)
+            "● Bash".to_string(),
+            "(rm -f /home/pirate/test_summary.txt)".to_string(),
+            "".to_string(),
+            // 3. Bash (git status)
+            "● Bash".to_string(),
+            "git status".to_string(),
+            "".to_string(),
+            // 4. Bash (git diff)
+            "● Bash".to_string(),
+            "git diff --stat".to_string(),
+            "".to_string(),
+            // 5. Thought
+            "▸ Thought for 9s".to_string(),
+            "All core components now function as expected...".to_string(),
+            "".to_string(),
+            // 6. Edit
+            "● Edit".to_string(),
+            "~/test_summary.txt".to_string(),
+            "".to_string(),
+            // 7. Final result
+            "Final result:".to_string(),
+            "Written hello world to test_summary.txt.".to_string(),
+            "──────────────────────────────────────────────────".to_string(),
+            ">".to_string(),
+            "──────────────────────────────────────────────────".to_string(),
+        ];
+
+        let snapshot = ScreenSnapshot {
+            cols: 80,
+            rows: raw_lines.len() as u16,
+            cursor_row: (raw_lines.len() - 2) as u16,
+            cursor_col: 2,
+            in_alt_screen: false,
+            cursor_visible: true,
+            lines: raw_lines,
+            reversed_lines: vec![],
+            line_fg: vec![],
+        };
+
+        // 1. Extract summary
+        let summary = extract_work_summary(&snapshot).expect("Summary must be extracted");
+
+        // 2. Verify terminal artifacts are completely absent
+        assert!(!summary.contains("Ga="), "Must strip Kitty graphics protocol");
+        assert!(!summary.contains("AAAAAAA=="), "Must strip base64 Kitty data");
+        assert!(!summary.contains("⣾⣽⣻⢿"), "Must strip braille spinner artifact");
+        assert!(!summary.contains("\x1b"), "Must strip ESC byte");
+
+        // 3. Verify all legitimate agent content is retained
+        assert!(summary.contains("Thought for 11s, 235 tokens"));
+        assert!(summary.contains("The objective was to write \"hello world\""));
+        assert!(summary.contains("rm -f /home/pirate/test_summary.txt"));
+        assert!(summary.contains("git status"));
+        assert!(summary.contains("git diff --stat"));
+        assert!(summary.contains("Thought for 9s"));
+        assert!(summary.contains("~/test_summary.txt"));
+        assert!(summary.contains("Written hello world to test_summary.txt."));
+
+        // 4. Verify chronological ordering in summary
+        let pos_t1 = summary.find("Thought for 11s").unwrap();
+        let pos_b1 = summary.find("rm -f").unwrap();
+        let pos_b2 = summary.find("git status").unwrap();
+        let pos_b3 = summary.find("git diff --stat").unwrap();
+        let pos_t2 = summary.find("Thought for 9s").unwrap();
+        let pos_e1 = summary.find("~/test_summary.txt").unwrap();
+        let pos_res = summary.find("Written hello world").unwrap();
+
+        assert!(pos_t1 < pos_b1, "Thought 1 must precede Bash 1");
+        assert!(pos_b1 < pos_b2, "Bash 1 must precede Bash 2");
+        assert!(pos_b2 < pos_b3, "Bash 2 must precede Bash 3");
+        assert!(pos_b3 < pos_t2, "Bash 3 must precede Thought 2");
+        assert!(pos_t2 < pos_e1, "Thought 2 must precede Edit");
+        assert!(pos_e1 < pos_res, "Edit must precede Final result");
+
+        // 5. Test parse_execution_steps
+        let steps = parse_execution_steps(&summary);
+        assert_eq!(steps.len(), 7, "Must extract exactly 7 execution steps: {:?}", steps);
+
+        // Step 0: Thought 1
+        assert_eq!(steps[0].kind, "thought");
+        assert_eq!(steps[0].duration.as_deref(), Some("11s"));
+        assert_eq!(steps[0].tokens.as_deref(), Some("235 tokens"));
+        assert!(steps[0].text.as_ref().unwrap().contains("The objective was to write"));
+
+        // Step 1: Bash (rm)
+        assert_eq!(steps[1].kind, "tool_call");
+        assert_eq!(steps[1].tool.as_deref(), Some("Bash"));
+        assert_eq!(steps[1].command.as_deref(), Some("rm -f /home/pirate/test_summary.txt"));
+
+        // Step 2: Bash (git status)
+        assert_eq!(steps[2].kind, "tool_call");
+        assert_eq!(steps[2].tool.as_deref(), Some("Bash"));
+        assert_eq!(steps[2].command.as_deref(), Some("git status"));
+
+        // Step 3: Bash (git diff)
+        assert_eq!(steps[3].kind, "tool_call");
+        assert_eq!(steps[3].tool.as_deref(), Some("Bash"));
+        assert_eq!(steps[3].command.as_deref(), Some("git diff --stat"));
+
+        // Step 4: Thought 2
+        assert_eq!(steps[4].kind, "thought");
+        assert_eq!(steps[4].duration.as_deref(), Some("9s"));
+        assert!(steps[4].text.as_ref().unwrap().contains("All core components now function"));
+
+        // Step 5: Edit
+        assert_eq!(steps[5].kind, "tool_call");
+        assert_eq!(steps[5].tool.as_deref(), Some("Edit"));
+        assert_eq!(steps[5].command.as_deref(), Some("~/test_summary.txt"));
+
+        // Step 6: Final result
+        assert_eq!(steps[6].kind, "result");
+        assert_eq!(steps[6].text.as_deref(), Some("Written hello world to test_summary.txt."));
+
+        // 6. Test extract_final_result
+        let final_result = extract_final_result(&summary).expect("Final result must be extracted");
+        assert_eq!(final_result, "Written hello world to test_summary.txt.");
+
+        // 7. Verify state machine update generates rich event details
+        let mut sm = AntigravityStateMachine::new("test-agent");
+        sm.start_prompt("write hello world");
+        let ev = sm.update(&snapshot).expect("Must emit task_completed event");
+        assert_eq!(ev.kind, "task_completed");
+        assert_eq!(
+            ev.details.get("final_result").and_then(|v| v.as_str()),
+            Some("Written hello world to test_summary.txt.")
+        );
+        assert_eq!(
+            ev.details.get("tool_count").and_then(|v| v.as_u64()),
+            Some(4) // 3 Bash + 1 Edit
+        );
+        let exec_steps = ev.details.get("execution_steps").expect("execution_steps must be in details");
+        assert!(exec_steps.is_array());
+        assert_eq!(exec_steps.as_array().unwrap().len(), 7);
+    }
+
+    #[test]
+    fn test_extract_final_result_multi_paragraph() {
+        let summary = r#"
+● Bash(cargo build --release)
+● Bash(/tmp/test_folder/grep --help)
+The directory and Rust grep program have been created:
+
+• Directory: test_folder
+• Executable binary: grep
+• Source code: grep.rs
+
+### Features Supported
+
+• Regex matching: Powered by the Rust regex engine.
+• Flags: -i, -n, -v, -c, -r
+"#;
+        let res = extract_final_result(summary).expect("Must extract multi-paragraph result");
+        assert!(res.starts_with("The directory and Rust grep program have been created:"));
+        assert!(res.contains("• Directory: test_folder"));
+        assert!(res.contains("### Features Supported"));
+        assert!(res.contains("• Flags: -i, -n, -v, -c, -r"));
+        assert!(!res.contains("Bash"));
+    }
+
+    #[test]
+    fn test_extract_final_result_full_antigravity_session() {
+        let summary = r#"
+> rust
+
+▸ Thought for 4s, 521 tokens
+  The user has approved the Rust implementation, so the task requirements are clear.
+● Bash(which rustc cargo)
+● Bash(ls -ld /tmp/test_folder 2>&1 || true)
+● Bash(cargo build --release --manifest-path /tmp/test_folder/Cargo.toml)
+● Bash(/tmp/test_folder/grep "edition" /tmp/test_folder/Cargo.toml) (ctrl+o to expand)
+
+The directory and Rust grep program have been created:
+
+• Directory: test_folder
+• Executable binary: grep
+• Source code: grep.rs (also located at main.rs)
+• Cargo manifest: Cargo.toml
+
+### Features Supported
+
+• Regex matching: Powered by the Rust regex engine.
+• Flags:
+    • -e, --regexp=PATTERN: specify pattern
+    • -i, --ignore-case: case-insensitive search
+    • -n, --line-number: print 1-based line numbers
+    • -v, --invert-match: select non-matching lines
+    • -c, --count: print count of matching lines
+    • -r, -R, --recursive: search directories recursively
+    • -l, --files-with-matches: print filenames containing matches
+    • -h, --no-filename / -H, --with-filename
+• I/O: Supports standard input (pipe or -) as well as multiple file arguments.
+• Exit codes: 0 on match, 1 on no match, and 2 on syntax or file errors.
+
+### Example Usage
+
+  # Pattern search in a file with line numbers
+  /tmp/test_folder/grep -n "edition" /tmp/test_folder/Cargo.toml
+
+  # Reading from stdin with case insensitivity
+  printf "apple\nBanana\ncherry\n" | /tmp/test_folder/grep -i "banana"
+
+  # Recursive search with count
+  /tmp/test_folder/grep -r -c "Config" /tmp/test_folder/src
+"#;
+        let res = extract_final_result(summary).expect("Must extract full result");
+        assert!(res.contains("The directory and Rust grep program have been created:"));
+        assert!(res.contains("• Directory: test_folder"));
+        assert!(res.contains("### Features Supported"));
+        assert!(res.contains("### Example Usage"));
+        assert!(res.contains("/tmp/test_folder/grep -n \"edition\" /tmp/test_folder/Cargo.toml"));
+        assert!(!res.contains("● Bash"));
+        assert!(!res.contains("Thought for 4s"));
+    }
 }
+

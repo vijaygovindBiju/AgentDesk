@@ -148,7 +148,7 @@ This rule prevents arbitrary agent output, repository content, or tool output fr
 | Log viewing | Tail-first and offset-based paging with eviction reporting | ✅ Implemented |
 | Duration escalation | Raises working-task queue metadata at configured thresholds without creating noise events | ✅ Implemented |
 | ACP adapter | Integrates ACP v1 JSON-RPC agents over stdio, including permission responses | 🧪 Experimental |
-| Antigravity integration | Connects the interactive Antigravity TUI through a laptop-side PTY adapter | 🧪 Experimental |
+| Antigravity integration | Connects the interactive Antigravity TUI through a laptop-side PTY adapter | ✅ Implemented & Real-World Verified |
 | PTY screen interpretation | Uses VT100/Bubbletea state, focus, and selection attributes | ✅ Implemented for Antigravity adapter |
 | TLS transport | Normal deployment path is `wss://` with a self-signed server certificate | ✅ Implemented |
 | Fingerprint pinning | Flutter client pins the server certificate SHA-256 fingerprint | ✅ Implemented |
@@ -161,9 +161,10 @@ This rule prevents arbitrary agent output, repository content, or tool output fr
 | Remote connectivity | Outbound WSS/TLS over Public Relay only (no LAN or USB dependencies) | ✅ Implemented |
 | Desktop Terminal Workspace | Interactive terminal emulator hosting `$SHELL` inside a real PTY with VT100/ANSI rendering, SGR styles, and cursor navigation | ✅ Implemented |
 | Automatic Agent Discovery | PATH inspection detecting installed coding agents (`agy`, `claude`, `codex`, `gemini`) with honest availability status | ✅ Implemented |
+| Remote prompt dispatch (“start work”) | Submitting new prompts directly from the mobile New Work tab over WSS relay into the agent idle prompt | ✅ Implemented |
+| Full Markdown Result Rendering | Multi-paragraph final response (headers, bullet points, usage code blocks) surfaced prominently on Completed screen and detail view | ✅ Implemented |
 | Persistence and offline synchronization | Durable event store, offline command queue, and replay | 📋 Planned |
 | Background notifications | Mobile notifications when the app is not foregrounded | 📋 Planned |
-| Generic mobile “start work” command | Starting arbitrary new tasks from the phone | 📋 Planned |
 
 The experimental label applies to real-agent integration and operational maturity, not to the core event model or transport primitives. The deterministic simulator remains the primary reproducible validation source.
 
@@ -332,6 +333,9 @@ flowchart LR
 - Phone responses become controlled PTY input only after state and option validation.
 - Plain terminal text is not sufficient to create an attention or control event.
 - Screen focus, menu layout, cursor/selection attributes, and lifecycle state are used to reject adversarial prompt-like text.
+- Work submission from the phone is delivered to the agent process only when its live screen is verified to be at the idle prompt.
+- Upon task completion, the adapter extracts the complete multi-paragraph markdown final result (summary, headers, feature bullet points, code blocks), cleanly separating agent prose from preceding command stdout.
+- Verified end-to-end in real-world testing on physical hardware (Samsung Galaxy S25 Ultra) over a public Cloudflare WSS relay.
 
 The repository includes Antigravity fixtures and a PTY laboratory under `tools/antigravity-pty-lab/` for deterministic replay, adversarial cases, screen emulation, and reverse-control tests.
 
@@ -381,9 +385,9 @@ The Flutter client contains:
 - structured request widgets for approval, choice, multi-choice, free text, and write-in flows;
 - persistent onboarding and connection configuration;
 - OS-backed secure token storage;
-- foreground-only operation.
-
-The New Work page accurately reports that the current daemon does not expose a generic `start_work` protocol message. It does not fake task creation or reuse a completed task.
+- foreground-only operation;
+- **New Work**: allows typing and dispatching new work prompts from the phone, which the laptop daemon delivers directly to the coding agent at its idle prompt;
+- **Completed & Details**: displays completed tasks with clean summaries, opening into a dedicated details view with the full multi-paragraph **Final Result** (headers, bullet points, usage code blocks) rendered prominently at the top in selectable text, with the chronological execution transcript cleanly positioned below.
 
 ## Data and Progressive Disclosure
 
@@ -1084,7 +1088,7 @@ The test suites cover:
 - Antigravity screen parsing, adversarial cases, write-in handling, and reverse control;
 - Flutter reducers, queue ordering, structured question widgets, secure configuration, onboarding, and end-to-end flows.
 
-The checked-in validation notes report 112 passing Rust tests, 42 passing Flutter tests, and a clean `flutter analyze` result at the time of writing. Use the commands above as the authoritative check for the current checkout.
+The checked-in validation test suites report **126 passing Rust tests**, **82 passing Flutter tests**, and a clean `dart analyze` / `flutter analyze` result. In addition, real-world physical device verification has been completed on a Samsung Galaxy S25 Ultra connected over a public Cloudflare WSS relay.
 
 ## Benchmarking
 
@@ -1109,11 +1113,6 @@ These numbers are deterministic simulator measurements, not claims about real-ag
 - Event and queue state are in memory and do not survive daemon restart.
 - There is no offline event or command synchronization.
 - The mobile client is foreground-only and does not provide background push notifications.
-- Token and certificate fingerprint setup is manual.
-- The MVP has one trust domain and no per-device authorization.
-- There is no QR pairing, device registry, revocation, NAT traversal, relay, or cloud service.
-- The daemon does not expose a generic `start_work` command.
-- Real-agent support is adapter-specific and experimental.
 - The benchmark uses a deterministic simulator rather than arbitrary real coding-agent sessions.
 
 ### Planned or post-MVP work
@@ -1123,7 +1122,6 @@ The documented roadmap identifies the following future areas:
 - a production Claude Code adapter using supported structured hooks or output;
 - durable SQLite-backed state;
 - offline event and command queues with sequence-based synchronization;
-- QR pairing, multiple devices, per-device tokens, and revocation;
 - learned operation-duration baselines;
 - background mobile notifications;
 - broader real-agent compatibility and validation.
@@ -1144,6 +1142,8 @@ Planned work must preserve the existing boundary that unstructured terminal text
 | [docs/TESTING.md](docs/TESTING.md) | Unit, integration, adapter, Flutter, and measurement tests |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Phase dependency order and post-MVP scope |
 | [docs/TODO.md](docs/TODO.md) | Detailed implementation checklist and current status |
+| [docs/REMOTE_E2E_TEST.md](docs/REMOTE_E2E_TEST.md) | Authoritative procedure for physical device verification across different networks |
+| [docs/REMOTE_E2E_TEST_REPORT.md](docs/REMOTE_E2E_TEST_REPORT.md) | Real-world physical device verification report and multi-paragraph result verification |
 | [docs/antigravity/PTY_COMPATIBILITY.md](docs/antigravity/PTY_COMPATIBILITY.md) | Antigravity PTY investigation, state detection, and security boundary |
 | [docs/measurements/README.md](docs/measurements/README.md) | Benchmark methodology and caveats |
 

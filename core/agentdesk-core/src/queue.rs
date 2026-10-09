@@ -266,6 +266,14 @@ impl PriorityQueue {
             .get_mut(event_id)
             .ok_or(CommandError::NoSuchEvent)?;
 
+        // Resolved or in-flight requests were answered by the user and are not superseded.
+        if entry.resolution == Some(Resolution::Approved)
+            || entry.resolution == Some(Resolution::Denied)
+            || entry.resolution == Some(Resolution::PendingDelivery)
+        {
+            return Ok(None);
+        }
+
         if !entry.superseded {
             entry.superseded = true;
             Ok(Some(StateUpdate {

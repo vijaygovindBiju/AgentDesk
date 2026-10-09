@@ -285,5 +285,39 @@ The system now enforces remote-first connectivity by default:
 - `mobile/lib/services/pairing_client.dart`: Pairing client connecting exclusively to outbound relay.
 - `mobile/lib/services/connection_configuration_store.dart`: Removed `lanAddress` persistence.
 - `mobile/lib/ui/qr_scan_screen.dart` & `settings_screen.dart`: Removed LAN address and direct LAN connection status.
-- `mobile/test/dual_mode_connection_test.dart`: Updated Flutter tests to verify Relay-only connection and absence of LAN fallback.
 - `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `README.md`: Updated architecture specifications for relay-only operation.
+
+---
+
+## 13. Real-World Live Verification: Antigravity CLI & Physical Android Phone
+
+**Date**: 2026-10-03  
+**Device**: Samsung Galaxy S25 Ultra (`SM-S938B` / Android 16)  
+**Network**: 5G Mobile Cellular Network via Public Cloudflare WSS Relay (`wss://alignment-subsidiary-such-equipped.trycloudflare.com`)  
+**Agent Engine**: Real Antigravity CLI (`agy` v1.2.14, model: `gemini-3.8-flash-high`)  
+**Status**: **100% VERIFIED & PASSED**
+
+### Test Execution Matrix
+
+| Test Scenario | Prompt Dispatched | Interaction on Phone | Execution on Laptop | Mobile Display Result | Status |
+|:---|:---|:---|:---|:---|:---:|
+| **Test 1: Free-Form File Creation** | `"create a file /tmp/real_world_e2e.txt..."` | Text confirmation prompt surfaced; phone entered `"yes, proceed"` | `/tmp/real_world_e2e.txt` created with content | Surfaced in Requests & Completed | ✅ **PASS** |
+| **Test 2: Command Approval** | `"create a file /tmp/real_world_test_2.txt..."` | Initial text question approved, followed by `ls -la` command confirmation with 4 choices | File created and inspected | Working progress and Completed | ✅ **PASS** |
+| **Test 3: Complex Multi-Round Grep** | `"create a test folder /tmp/test_folder and grep program"` | Form question answered, followed by `cargo build`, `chmod`, `grep --help` command approvals | Full Rust grep binary and Cargo workspace built | Completed tab rendered all 4 tasks | ✅ **PASS** |
+| **Test 4: Full Markdown Final Result** | `"create a test folder /tmp/test_folder_real and grep program, ask me before creating them"` | Clarification form answered (`"yes, in python"`), `chmod +x --help` approved, `printf \| grep.py` approved | `/tmp/test_folder_real/grep.py` created & functional | Full multi-paragraph markdown final result rendered at top of details | ✅ **PASS** |
+
+### Verified End-to-End Capabilities:
+1. **Remote Prompt Submission**: Dispatched from the mobile "New Work" tab over the relay directly into `agy` when at `IdlePrompt`.
+2. **Interactive Charm Bubbletea Widgets**:
+   - `ask_question` forms rendered on phone with single-choice, multiple-choice, and write-in support.
+   - `run_command` menus rendered with all 4 structured radio choices ("Yes, run command", "Always allow in conversation", "Always allow persist", "No, cancel").
+3. **PTY Keystroke Synthesis**: Selected choices and write-in text translated to exact terminal keystrokes and verified against active screen attributes.
+4. **Rich Multi-Paragraph Markdown Final Result**:
+   - Tool execution step parsing terminates cleanly when subsequent prose begins, preventing final markdown output from being swallowed into preceding command stdout.
+   - Intermediate thoughts terminate on markdown bullet points, headers, or prose.
+   - Full markdown result (headers, bullet points, usage examples) delivered via `task_completed` events.
+   - Rendered prominently in the mobile **Completed Details** view inside a green-accented `SelectableText` container at the top of the screen, with the execution transcript cleanly positioned below.
+5. **Quality & Test Integrity**:
+   - Rust workspace test suite: **126 passed, 0 failed** (`SHELL=/bin/bash cargo test --workspace --no-fail-fast`).
+   - Flutter mobile test suite: **82 passed, 0 failed**; `dart analyze` / `flutter analyze` completely clean.
+

@@ -1361,3 +1361,226 @@ esc to cancel\r\n";
     assert!(completed2.message.contains("?? grep.py"));
     assert!(completed2.message.contains("Workspace has untracked grep.py."));
 }
+
+// ============================================================================
+// REGRESSION TESTS 1 TO 6: SEMANTIC CLASSIFICATION INVARIANTS
+// ============================================================================
+
+/// TEST 1: Initial/default Antigravity screen with "Hello again! Ready whenever you are." and "> say hi"
+/// Expected: NO task_completed event must be emitted.
+#[test]
+fn test_regression_1_initial_idle_screen_never_emits_task_completed() {
+    let mut transport = MockPtyTransport::new(120, 40);
+    let initial_screen = "\x1b[2J\x1b[H\
+Hello again! Ready whenever you are.\r\n\
+What would you like to work on?\r\n\
+\r\n\
+────────────────────────────────────────────────────────────────────────────\r\n\
+> say hi\r\n\
+────────────────────────────────────────────────────────────────────────────\r\n\
+gemini-3.8-flash-high (8k tokens)\r\n";
+    transport.push_bytes(initial_screen.as_bytes());
+
+    let config = AntigravityConfig::default();
+    let mut adapter = AntigravityPtyAdapter::new_with_transport(config, transport);
+
+    let outputs = adapter.poll(Utc::now());
+    let completed = outputs.iter().any(|o| match o {
+        AdapterOutput::Event(e) => e.kind == "task_completed",
+        _ => false,
+    });
+    assert!(!completed, "Initial welcome screen must NOT emit task_completed");
+
+    let requests = outputs.iter().any(|o| match o {
+        AdapterOutput::Event(e) => e.kind == "approval_required" || e.kind == "input_required" || e.request.is_some(),
+        _ => false,
+    });
+    assert!(!requests, "Initial welcome screen must NOT emit actionable request");
+}
+
+/// TEST 2: Agent receives a real prompt, performs no tools, but returns a genuine response.
+/// Expected: Correct completed result positively identified as the result of that submitted prompt.
+#[test]
+fn test_regression_2_pure_text_response_to_submitted_prompt_emits_task_completed() {
+    let transport = MockPtyTransport::new(120, 40);
+    let config = AntigravityConfig::default();
+    let mut adapter = AntigravityPtyAdapter::new_with_transport(config, transport);
+
+    // Initial poll
+    adapter.poll(Utc::now());
+
+    // User submits prompt via mobile
+    adapter.start_prompt("What is 2 + 2?").unwrap();
+    adapter.poll(Utc::now());
+
+    // Agent displays blue prompt, thoughts, and answers without tool calls
+    adapter.transport_mut().push_text(
+        "\x1b[2J\x1b[H\x1b[34;1m> What is 2 + 2?\x1b[0m\r\n\
+         ▸ Thought for 2s, 45 tokens\r\n\
+           Simple math question.\r\n\
+         The answer is 4.\r\n\
+         ────────────────────────────────────────────────────────────────────────────\r\n\
+         >\r\n"
+    );
+
+    let outputs = adapter.poll(Utc::now());
+    let completed = outputs
+        .into_iter()
+        .find_map(|o| match o {
+            AdapterOutput::Event(e) if e.kind == "task_completed" => Some(e),
+            _ => None,
+        })
+        .expect("Submitted prompt with text answer must emit task_completed");
+
+    assert!(completed.message.contains("The answer is 4."));
+    assert_eq!(
+        completed.details.get("final_result").and_then(|v| v.as_str()),
+        Some("The answer is 4.")
+    );
+}
+
+/// TEST 3: Agent performs Bash/Edit/Write
+/// Expected: task_completed, structured execution transcript, final result
+#[test]
+fn test_regression_3_agent_tool_execution_emits_task_completed_and_structured_transcript() {
+    let transport = MockPtyTransport::new(120, 40);
+    let config = AntigravityConfig::default();
+    let mut adapter = AntigravityPtyAdapter::new_with_transport(config, transport);
+
+    adapter.start_prompt("Write hello world to test_summary.txt").unwrap();
+    adapter.poll(Utc::now());
+
+    adapter.transport_mut().push_text(
+        "\x1b[2J\x1b[H\x1b[34;1m> Write hello world to test_summary.txt\x1b[0m\r\n\
+         ▸ Thought for 11s, 235 tokens\r\n\
+           Writing the file.\r\n\
+         ● Edit(~/test_summary.txt)\r\n\
+         Written hello world to test_summary.txt.\r\n\
+         ────────────────────────────────────────────────────────────────────────────\r\n\
+         >\r\n"
+    );
+
+    let outputs = adapter.poll(Utc::now());
+    let completed = outputs
+        .into_iter()
+        .find_map(|o| match o {
+            AdapterOutput::Event(e) if e.kind == "task_completed" => Some(e),
+            _ => None,
+        })
+        .expect("Tool execution must emit task_completed");
+
+    assert_eq!(completed.details.get("status").and_then(|v| v.as_str()), Some("completed"));
+    assert_eq!(
+        completed.details.get("final_result").and_then(|v| v.as_str()),
+        Some("Written hello world to test_summary.txt.")
+    );
+    let exec_steps = completed.details.get("execution_steps").and_then(|v| v.as_array()).expect("execution_steps array");
+    assert!(exec_steps.iter().any(|s| s.get("kind").and_then(|k| k.as_str()) == Some("thought")));
+    assert!(exec_steps.iter().any(|s| s.get("kind").and_then(|k| k.as_str()) == Some("tool_call")));
+    assert!(exec_steps.iter().any(|s| s.get("kind").and_then(|k| k.as_str()) == Some("result")));
+}
+
+/// TEST 4: Agent is simply waiting for user
+/// Expected: waiting/ready state, NOT completed, NOT actionable request
+#[test]
+fn test_regression_4_waiting_for_user_is_not_completed_and_not_actionable() {
+    let mut transport = MockPtyTransport::new(120, 40);
+    let waiting_screen = "\x1b[2J\x1b[H\
+Ready for your next instruction.\r\n\
+\r\n\
+────────────────────────────────────────────────────────────────────────────\r\n\
+>\r\n";
+    transport.push_bytes(waiting_screen.as_bytes());
+
+    let config = AntigravityConfig::default();
+    let mut adapter = AntigravityPtyAdapter::new_with_transport(config, transport);
+
+    let outputs = adapter.poll(Utc::now());
+    for out in outputs {
+        if let AdapterOutput::Event(e) = out {
+            assert_ne!(e.kind, "task_completed", "Waiting screen must NOT be task_completed");
+            assert_ne!(e.kind, "approval_required", "Waiting screen must NOT be approval_required");
+            assert_ne!(e.kind, "input_required", "Waiting screen must NOT be input_required");
+            assert!(e.request.is_none(), "Waiting screen must NOT have actionable request");
+        }
+    }
+}
+
+/// TEST 5: Agent asks a genuine question
+/// Expected: input_required
+#[test]
+fn test_regression_5_genuine_agent_question_emits_input_required() {
+    let transport = MockPtyTransport::new(120, 40);
+    let config = AntigravityConfig::default();
+    let mut adapter = AntigravityPtyAdapter::new_with_transport(config, transport);
+
+    adapter.start_prompt("Set up authentication").unwrap();
+    adapter.poll(Utc::now());
+
+    adapter.transport_mut().push_text(
+        "\x1b[2J\x1b[H\x1b[34;1m> Set up authentication\x1b[0m\r\n\
+         Which programming language would you like me to use?\r\n\
+         ────────────────────────────────────────────────────────────────────────────\r\n\
+         >\r\n"
+    );
+
+    let outputs = adapter.poll(Utc::now());
+    let req = outputs
+        .into_iter()
+        .find_map(|o| match o {
+            AdapterOutput::Event(e) if e.kind == "input_required" => Some(e),
+            _ => None,
+        })
+        .expect("Agent question must emit input_required");
+
+    assert!(req.message.contains("Which programming language would you like me to use?"));
+    assert!(req.request.is_some(), "Question must carry RequestInfo");
+}
+
+/// TEST 6: Terminal contains ANSI / Kitty / braille / TUI artifacts
+/// Expected: artifacts removed, semantic transcript preserved
+#[test]
+fn test_regression_6_artifacts_removed_and_semantic_transcript_preserved() {
+    let transport = MockPtyTransport::new(120, 40);
+    let config = AntigravityConfig::default();
+    let mut adapter = AntigravityPtyAdapter::new_with_transport(config, transport);
+
+    adapter.start_prompt("Run check").unwrap();
+    adapter.poll(Utc::now());
+
+    adapter.transport_mut().push_text(
+        "\x1b[2J\x1b[H\x1b[34;1m> Run check\x1b[0m\r\n\
+Ga=q,f=32,s=1,v=1,i=31;AAAAAAA==\r\n\
+⠙ Working...\r\n\
+● Bash(git status)\r\n\
+\x20\x20On branch main\r\n\
+All checks passed.\r\n\
+─────────────────────\r\n\
+────\r\n\
+>\r\n"
+    );
+
+    let outputs = adapter.poll(Utc::now());
+    let completed = outputs
+        .into_iter()
+        .find_map(|o| match o {
+            AdapterOutput::Event(e) if e.kind == "task_completed" => Some(e),
+            _ => None,
+        })
+        .expect("Task must complete");
+
+    assert!(!completed.message.contains("Ga="), "Must not contain Kitty graphics artifact");
+    assert!(!completed.message.contains("⠙"), "Must not contain spinner braille");
+    assert!(!completed.message.contains("────"), "Must not contain rule line artifacts");
+    assert!(!completed.message.contains(">"), "Must not contain prompt marker artifact");
+    eprintln!("COMPLETED MSG:\n{:?}", completed.message);
+    let steps = agentdesk_core::antigravity::state_machine::parse_execution_steps(&completed.message);
+    eprintln!("PARSED STEPS:\n{:#?}", steps);
+    assert!(completed.message.contains("● Bash(git status)"));
+    assert!(completed.message.contains("On branch main"));
+    assert!(completed.message.contains("All checks passed."));
+    assert_eq!(
+        completed.details.get("final_result").and_then(|v| v.as_str()),
+        Some("All checks passed.")
+    );
+}

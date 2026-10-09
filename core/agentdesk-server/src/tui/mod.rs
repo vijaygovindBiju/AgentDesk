@@ -8,7 +8,10 @@ pub mod key_encoder;
 pub mod preferences;
 pub mod state;
 pub mod terminal_session;
+pub mod theme;
 pub mod views;
+
+pub use theme::Theme;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -172,6 +175,7 @@ async fn run_attached_websocket(
                                             prompt: t.prompt,
                                             workspace: t.workspace,
                                             agent_id: t.agent_id,
+                                            mode: t.mode,
                                         }),
                                         Body::RespondRequest(r) => Some(TuiEvent::AdapterRespond {
                                             event_id: r.event_id,
@@ -255,7 +259,7 @@ async fn run_in_process_daemon(
         };
         match AntigravityPtyAdapter::spawn(agy_config) {
             Ok(a) => Box::new(a),
-            Err(_) => Box::new(Simulator::new(Scenario::default_scenario(), 42, start_time)),
+            Err(_) => Box::new(Simulator::new(Scenario::empty(), 42, start_time)),
         }
     } else if let Some(ref agent_cmd) = service_config.agent {
         let parts: Vec<String> = agent_cmd
@@ -388,11 +392,12 @@ async fn run_in_process_daemon(
                                 response,
                             }).await;
                         }
-                        Some(AdapterCommand::StartTask { prompt, workspace, agent_id, .. }) => {
+                        Some(AdapterCommand::StartTask { prompt, workspace, agent_id, mode, .. }) => {
                             let _ = tui_events_tx.send(TuiEvent::PromptReceived {
                                 prompt,
                                 workspace,
                                 agent_id,
+                                mode,
                             }).await;
                         }
                         None => {}

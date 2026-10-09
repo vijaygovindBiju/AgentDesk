@@ -7,6 +7,7 @@ import 'package:agentdesk/state/agentdesk_state.dart';
 import 'package:agentdesk/ui/debug_screen.dart';
 import 'package:agentdesk/ui/event_screen.dart';
 import 'package:agentdesk/ui/home_screen.dart';
+import 'package:agentdesk/ui/requests_screen.dart';
 
 Event testEvent({
   required String id,
@@ -42,7 +43,7 @@ Event testEvent({
 
 void main() {
   group('P7.T4 - Widget tests', () {
-    testWidgets('home shows the three tiers and agent status', (tester) async {
+    testWidgets('home shows big terminal stream and quick action buttons', (tester) async {
       final state = AgentDeskState();
       final connection = ConnectionService(state: state);
       final metrics = ClientMetrics();
@@ -55,21 +56,18 @@ void main() {
         ),
       ));
 
-      expect(find.text('Requests'), findsOneWidget);
-      expect(find.text('Errors'), findsOneWidget);
-      expect(find.text('Completed'), findsOneWidget);
+      // Terminal Stream is present
+      expect(find.byKey(const Key('home_live_terminal_card')), findsOneWidget);
+      expect(find.text('TERMINAL STREAM'), findsOneWidget);
+      expect(find.text('LIVE'), findsOneWidget);
 
-      // Agent status indicator shows idle state
-      expect(find.text('Agent Idle'), findsOneWidget);
-      expect(find.text('Ready for input'), findsOneWidget);
-
-      // Verify empty-state copy
-      expect(find.text('No pending approval requests'), findsOneWidget);
-      expect(find.text('No active errors'), findsOneWidget);
-      expect(find.text('No completed tasks yet'), findsOneWidget);
+      // Terminal action buttons are present
+      expect(find.text('Run Tests'), findsOneWidget);
+      expect(find.text('New Task'), findsOneWidget);
+      expect(find.text('Controls'), findsNWidgets(2));
     });
 
-    testWidgets('shows agent working status for working entry',
+    testWidgets('shows agent working status in terminal for working entry',
         (tester) async {
       final state = AgentDeskState();
       final connection = ConnectionService(state: state);
@@ -101,10 +99,9 @@ void main() {
         ),
       ));
 
-      // Working entries are no longer shown as individual cards.
-      // Instead, the agent status bar shows the agent is working.
-      expect(find.text('Agent Working'), findsOneWidget);
-      expect(find.text('1 active task'), findsOneWidget);
+      // Terminal stream displays the running task
+      expect(find.text('STREAMING'), findsOneWidget);
+      expect(find.text('task: Compiling large crate'), findsOneWidget);
     });
 
     testWidgets('shows still blocking indicator for dismissed-but-unresolved request',
@@ -136,7 +133,7 @@ void main() {
       ));
 
       await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(
+        home: RequestsScreen(
           state: state,
           connection: connection,
           metrics: metrics,

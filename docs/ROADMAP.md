@@ -23,7 +23,9 @@ Phase 8  TLS + fingerprint pinning          (MVP security architecture becomes t
    │
 Phase 9  Live validation + write-up         (MVP complete)
    │
-Post-MVP  Claude Code adapter · persistence/offline sync · pairing/multi-device · learned baselines · notifications
+Phase 10 Antigravity PTY + Remote Relay     (Real Antigravity CLI, Bubbletea menus, relay-only transport, phone prompt dispatch, full markdown results)
+   │
+Post-MVP  Claude Code adapter · persistence/offline sync · learned baselines · background notifications
 ```
 
 ## Phase summary
@@ -40,6 +42,7 @@ Post-MVP  Claude Code adapter · persistence/offline sync · pairing/multi-devic
 | 7 ✅ | Flutter app: home, event, logs, debug | Summary → details → logs → approve on emulator |
 | 8 ✅ | Self-signed TLS + SHA-256 pinning | `wss://` is the normal path on a real LAN |
 | 9 ✅ | Live device run, final bench, write-up | PROJECT.md success criteria evaluated with evidence |
+| 10 ✅ | Antigravity PTY Adapter, Remote WSS Relay, Mobile Prompting, Markdown Results | Real `agy` session, remote relay, prompt dispatch from phone, full markdown final result on physical device |
 
 ## Why this order
 

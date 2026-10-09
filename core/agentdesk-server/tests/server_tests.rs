@@ -799,17 +799,14 @@ async fn phase6_exit_criteria_end_to_end() {
         .recv()
         .await
         .expect("Adapter command should be sent");
-    match cmd {
-        AdapterCommand::Respond {
-            task_id,
-            decision,
-            now,
-            ..
-        } => {
-            sim.respond(&task_id, decision, now)
-                .expect("Simulator unblocked");
-        }
-        _ => {}
+    if let AdapterCommand::Respond {
+        task_id,
+        decision,
+        now,
+        ..
+    } = cmd {
+        sim.respond(&task_id, decision, now)
+            .expect("Simulator unblocked");
     }
 
     // Advance clock and poll simulator: verify task progresses after approval

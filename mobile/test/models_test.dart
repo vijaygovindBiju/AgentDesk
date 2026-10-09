@@ -309,6 +309,37 @@ void main() {
         (structured.toJson()['payload'] as Map)['text_input'],
         'custom-value',
       );
+
+      final startTaskDefault = Message.request(
+        'r-7',
+        'start_task',
+        const StartTask(
+          prompt: 'Create hello world',
+          workspace: '/workspace/project',
+          mode: 'default',
+        ),
+      );
+      final stJson = startTaskDefault.toJson()['payload'] as Map;
+      expect(stJson['prompt'], 'Create hello world');
+      expect(stJson['workspace'], '/workspace/project');
+      expect(stJson['mode'], 'default');
+
+      final startTaskSkip = Message.request(
+        'r-8',
+        'start_task',
+        const StartTask(
+          prompt: 'Run tests',
+          mode: 'dangerously-skip-permissions',
+        ),
+      );
+      final stSkipJson = startTaskSkip.toJson()['payload'] as Map;
+      expect(stSkipJson['mode'], 'dangerously-skip-permissions');
+      expect(stSkipJson.containsKey('workspace'), isFalse);
+
+      final decoded = StartTask.fromJson(Map<String, dynamic>.from(stSkipJson));
+      expect(decoded.prompt, 'Run tests');
+      expect(decoded.mode, 'dangerously-skip-permissions');
+      expect(decoded.workspace, isNull);
     });
   });
 }

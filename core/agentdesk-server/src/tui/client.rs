@@ -38,6 +38,7 @@ pub enum TuiEvent {
         prompt: String,
         workspace: Option<String>,
         agent_id: Option<String>,
+        mode: Option<String>,
     },
     AdapterRespond {
         event_id: EventId,
@@ -65,11 +66,9 @@ impl TransportSink for TuiConnectionSink {
             Body::ScoreUpdate(s) => TuiEvent::ScoreUpdate(s.clone()),
             Body::StateUpdate(s) => TuiEvent::StateUpdate(s.clone()),
             Body::EventLogs(l) => TuiEvent::Logs(l.clone()),
-            Body::StartTask(t) => TuiEvent::PromptReceived {
-                prompt: t.prompt.clone(),
-                workspace: t.workspace.clone(),
-                agent_id: t.agent_id.clone(),
-            },
+            // Body::StartTask is already delivered to the in-process TUI via rx_adapter (AdapterCommand::StartTask).
+            // Do not double-emit here.
+            Body::StartTask(_) => return Ok(0),
             Body::RespondRequest(r) => TuiEvent::AdapterRespond {
                 event_id: r.event_id,
                 decision: r.decision,

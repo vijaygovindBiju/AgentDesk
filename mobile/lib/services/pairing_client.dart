@@ -79,8 +79,8 @@ class PairingPayload {
       throw const FormatException('Missing fingerprint in pairing URI');
     }
 
-    // Relay-only: the QR must carry the relay endpoint. Legacy `lan=` values
-    // are ignored; the phone never connects to a laptop LAN address.
+    // Relay-only: the QR must carry the relay endpoint.
+    // The phone connects exclusively to the public relay.
     final relay = params['relay']?.trim();
     if (relay == null || relay.isEmpty) {
       throw const FormatException('Pairing QR code has no relay endpoint');
@@ -176,6 +176,12 @@ class PairingClient {
           errStr.contains('network is unreachable')) {
         return PairingResult.failure(
           'Could not reach relay server at ${relayUri.host}. Please verify the relay hostname is valid and reachable over the internet.',
+        );
+      }
+      if (errStr.contains('connection closed before full header was received') ||
+          errStr.contains('connection closed')) {
+        return PairingResult.failure(
+          'Relay connection closed prematurely (${relayUri.host}). The tunnel or laptop daemon may be offline or restarting.',
         );
       }
       return PairingResult.failure('Relay pairing failed: $e');

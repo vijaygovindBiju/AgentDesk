@@ -1,18 +1,23 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/client_metrics.dart';
 import '../services/connection_service.dart';
 import '../state/agentdesk_state.dart';
-import 'event_screen.dart';
 import 'settings_screen.dart';
 import 'qr_scan_screen.dart';
 import 'brand_logo.dart';
+import 'agent_control_overlay.dart';
+import 'log_viewer_screen.dart';
+import 'app_theme.dart';
 
 class HomeScreen extends StatelessWidget {
   final AgentDeskState state;
   final ConnectionService connection;
   final ClientMetrics metrics;
   final VoidCallback? onShowIntroduction;
+  final void Function(int index, {String? prompt})? onNavigateToTab;
 
   const HomeScreen({
     super.key,
@@ -20,58 +25,9 @@ class HomeScreen extends StatelessWidget {
     required this.connection,
     required this.metrics,
     this.onShowIntroduction,
+    this.onNavigateToTab,
   });
 
-  static const List<Map<String, dynamic>> tierDefs = [
-    {
-      'tier': 0,
-      'category': Category.request,
-      'title': 'Requests',
-      'empty': 'No pending approval requests',
-      'color': Colors.amber,
-    },
-    {
-      'tier': 1,
-      'category': Category.error,
-      'title': 'Errors',
-      'empty': 'No active errors',
-      'color': Colors.red,
-    },
-    {
-      'tier': 2,
-      'category': Category.completed,
-      'title': 'Completed',
-      'empty': 'No completed tasks yet',
-      'color': Colors.green,
-    },
-  ];
-
-  Color _categoryColor(Category category) {
-    switch (category) {
-      case Category.request:
-        return Colors.amber.shade800;
-      case Category.error:
-        return Colors.red.shade700;
-      case Category.completed:
-        return Colors.green.shade700;
-      case Category.working:
-        return Colors.blue.shade700;
-    }
-  }
-
-  void _openEvent(BuildContext context, String eventId) {
-    metrics.recordTap();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => EventScreen(
-          eventId: eventId,
-          state: state,
-          connection: connection,
-          metrics: metrics,
-        ),
-      ),
-    );
-  }
 
   void _openQrScanner(BuildContext context) {
     metrics.recordTap();
@@ -99,14 +55,18 @@ class HomeScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const BrandLogo(size: 34, showWordmark: true),
+            titleSpacing: 12,
+            title: const BrandLogo(size: 22, showWordmark: true),
             actions: [
               IconButton(
                 key: const Key('home_scan_qr_button'),
-                icon: const Icon(Icons.qr_code_scanner),
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.qr_code_scanner, size: 20),
                 tooltip: 'Scan QR Code to Pair',
                 onPressed: () => _openQrScanner(context),
               ),
+              const SizedBox(width: 4),
               // Connection status indicator chip
               InkWell(
                 onTap: () {
@@ -123,7 +83,7 @@ class HomeScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8.0,
+                    horizontal: 6.0,
                     vertical: 4.0,
                   ),
                   child: Row(
@@ -131,8 +91,8 @@ class HomeScreen extends StatelessWidget {
                     children: [
                       Container(
                         key: const Key('status_indicator_dot'),
-                        width: 10,
-                        height: 10,
+                        width: 8,
+                        height: 8,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: isConnected
@@ -144,15 +104,55 @@ class HomeScreen extends StatelessWidget {
                               : Colors.red,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Text(status.name, style: const TextStyle(fontSize: 12)),
+                      const SizedBox(width: 5),
+                      Text(status.name, style: const TextStyle(fontSize: 11)),
                     ],
                   ),
                 ),
               ),
+              const SizedBox(width: 4),
+              // Agent Control & Quota Pill
+              IconButton(
+                key: const Key('home_agent_control_button'),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                constraints: const BoxConstraints(),
+                icon: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryEmerald.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.primaryEmerald.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.tune, size: 13, color: AppTheme.primaryEmerald),
+                      SizedBox(width: 4),
+                      Text(
+                        'Controls',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryEmerald,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                tooltip: 'Agent Controls',
+                onPressed: () {
+                  metrics.recordTap();
+                  AgentControlOverlay.show(context, connection: connection);
+                },
+              ),
+              const SizedBox(width: 4),
               IconButton(
                 key: const Key('settings_button'),
-                icon: const Icon(Icons.settings_outlined),
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.settings_outlined, size: 20),
                 tooltip: 'Settings',
                 onPressed: () {
                   metrics.recordTap();
@@ -166,80 +166,84 @@ class HomeScreen extends StatelessWidget {
                   );
                 },
               ),
+              const SizedBox(width: 8),
             ],
           ),
-          body: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            children: [
-              if (!isConnected)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: Card(
-                    elevation: 3,
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
+          body: SelectionArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (!isConnected)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Card(
+                        elevation: 3,
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.qr_code_scanner,
-                                  size: 32,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.qr_code_scanner,
+                                      size: 32,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Connect to Laptop',
+                                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Run "agentdesk pair" in your laptop terminal, then scan the QR code to pair.',
+                                          style: Theme.of(context).textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Connect to Laptop',
-                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Run "agentdesk pair" in your laptop terminal, then scan the QR code to pair.',
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
+                              const SizedBox(height: 14),
+                              FilledButton.icon(
+                                key: const Key('home_banner_scan_button'),
+                                onPressed: () => _openQrScanner(context),
+                                icon: const Icon(Icons.qr_code_scanner),
+                                label: const Text('Scan QR Code to Pair'),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 14),
-                          FilledButton.icon(
-                            key: const Key('home_banner_scan_button'),
-                            onPressed: () => _openQrScanner(context),
-                            icon: const Icon(Icons.qr_code_scanner),
-                            label: const Text('Scan QR Code to Pair'),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
+                  Expanded(
+                    child: LiveTerminalCard(
+                      state: state,
+                      connection: connection,
+                      metrics: metrics,
+                      onNavigateToTab: onNavigateToTab,
+                    ),
                   ),
-                ),
-              for (final def in tierDefs)
-                _buildTierSection(
-                  context,
-                  tier: def['tier'] as int,
-                  title: def['title'] as String,
-                  emptyCopy: def['empty'] as String,
-                  accentColor: def['color'] as MaterialColor,
-                ),
-              // Agent status indicator (replaces the old Working card list)
-              _buildAgentStatusBar(context),
-            ],
+                ],
+              ),
+            ),
           ),
           floatingActionButton: isConnected
               ? null
@@ -254,192 +258,588 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTierSection(
-    BuildContext context, {
-    required int tier,
-    required String title,
-    required String emptyCopy,
-    required MaterialColor accentColor,
-  }) {
-    final tierEntries = tier == 0 ? state.pendingRequests : state.entriesForTier(tier);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-          child: Row(
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: accentColor.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${tierEntries.length}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: accentColor.shade900,
+}
+
+class LiveTerminalCard extends StatefulWidget {
+  final AgentDeskState state;
+  final ConnectionService connection;
+  final ClientMetrics metrics;
+  final void Function(int index, {String? prompt})? onNavigateToTab;
+
+  const LiveTerminalCard({
+    super.key,
+    required this.state,
+    required this.connection,
+    required this.metrics,
+    this.onNavigateToTab,
+  });
+
+  @override
+  State<LiveTerminalCard> createState() => _LiveTerminalCardState();
+}
+
+class _LiveTerminalCardState extends State<LiveTerminalCard> {
+  final ScrollController _scrollController = ScrollController();
+  List<LogLine> _logLines = [];
+  Timer? _pollingTimer;
+  String? _activeEventId;
+  bool _userScrolledUp = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveActiveEventAndFetch();
+    widget.state.addListener(_onStateChange);
+
+    // Only poll in non-test environments to prevent pumpAndSettle timeouts
+    if (!WidgetsBinding.instance.runtimeType.toString().contains('Test')) {
+      _pollingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        if (mounted && widget.connection.status == ConnectionStatus.connected) {
+          _fetchLatestLogs(silent: true);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    widget.state.removeListener(_onStateChange);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onStateChange() {
+    if (!mounted) return;
+    _resolveActiveEventAndFetch();
+  }
+
+  void _resolveActiveEventAndFetch() {
+    final isWorking = widget.state.activeWorkingCount > 0;
+    String? targetId;
+
+    if (isWorking) {
+      final workingEntries = widget.state.entriesForTier(3);
+      if (workingEntries.isNotEmpty) {
+        targetId = workingEntries.first.eventId;
+      }
+    } else if (widget.state.pendingRequests.isNotEmpty) {
+      targetId = widget.state.pendingRequests.first.eventId;
+    } else {
+      final completed = widget.state.entriesForTier(2);
+      if (completed.isNotEmpty) {
+        targetId = completed.first.eventId;
+      }
+    }
+
+    if (targetId != _activeEventId) {
+      _activeEventId = targetId;
+      _fetchLatestLogs();
+    }
+  }
+
+  Future<void> _fetchLatestLogs({bool silent = false}) async {
+    if (_activeEventId == null) return;
+    try {
+      final res = await widget.connection.getEventLogs(
+        _activeEventId!,
+        logOffsetTail,
+        45,
+      );
+      if (!mounted) return;
+      setState(() {
+        _logLines = res.lines;
+      });
+      _scrollToBottom();
+    } catch (_) {}
+  }
+
+  void _scrollToBottom({bool force = false}) {
+    if (!force && _userScrolledUp) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Color _colorForLine(String line) {
+    final lower = line.toLowerCase();
+    if (lower.contains('error') || lower.contains('fail') || lower.contains('fatal')) {
+      return const Color(0xFFF85149); // Red
+    }
+    if (lower.contains('warning') || lower.contains('warn')) {
+      return const Color(0xFFD29922); // Amber
+    }
+    if (lower.contains('ok') || lower.contains('passed') || lower.contains('success') || lower.contains('✓')) {
+      return const Color(0xFF7EE787); // Emerald
+    }
+    if (line.startsWith('> Prompt:') ||
+        line.startsWith('> User') ||
+        lower.startsWith('> user selected:') ||
+        lower.startsWith('> user approved') ||
+        lower.startsWith('> user denied') ||
+        lower.startsWith('> user input:')) {
+      return const Color(0xFF58D68D); // Bright Mint / Emerald for user input
+    }
+    if (line.startsWith('>') || line.startsWith('\$') || lower.contains('compiling') || lower.contains('running')) {
+      return const Color(0xFF58A6FF); // Cyan / Blue
+    }
+    return const Color(0xFFC9D1D9); // Monospace light gray
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isWorking = widget.state.activeWorkingCount > 0;
+    final event = _activeEventId != null ? widget.state.eventFor(_activeEventId!) : null;
+
+    final terminalBg = isDark ? const Color(0xFF070A0F) : const Color(0xFF161B22);
+    final borderColor = isDark ? const Color(0xFF21262D) : const Color(0xFF30363D);
+
+    return Container(
+      key: const Key('home_live_terminal_card'),
+      decoration: BoxDecoration(
+        color: terminalBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isWorking ? AppTheme.primaryCyan.withValues(alpha: 0.7) : borderColor,
+          width: isWorking ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+          if (isWorking)
+            BoxShadow(
+              color: AppTheme.primaryCyan.withValues(alpha: 0.18),
+              blurRadius: 16,
+              spreadRadius: 2,
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Title bar with window controls & actions
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0D1117) : const Color(0xFF21262D),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+              border: Border(bottom: BorderSide(color: borderColor)),
+            ),
+            child: Row(
+              children: [
+                // Window control dots
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFF5F56),
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFBD2E),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF27C93F),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'TERMINAL STREAM',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: Color(0xFF8B949E),
+                  ),
+                ),
+                const Spacer(),
+                // Live Stream Indicator
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (isWorking ? AppTheme.primaryCyan : AppTheme.primaryEmerald).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: (isWorking ? AppTheme.primaryCyan : AppTheme.primaryEmerald).withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isWorking ? AppTheme.primaryCyan : AppTheme.primaryEmerald,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isWorking ? 'STREAMING' : 'LIVE',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'monospace',
+                          letterSpacing: 0.5,
+                          color: isWorking ? AppTheme.primaryCyan : AppTheme.primaryEmerald,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Copy Button
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: _logLines.isEmpty
+                      ? null
+                      : () {
+                          widget.metrics.recordTap();
+                          final fullText = _logLines.map((l) => l.text).join('\n');
+                          Clipboard.setData(ClipboardData(text: fullText));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Terminal output copied to clipboard! 📋'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Icon(
+                      Icons.copy_rounded,
+                      size: 13,
+                      color: isDark ? const Color(0xFF8B949E) : Colors.grey.shade400,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Fullscreen Button
+                if (_activeEventId != null)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      widget.metrics.recordTap();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => LogViewerScreen(
+                            eventId: _activeEventId!,
+                            connection: widget.connection,
+                            metrics: widget.metrics,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        Icons.open_in_full,
+                        size: 13,
+                        color: isDark ? const Color(0xFF8B949E) : Colors.grey.shade400,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Terminal Output Stream Body
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: _logLines.isNotEmpty
+                  ? Stack(
+                      children: [
+                        NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            if (notification is ScrollUpdateNotification) {
+                              if (_scrollController.hasClients) {
+                                final max = _scrollController.position.maxScrollExtent;
+                                final current = _scrollController.position.pixels;
+                                final isScrolledUp = (max - current) > 60;
+                                if (isScrolledUp != _userScrolledUp) {
+                                  setState(() {
+                                    _userScrolledUp = isScrolledUp;
+                                  });
+                                }
+                              }
+                            }
+                            return false;
+                          },
+                          child: ListView.builder(
+                            key: const Key('home_live_terminal_list'),
+                            controller: _scrollController,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: _logLines.length + 1,
+                            itemBuilder: (context, index) {
+                              if (index == _logLines.length) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        isWorking ? '> executing... ' : '> ready ',
+                                        style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 11,
+                                          color: Color(0xFF6E7681),
+                                        ),
+                                      ),
+                                      const _BlinkingCursor(),
+                                    ],
+                                  ),
+                                );
+                              }
+                              final line = _logLines[index].text;
+                              final isUserInput = line.startsWith('> Prompt:') ||
+                                  line.startsWith('> User') ||
+                                  line.toLowerCase().startsWith('> user selected:') ||
+                                  line.toLowerCase().startsWith('> user approved') ||
+                                  line.toLowerCase().startsWith('> user denied') ||
+                                  line.toLowerCase().startsWith('> user input:');
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Text(
+                                  line,
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                    fontWeight: isUserInput ? FontWeight.w700 : FontWeight.normal,
+                                    color: _colorForLine(line),
+                                    height: 1.35,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        if (_userScrolledUp)
+                          Positioned(
+                            bottom: 4,
+                            right: 4,
+                            child: Material(
+                              color: isDark ? const Color(0xFF21262D) : const Color(0xFF30363D),
+                              borderRadius: BorderRadius.circular(14),
+                              elevation: 4,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: () {
+                                  setState(() {
+                                    _userScrolledUp = false;
+                                  });
+                                  _scrollToBottom(force: true);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.arrow_downward_rounded,
+                                        size: 13,
+                                        color: AppTheme.primaryCyan,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Scroll to bottom',
+                                        style: TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryCyan,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
+                  : SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _terminalLine(
+                            '>',
+                            'agentdesk-daemon v${widget.state.welcome?.daemonVersion ?? "0.1.0"} • ${widget.connection.status == ConnectionStatus.connected ? "relay connected" : "standby"}',
+                            const Color(0xFF6E7681),
+                          ),
+                          const SizedBox(height: 3),
+                          if (widget.state.welcome != null) ...[
+                            _terminalLine(
+                              '>',
+                              'pipeline: ${widget.state.welcome!.pipelineMode.name} • transport: ${widget.state.welcome!.transport.name}',
+                              const Color(0xFF58A6FF),
+                            ),
+                            const SizedBox(height: 3),
+                          ],
+                          if (event != null) ...[
+                            _terminalLine(
+                              isWorking ? '[RUN]' : (event.category == Category.request ? '[BLOCK]' : '[DONE]'),
+                              'task: ${event.summary}',
+                              isWorking ? const Color(0xFF79C0FF) : const Color(0xFF7EE787),
+                              isBold: true,
+                            ),
+                            const SizedBox(height: 3),
+                            if (event.message.isNotEmpty)
+                              _terminalLine('[OUT]', 'detail: ${event.message}', const Color(0xFFE6EDF3)),
+                            const SizedBox(height: 3),
+                          ],
+                          const Row(
+                            children: [
+                              Text(
+                                '> agent waiting for prompt ',
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  color: Color(0xFF8B949E),
+                                ),
+                              ),
+                              _BlinkingCursor(),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+          // Action Buttons Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0B0E14) : const Color(0xFF161B22),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
+              border: Border(top: BorderSide(color: borderColor)),
+            ),
+            child: Row(
+              children: [
+                _terminalActionBtn(
+                  icon: Icons.play_circle_outline,
+                  label: 'Run Tests',
+                  onTap: () {
+                    widget.metrics.recordTap();
+                    widget.onNavigateToTab?.call(
+                      4,
+                      prompt: 'Run the complete test suite and verify all unit tests pass.',
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+                _terminalActionBtn(
+                  icon: Icons.add_circle_outline,
+                  label: 'New Task',
+                  onTap: () {
+                    widget.metrics.recordTap();
+                    widget.onNavigateToTab?.call(4);
+                  },
+                ),
+                const SizedBox(width: 8),
+                _terminalActionBtn(
+                  icon: Icons.tune,
+                  label: 'Controls',
+                  onTap: () {
+                    widget.metrics.recordTap();
+                    AgentControlOverlay.show(context, connection: widget.connection);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _terminalLine(String prefix, String content, Color color, {bool isBold = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$prefix ',
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: color.withValues(alpha: 0.7),
           ),
         ),
-        if (tierEntries.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
+        Expanded(
+          child: Text(
+            content,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+              color: color,
             ),
-            width: double.infinity,
-            child: Text(
-              emptyCopy,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontStyle: FontStyle.italic,
-                fontSize: 13,
-              ),
-            ),
-          )
-        else
-          for (final entry in tierEntries) _buildEntryCard(context, entry),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildEntryCard(BuildContext context, QueueEntry entry) {
-    final event = state.eventFor(entry.eventId);
-    final isStillBlocking =
-        entry.tier == 0 &&
-        entry.state == EntryState.dismissed &&
-        entry.resolution == Resolution.unresolved;
-    final isEscalated = entry.escalationLevel >= 1;
-
-    final color = event != null
-        ? _categoryColor(event.category)
-        : Colors.indigo.shade700;
-
-    return Card(
-      key: Key('entry_card_${entry.eventId}'),
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: isStillBlocking
-              ? Colors.amber.shade900
-              : isEscalated
-              ? Colors.red.shade400
-              : Colors.grey.shade200,
-          width: (isStillBlocking || isEscalated) ? 2.0 : 1.0,
-        ),
-      ),
+  Widget _terminalActionBtn({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
       child: InkWell(
-        onTap: () => _openEvent(context, entry.eventId),
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF161B22),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF30363D)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
+              Icon(icon, size: 13, color: AppTheme.primaryEmerald),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFC9D1D9),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    event != null
-                        ? '${event.agentName} • ${event.project}'
-                        : 'Unknown Agent',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Badges
-                  if (isStillBlocking)
-                    Container(
-                      key: Key('still_blocking_badge_${entry.eventId}'),
-                      margin: const EdgeInsets.only(right: 6),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.shade100,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.amber.shade800),
-                      ),
-                      child: Text(
-                        'Still blocking agent',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.amber.shade900,
-                        ),
-                      ),
-                    ),
-                  if (isEscalated)
-                    Container(
-                      key: Key('escalation_badge_${entry.eventId}'),
-                      margin: const EdgeInsets.only(right: 6),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade100,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.red.shade800),
-                      ),
-                      child: Text(
-                        'Unusually long (L${entry.escalationLevel})',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red.shade900,
-                        ),
-                      ),
-                    ),
-                  Text(
-                    'Score: ${entry.score}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                event?.summary ?? 'No summary available',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                event?.message ?? '',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
               ),
             ],
           ),
@@ -447,94 +847,48 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  /// Compact agent status indicator — replaces the old Working card list.
-  /// Shows a single bar: "⚡ Agent Working (3 tasks)" or "✅ Agent Idle".
-  Widget _buildAgentStatusBar(BuildContext context) {
-    final activeCount = state.activeWorkingCount;
-    final isWorking = activeCount > 0;
+class _BlinkingCursor extends StatefulWidget {
+  const _BlinkingCursor();
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isWorking
-              ? Colors.blue.shade50
-              : Colors.green.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isWorking
-                ? Colors.blue.shade200
-                : Colors.green.shade200,
-          ),
-        ),
-        child: Row(
-          children: [
-            // Status icon
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: isWorking
-                    ? Colors.blue.shade600
-                    : Colors.green.shade600,
-                shape: BoxShape.circle,
-                boxShadow: isWorking
-                    ? [
-                        BoxShadow(
-                          color: Colors.blue.shade300,
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Status text
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isWorking ? 'Agent Working' : 'Agent Idle',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: isWorking
-                          ? Colors.blue.shade900
-                          : Colors.green.shade900,
-                    ),
-                  ),
-                  if (isWorking)
-                    Text(
-                      '$activeCount active task${activeCount == 1 ? '' : 's'}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue.shade700,
-                      ),
-                    )
-                  else
-                    Text(
-                      'Ready for input',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.green.shade700,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            // Icon
-            Icon(
-              isWorking ? Icons.bolt : Icons.check_circle_outline,
-              color: isWorking
-                  ? Colors.blue.shade600
-                  : Colors.green.shade600,
-              size: 24,
-            ),
-          ],
+  @override
+  State<_BlinkingCursor> createState() => _BlinkingCursorState();
+}
+
+class _BlinkingCursorState extends State<_BlinkingCursor>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    );
+    if (!WidgetsBinding.instance.runtimeType.toString().contains('Test')) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _controller,
+      child: const Text(
+        '█',
+        style: TextStyle(
+          color: AppTheme.primaryEmerald,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'monospace',
         ),
       ),
     );

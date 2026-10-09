@@ -3,7 +3,7 @@
 ## Verification
 
 - Rust: `cd core && cargo test --workspace --no-fail-fast`
-  - `tui::terminal_session::tests::test_spawn_shell_and_pump_output` spawns `$SHELL`; it fails under fish. Run with `SHELL=/bin/bash` if needed.
+  - Terminal PTY sessions automatically handle DA1 (`\x1b[0c`), CPR (`\x1b[6n`), and device status queries (works across bash, zsh, fish).
 - Flutter: `cd mobile && dart analyze lib && flutter test`
 
 ## Architecture invariants

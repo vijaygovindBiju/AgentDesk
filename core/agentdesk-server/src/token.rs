@@ -136,7 +136,7 @@ pub fn validate_bind_security(
     }
 
     // Relay-only architecture: the local daemon socket exists solely for the
-    // on-laptop TUI and must never accept inbound LAN/Internet connections.
+    // on-laptop TUI and must never accept external inbound network connections.
     // Phones reach the laptop exclusively through the outbound relay trunk.
     if !is_loopback_addr(clean) {
         return Err(format!(

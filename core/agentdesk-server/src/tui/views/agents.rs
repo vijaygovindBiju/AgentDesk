@@ -8,20 +8,21 @@ use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Row, Table};
 use ratatui::Frame;
 
 use crate::tui::state::TuiState;
+use crate::tui::theme::Theme;
 use crate::tui::views::dashboard::truncate_str;
 
 pub fn render_agents(f: &mut Frame, area: Rect, state: &TuiState) {
     let block = Block::default()
         .title(" AGENTS ")
-        .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .title_style(Theme::brand())
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(ratatui::style::Style::default().fg(Theme::BORDER));
 
     if state.agents.is_empty() {
         let text = Line::from(vec![
-            Span::styled("  ○ ", Style::default().fg(Color::DarkGray)),
-            Span::styled("No agents registered yet", Style::default().fg(Color::DarkGray)),
+            Span::styled("  ○ ", Theme::text_muted()),
+            Span::styled("No agents registered yet", Theme::text_muted()),
         ]);
         f.render_widget(Paragraph::new(text).block(block), area);
         return;
@@ -29,7 +30,7 @@ pub fn render_agents(f: &mut Frame, area: Rect, state: &TuiState) {
 
     let header_cells = ["STATUS", "AGENT", "PROJECT", "ACTIVITY"]
         .into_iter()
-        .map(|h| Span::styled(h, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+        .map(|h| Span::styled(h, Theme::brand()));
     let header = Row::new(header_cells).height(1).bottom_margin(1);
 
     let rows: Vec<Row> = state
@@ -40,16 +41,16 @@ pub fn render_agents(f: &mut Frame, area: Rect, state: &TuiState) {
             let (cat, status_text, event) = state.get_agent_status(&agent.agent_id);
             let (icon, icon_style) = match cat {
                 agentdesk_model::Category::Request => {
-                    ("!", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+                    ("!", Theme::warning())
                 }
                 agentdesk_model::Category::Error => {
-                    ("!", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                    ("!", Theme::error())
                 }
                 agentdesk_model::Category::Working => {
-                    ("●", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                    ("●", Theme::accent().add_modifier(Modifier::BOLD))
                 }
                 agentdesk_model::Category::Completed => {
-                    ("✓", Style::default().fg(Color::Green))
+                    ("✓", Theme::primary())
                 }
             };
 
@@ -60,16 +61,16 @@ pub fn render_agents(f: &mut Frame, area: Rect, state: &TuiState) {
             };
 
             let row_style = if idx == state.agents_index {
-                Style::default().bg(Color::Rgb(30, 40, 55)).fg(Color::White).add_modifier(Modifier::BOLD)
+                ratatui::style::Style::default().bg(Theme::SURFACE_ELEVATED).fg(Theme::TEXT_PRIMARY).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::White)
+                ratatui::style::Style::default().fg(Theme::TEXT_PRIMARY)
             };
 
             Row::new(vec![
                 Span::styled(format!(" {icon} "), icon_style),
-                Span::styled(agent.name.clone(), Style::default().add_modifier(Modifier::BOLD)),
-                Span::styled(agent.project.clone(), Style::default().fg(Color::DarkGray)),
-                Span::styled(truncate_str(&activity, 45), Style::default()),
+                Span::styled(agent.name.clone(), Theme::text_bold()),
+                Span::styled(agent.project.clone(), Theme::text_muted()),
+                Span::styled(truncate_str(&activity, 45), Theme::text_normal()),
             ])
             .style(row_style)
             .height(1)

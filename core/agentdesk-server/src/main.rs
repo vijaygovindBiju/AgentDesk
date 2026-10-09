@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "relay_url is not set (run `agentdesk relay set wss://relay.example.com`)"
                 ),
             }
-            println!("Transport: outbound WSS to relay only (no LAN, no USB, no inbound ports)");
+            println!("Transport: outbound WSS to relay only (no direct peer-to-peer, no inbound ports)");
             Ok(())
         }
         CliCommand::RelaySet { url, config_dir } => {
@@ -222,16 +222,17 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
     let start_time = clock.now();
 
     let mut opts = opts;
-    if !opts.antigravity && opts.agent.is_none() && opts.scenario.is_none() {
-        if AgentDiscovery::discover()
+    if !opts.antigravity
+        && opts.agent.is_none()
+        && opts.scenario.is_none()
+        && AgentDiscovery::discover()
             .iter()
             .any(|a| a.id == "antigravity" && a.is_ready())
-        {
-            opts.antigravity = true;
-            agentdesk_server::info(
-                "Auto-detected Antigravity (agy) on PATH; using real Antigravity PTY adapter",
-            );
-        }
+    {
+        opts.antigravity = true;
+        agentdesk_server::info(
+            "Auto-detected Antigravity (agy) on PATH; using real Antigravity PTY adapter",
+        );
     }
 
     let mut adapter: Box<dyn Adapter> = if opts.antigravity {
@@ -241,17 +242,20 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             .map(|s| s.to_string())
             .collect();
         let command = parts.first().cloned().unwrap_or_else(|| "agy".into());
-        let args = if parts.len() > 1 {
+        let mut args = if parts.len() > 1 {
             parts[1..].to_vec()
         } else {
             Vec::new()
         };
+        if opts.dangerously_skip_permissions && !args.iter().any(|a| a == "--dangerously-skip-permissions") {
+            args.push("--dangerously-skip-permissions".to_string());
+        }
         let prompt = opts.prompt.clone();
 
         let agy_config = AntigravityConfig {
             command,
             args,
-            cwd: None,
+            cwd: opts.workspace.clone(),
             agent_id: "antigravity".into(),
             agent_name: "Antigravity".into(),
             project: "AgentDesk".into(),
@@ -304,7 +308,7 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
             let content = fs::read_to_string(path)?;
             Scenario::from_json(&content)?
         } else {
-            Scenario::default_scenario()
+            Scenario::empty()
         };
         Box::new(Simulator::new(scenario, opts.seed, start_time))
     };
@@ -475,13 +479,20 @@ async fn handle_run(opts: RunOptions) -> Result<(), Box<dyn std::error::Error>> 
                                 }
                             }
                         }
-                        Some(AdapterCommand::StartTask { prompt, workspace, .. }) => {
-                            agentdesk_server::info(format!("Received prompt from phone via relay (len: {})", prompt.len()));
+                        Some(AdapterCommand::StartTask { prompt, workspace, mode, .. }) => {
+                            agentdesk_server::info(format!("Received prompt from phone via relay (len: {}, mode: {:?})", prompt.len(), mode));
                             if adapter.is_finished() && opts.antigravity {
+                                let mut args = Vec::new();
+                                let skip_permissions = opts.dangerously_skip_permissions
+                                    || mode.as_deref() == Some("dangerously-skip-permissions")
+                                    || mode.as_deref() == Some("--dangerously-skip-permissions");
+                                if skip_permissions {
+                                    args.push("--dangerously-skip-permissions".to_string());
+                                }
                                 let new_config = AntigravityConfig {
                                     command: "agy".into(),
-                                    args: Vec::new(),
-                                    cwd: workspace.map(std::path::PathBuf::from),
+                                    args,
+                                    cwd: workspace.map(std::path::PathBuf::from).or_else(|| opts.workspace.clone()),
                                     agent_id: "antigravity".into(),
                                     agent_name: "Antigravity".into(),
                                     project: "AgentDesk".into(),

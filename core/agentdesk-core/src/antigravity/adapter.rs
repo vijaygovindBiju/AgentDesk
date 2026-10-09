@@ -32,7 +32,8 @@ use crate::antigravity::state_machine::{
     AntigravityState, QuestionDetails, classify_command_operation, detect_state,
     agent_reply_details_map, agent_reply_request, approval_menu_details_map,
     approval_menu_request, command_approval_prompt, extract_command_from_summary,
-    extract_file_path_from_summary, extract_work_summary, file_edit_approval_prompt,
+    extract_file_path_from_summary, extract_final_result, extract_work_summary,
+    file_edit_approval_prompt, has_positive_completion_evidence, parse_execution_steps,
     question_details_map,
     workspace_trust_details_map, workspace_trust_request,
 };
@@ -505,31 +506,48 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
 
             AntigravityState::Completed { ref message } => {
                 self.pending_write_in = None;
+                let had_active_prompt = self.active_prompt.is_some();
                 self.active_prompt = None;
                 self.lifecycle = AntigravityLifecycle::Running;
                 let summary = extract_work_summary(&self.screen.snapshot())
                     .unwrap_or_else(|| message.clone());
-                let mut details = Details::new();
-                details.insert("status".to_string(), serde_json::json!("completed"));
-                details.insert("description".to_string(), serde_json::json!(&summary));
-                details.insert("summary".to_string(), serde_json::json!(&summary));
-                details.insert("task_id".to_string(), serde_json::json!(&self.task_id));
-                if let Some(file) = extract_file_path_from_summary(&summary) {
-                    details.insert("file".to_string(), serde_json::json!(file));
+                if has_positive_completion_evidence(&summary, had_active_prompt) {
+                    let mut details = Details::new();
+                    details.insert("status".to_string(), serde_json::json!("completed"));
+                    details.insert("description".to_string(), serde_json::json!(&summary));
+                    details.insert("summary".to_string(), serde_json::json!(&summary));
+                    details.insert("task_id".to_string(), serde_json::json!(&self.task_id));
+                    if let Some(final_res) = extract_final_result(&summary) {
+                        details.insert("final_result".to_string(), serde_json::json!(final_res));
+                    }
+                    let steps = parse_execution_steps(&summary);
+                    if let Ok(steps_val) = serde_json::to_value(&steps) {
+                        details.insert("execution_steps".to_string(), steps_val);
+                    }
+                    if let Some(file) = extract_file_path_from_summary(&summary) {
+                        details.insert("file".to_string(), serde_json::json!(file));
+                    }
+                    if let Some(cmd) = extract_command_from_summary(&summary) {
+                        details.insert("command".to_string(), serde_json::json!(cmd));
+                    }
+                    let tool_count = summary
+                        .lines()
+                        .filter(|l| l.trim().starts_with("● "))
+                        .count();
+                    if tool_count > 0 {
+                        details.insert("tool_count".to_string(), serde_json::json!(tool_count));
+                    }
+                    let log_lines = summary.lines().map(|s| s.to_string()).collect();
+                    let ev = self.event(
+                        "task_completed",
+                        Operation::Other,
+                        summary,
+                        details,
+                        log_lines,
+                        None,
+                    );
+                    out.push(ev);
                 }
-                if let Some(cmd) = extract_command_from_summary(&summary) {
-                    details.insert("command".to_string(), serde_json::json!(cmd));
-                }
-                let log_lines = summary.lines().map(|s| s.to_string()).collect();
-                let ev = self.event(
-                    "task_completed",
-                    Operation::Other,
-                    summary,
-                    details,
-                    log_lines,
-                    None,
-                );
-                out.push(ev);
             }
 
             AntigravityState::FatalError { ref error } => {
@@ -554,34 +572,51 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
                 self.pending_write_in = None;
                 let was_working = matches!(self.lifecycle, AntigravityLifecycle::Working { .. })
                     || self.active_prompt.is_some();
+                let had_active_prompt = self.active_prompt.is_some();
                 if self.lifecycle != AntigravityLifecycle::Running {
                     self.lifecycle = AntigravityLifecycle::Running;
                 }
                 if was_working {
                     self.active_prompt = None;
-                    let summary = extract_work_summary(&self.screen.snapshot())
-                        .unwrap_or_else(|| "Task completed".to_string());
-                    let mut details = Details::new();
-                    details.insert("status".to_string(), serde_json::json!("completed"));
-                    details.insert("description".to_string(), serde_json::json!(&summary));
-                    details.insert("summary".to_string(), serde_json::json!(&summary));
-                    details.insert("task_id".to_string(), serde_json::json!(&self.task_id));
-                    if let Some(file) = extract_file_path_from_summary(&summary) {
-                        details.insert("file".to_string(), serde_json::json!(file));
+                    if let Some(summary) = extract_work_summary(&self.screen.snapshot()) {
+                        if has_positive_completion_evidence(&summary, had_active_prompt) {
+                            let mut details = Details::new();
+                            details.insert("status".to_string(), serde_json::json!("completed"));
+                            details.insert("description".to_string(), serde_json::json!(&summary));
+                            details.insert("summary".to_string(), serde_json::json!(&summary));
+                            details.insert("task_id".to_string(), serde_json::json!(&self.task_id));
+                            if let Some(final_res) = extract_final_result(&summary) {
+                                details.insert("final_result".to_string(), serde_json::json!(final_res));
+                            }
+                            let steps = parse_execution_steps(&summary);
+                            if let Ok(steps_val) = serde_json::to_value(&steps) {
+                                details.insert("execution_steps".to_string(), steps_val);
+                            }
+                            if let Some(file) = extract_file_path_from_summary(&summary) {
+                                details.insert("file".to_string(), serde_json::json!(file));
+                            }
+                            if let Some(cmd) = extract_command_from_summary(&summary) {
+                                details.insert("command".to_string(), serde_json::json!(cmd));
+                            }
+                            let tool_count = summary
+                                .lines()
+                                .filter(|l| l.trim().starts_with("● "))
+                                .count();
+                            if tool_count > 0 {
+                                details.insert("tool_count".to_string(), serde_json::json!(tool_count));
+                            }
+                            let log_lines = summary.lines().map(|s| s.to_string()).collect();
+                            let ev = self.event(
+                                "task_completed",
+                                Operation::Other,
+                                summary,
+                                details,
+                                log_lines,
+                                None,
+                            );
+                            out.push(ev);
+                        }
                     }
-                    if let Some(cmd) = extract_command_from_summary(&summary) {
-                        details.insert("command".to_string(), serde_json::json!(cmd));
-                    }
-                    let log_lines = summary.lines().map(|s| s.to_string()).collect();
-                    let ev = self.event(
-                        "task_completed",
-                        Operation::Other,
-                        summary,
-                        details,
-                        log_lines,
-                        None,
-                    );
-                    out.push(ev);
                 }
             }
 
@@ -803,6 +838,23 @@ impl<T: PtyTransport> Adapter for AntigravityPtyAdapter<T> {
             };
         }
 
+        let response_desc = match response {
+            RequestResponse::SelectOption { option } => format!("> User selected: {option}"),
+            RequestResponse::SelectMultiple { options } => format!("> User selected: {}", options.join(", ")),
+            RequestResponse::TextInput { text } => format!("> User input: {text}"),
+            RequestResponse::Approve => "> User approved".to_string(),
+            RequestResponse::Deny => "> User denied".to_string(),
+        };
+        let ev = self.event(
+            "progress",
+            Operation::Other,
+            response_desc.clone(),
+            Details::new(),
+            vec![response_desc],
+            None,
+        );
+        self.buffered_outputs.push(ev);
+
         Ok(())
     }
 
@@ -836,12 +888,16 @@ impl<T: PtyTransport> Adapter for AntigravityPtyAdapter<T> {
         self.current_state = AntigravityState::Working {
             details: format!("Executing prompt: {prompt}"),
         };
+        let mut prompt_lines: Vec<String> = prompt.lines().map(|s| format!("> {s}")).collect();
+        if prompt_lines.is_empty() {
+            prompt_lines.push(format!("> {prompt}"));
+        }
         let ev = self.event(
             "progress",
             Operation::Other,
             format!("Executing prompt: {prompt}"),
             Details::new(),
-            vec![],
+            prompt_lines,
             None,
         );
         self.buffered_outputs.push(ev);

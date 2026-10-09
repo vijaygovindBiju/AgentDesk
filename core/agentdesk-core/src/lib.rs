@@ -29,8 +29,9 @@ pub use antigravity::{
     PtyTransport, QuestionDetails, QuestionDialog, QuestionForm, QuestionInput, RequestOutcome,
     Screen, ScreenSnapshot, classify_command_operation, detect_state, encode_decision,
     encode_question_response, encode_response_for_state, encode_text_submission,
-    extract_command_from_summary, extract_file_path_from_summary, extract_question_dialog,
-    extract_work_summary, keys, validate_text_input,
+    extract_command_from_summary, extract_file_path_from_summary, extract_final_result,
+    extract_question_dialog, extract_work_summary, is_terminal_artifact, parse_execution_steps,
+    keys, validate_text_input, StepInfo,
 };
 pub use classifier::{Classification, Matched, RULES, Rule, classify};
 pub use clock::{Clock, SystemClock, VirtualClock};

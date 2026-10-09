@@ -346,11 +346,15 @@ fn test_workspace_preferences_persistence() {
     let saved = WorkspacePreferences {
         last_agent_id: Some("antigravity".into()),
         last_workspace: Some(PathBuf::from("/home/user/my-project")),
+        dangerously_skip_permissions: true,
+        recent_workspaces: vec![PathBuf::from("/home/user/my-project")],
     };
     save_preferences(config_dir, &saved).unwrap();
 
     let loaded = load_preferences(config_dir);
     assert_eq!(loaded, saved);
+    assert!(loaded.dangerously_skip_permissions);
+    assert_eq!(loaded.recent_workspaces, vec![PathBuf::from("/home/user/my-project")]);
 }
 
 // =========================================================================
@@ -459,3 +463,133 @@ fn test_workspace_overlay_confirm_switch() {
     assert!(rendered.contains("An active Antigravity session is currently running."));
     assert!(rendered.contains("Terminate this session and switch to the new agent?"));
 }
+
+#[test]
+fn test_workspace_overlay_project_select_with_recents() {
+    let mut state = TuiState::default();
+    state.current_screen = Screen::Workspace;
+    state.workspace_dir = PathBuf::from("/media/pirate/Shared/AgentDesk");
+    state.project_input_text = "/media/pirate/Shared/AgentDesk".into();
+    state.recent_workspaces = vec![
+        PathBuf::from("/media/pirate/Shared/AgentDesk"),
+        PathBuf::from("/home/pirate/projects/backend"),
+    ];
+    state.project_select_index = 1;
+    state.workspace_overlay = WorkspaceOverlay::ProjectSelect;
+
+    let rendered = render_state_to_string(&state, 100, 30);
+    assert!(rendered.contains("Change Workspace Directory"));
+    assert!(rendered.contains("Current:"));
+    assert!(rendered.contains("Recent / Quick Workspaces"));
+    assert!(rendered.contains("/home/pirate/projects/backend"));
+}
+
+#[test]
+fn test_workspace_mode_toggle_and_prompt_rendering() {
+    let mut state = TuiState::default();
+    state.current_screen = Screen::Workspace;
+    assert!(!state.dangerously_skip_permissions);
+
+    // Toggle to dangerously_skip_permissions
+    state.toggle_execution_mode();
+    assert!(state.dangerously_skip_permissions);
+
+    state.workspace_overlay = WorkspaceOverlay::PromptInput;
+    let rendered = render_state_to_string(&state, 100, 30);
+    assert!(rendered.contains("--dangerously-skip-permissions"));
+    assert!(rendered.contains("Target dir:"));
+
+    // Toggle back to default
+    state.toggle_execution_mode();
+    assert!(!state.dangerously_skip_permissions);
+
+    let rendered_default = render_state_to_string(&state, 100, 30);
+    assert!(rendered_default.contains("Default"));
+}
+
+#[test]
+fn test_agent_selection_mode_and_directory_rendering() {
+    let mut state = TuiState::default();
+    let defs = vec![
+        AgentDefinition {
+            id: "antigravity".into(),
+            display_name: "Antigravity".into(),
+            executable: "agy".into(),
+            executable_path: PathBuf::from("/bin/agy"),
+            version: None,
+            availability: AgentAvailability::Ready,
+            capabilities: vec![],
+            adapter_type: AdapterType::AntigravityPty,
+        },
+    ];
+    state.init_workspace_selection(defs, WorkspacePreferences::default());
+    state.workspace_dir = PathBuf::from("/home/user/myproject");
+
+    let rendered = render_state_to_string(&state, 80, 26);
+    assert!(rendered.contains("Workspace:"));
+    assert!(rendered.contains("/home/user/myproject"));
+    assert!(rendered.contains("Mode:"));
+    assert!(rendered.contains("Default"));
+
+    // Toggle mode
+    state.toggle_execution_mode();
+    let rendered_danger = render_state_to_string(&state, 80, 26);
+    assert!(rendered_danger.contains("--dangerously-skip-permissions"));
+
+    // Open project select on AgentSelection
+    state.workspace_overlay = WorkspaceOverlay::ProjectSelect;
+    let rendered_overlay = render_state_to_string(&state, 80, 26);
+    assert!(rendered_overlay.contains("Change Workspace Directory"));
+}
+
+#[test]
+fn test_workspace_tab_completion_logic() {
+    let tmp = tempfile::tempdir().expect("create tempdir");
+    let p_alpha = tmp.path().join("alpha");
+    let p_alpine = tmp.path().join("alpine");
+    let p_beta = tmp.path().join("beta");
+    std::fs::create_dir_all(&p_alpha).unwrap();
+    std::fs::create_dir_all(&p_alpine).unwrap();
+    std::fs::create_dir_all(&p_beta).unwrap();
+
+    let mut state = TuiState::default();
+    let base_prefix = format!("{}/al", tmp.path().display());
+    state.project_input_text = base_prefix.clone();
+
+    // First tab: should expand to common prefix "alp"
+    state.tab_complete_project_input();
+    assert_eq!(state.project_input_text, format!("{}/alp", tmp.path().display()));
+    assert_eq!(state.project_completions.len(), 2);
+
+    // Second tab: cycles through candidates
+    state.tab_complete_project_input();
+    assert!(
+        state.project_input_text == format!("{}/alpha/", tmp.path().display())
+            || state.project_input_text == format!("{}/alpine/", tmp.path().display())
+    );
+
+    // Test single match completion
+    state.project_completions.clear();
+    state.project_input_text = format!("{}/be", tmp.path().display());
+    state.tab_complete_project_input();
+    assert_eq!(state.project_input_text, format!("{}/beta/", tmp.path().display()));
+    assert!(state.project_completions.is_empty());
+}
+
+#[test]
+fn test_workspace_project_select_completions_rendering() {
+    let mut state = TuiState::default();
+    state.current_screen = Screen::Workspace;
+    state.project_input_text = "/tmp/al".into();
+    state.project_completions = vec!["/tmp/alpha/".into(), "/tmp/alpine/".into()];
+    state.project_completion_index = 0;
+    state.workspace_overlay = WorkspaceOverlay::ProjectSelect;
+
+    let rendered = render_state_to_string(&state, 100, 30);
+    assert!(rendered.contains("Directory Matches (2 found, Tab to cycle)"));
+    assert!(rendered.contains("/tmp/alpha/"));
+    assert!(rendered.contains("/tmp/alpine/"));
+    assert!(rendered.contains("Tab"));
+    assert!(rendered.contains("Autocomplete"));
+}
+

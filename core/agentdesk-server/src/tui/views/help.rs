@@ -2,12 +2,12 @@
 //! Explains AgentDesk attention architecture and keyboard shortcuts.
 
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 use crate::tui::state::TuiState;
+use crate::tui::theme::Theme;
 
 pub fn render_help(f: &mut Frame, area: Rect, _state: &TuiState) {
     let popup_width = 72.min(area.width.saturating_sub(4));
@@ -24,22 +24,22 @@ pub fn render_help(f: &mut Frame, area: Rect, _state: &TuiState) {
 
     let block = Block::default()
         .title(" AGENTDESK — HELP & SHORTCUTS ")
-        .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .title_style(Theme::brand())
         .borders(Borders::ALL)
-        .border_type(BorderType::Double)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_type(BorderType::Rounded)
+        .border_style(ratatui::style::Style::default().fg(Theme::CYAN));
 
-    let key_style = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
-    let desc_style = Style::default().fg(Color::White);
+    let key_style = Theme::shortcut_key();
+    let desc_style = Theme::shortcut_desc();
 
     let lines = vec![
         Line::from(vec![
-            Span::styled("AgentDesk ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            Span::styled("is an attention and control surface for interactive coding agents.", Style::default().fg(Color::DarkGray)),
+            Span::styled("AgentDesk ", Theme::brand()),
+            Span::styled("is an attention and control surface for interactive coding agents.", Theme::text_secondary()),
         ]),
         Line::raw(""),
         Line::from(vec![
-            Span::styled("CORE NAVIGATION", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled("CORE NAVIGATION", Theme::warning()),
         ]),
         Line::from(vec![
             Span::styled("  [a]       ", key_style),
@@ -83,7 +83,7 @@ pub fn render_help(f: &mut Frame, area: Rect, _state: &TuiState) {
         ]),
         Line::raw(""),
         Line::from(vec![
-            Span::styled("INTERACTION", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled("INTERACTION", Theme::warning()),
         ]),
         Line::from(vec![
             Span::styled("  ↑ / ↓     Navigate lists, radio options, checkboxes", desc_style),

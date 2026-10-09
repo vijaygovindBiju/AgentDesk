@@ -359,7 +359,9 @@ class _EventScreenState extends State<EventScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        event.message,
+                        event.category == Category.completed
+                            ? _extractHeadline(event)
+                            : event.message,
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
                       if (event.taskId != null) ...[
@@ -475,6 +477,12 @@ class _EventScreenState extends State<EventScreen> {
 
               const SizedBox(height: 16),
 
+              // If Completed event: Show the Full Detailed Execution View!
+              if (event.category == Category.completed) ...[
+                _buildCompletedExecutionView(event, context),
+                const SizedBox(height: 16),
+              ],
+
               // Level 2 Details
               Card(
                 child: Padding(
@@ -487,7 +495,12 @@ class _EventScreenState extends State<EventScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const Divider(),
-                      if (event.details.isEmpty)
+                      if (event.details.isEmpty ||
+                          event.details.entries.where((e) =>
+                              e.key != 'execution_steps' &&
+                              (event.category != Category.completed ||
+                                  (e.key != 'description' &&
+                                      e.key != 'summary'))).isEmpty)
                         const Text(
                           'No extra details provided',
                           style: TextStyle(
@@ -496,36 +509,44 @@ class _EventScreenState extends State<EventScreen> {
                           ),
                         )
                       else
-                        ...event.details.entries.map(
-                          (e) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    e.key,
-                                    style: const TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 13,
+                        ...event.details.entries
+                            .where((e) =>
+                                e.key != 'execution_steps' &&
+                                (event.category != Category.completed ||
+                                    (e.key != 'description' &&
+                                        e.key != 'summary')))
+                            .map(
+                              (e) => Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4.0),
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        e.key,
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 13,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    '${e.value}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 13,
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        '${e.value}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 13,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -739,6 +760,391 @@ class _EventScreenState extends State<EventScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: controls,
+    );
+  }
+
+  String _extractHeadline(Event event) {
+    final finalRes = event.details['final_result']?.toString() ??
+        _extractFinalResultFallback(event.message);
+    for (final line in finalRes.split('\n')) {
+      final t = line.trim();
+      if (t.isNotEmpty &&
+          !t.startsWith('●') &&
+          !t.startsWith('▸') &&
+          !t.startsWith('Thought for')) {
+        return t;
+      }
+    }
+    return event.summary;
+  }
+
+  String _extractFinalResultFallback(String message) {
+    final lines = message.split('\n');
+    final resultLines = <String>[];
+    for (int i = lines.length - 1; i >= 0; i--) {
+      final t = lines[i].trim();
+      if (t.isEmpty) {
+        if (resultLines.isNotEmpty && resultLines.last.isNotEmpty) {
+          resultLines.add('');
+        }
+        continue;
+      }
+      if (t.startsWith('●') ||
+          t.startsWith('▸') ||
+          t.startsWith('Thought for') ||
+          t.startsWith('>') ||
+          t.startsWith('───') ||
+          t.contains('(ctrl+o to expand)')) {
+        if (resultLines.isNotEmpty) {
+          break;
+        }
+        continue;
+      }
+      resultLines.add(t);
+    }
+    if (resultLines.isNotEmpty) {
+      final reversed = resultLines.reversed.toList();
+      while (reversed.isNotEmpty && reversed.first.isEmpty) {
+        reversed.removeAt(0);
+      }
+      while (reversed.isNotEmpty && reversed.last.isEmpty) {
+        reversed.removeLast();
+      }
+      final joined = reversed.join('\n').trim();
+      if (joined.toLowerCase().startsWith('final result:')) {
+        final after = joined.substring('final result:'.length).trim();
+        if (after.isNotEmpty) return after;
+      }
+      if (joined.isNotEmpty) {
+        return joined;
+      }
+    }
+    return message;
+  }
+
+  Widget _buildCompletedExecutionView(Event event, BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? Colors.grey.shade800 : Colors.grey.shade300;
+
+    final stepsData = event.details['execution_steps'];
+    final List<Widget> stepWidgets = [];
+
+    if (stepsData is List && stepsData.isNotEmpty) {
+      for (final step in stepsData) {
+        if (step is! Map) continue;
+        final kind = step['kind']?.toString() ?? 'message';
+        final tool = step['tool']?.toString();
+        final command = step['command']?.toString();
+        final duration = step['duration']?.toString();
+        final tokens = step['tokens']?.toString();
+        final text = step['text']?.toString();
+
+        if (kind == 'thought') {
+          stepWidgets.add(
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF232833) : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.psychology_outlined,
+                          size: 16, color: Colors.blueAccent),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Thought${duration != null ? " for $duration" : ""}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.blueAccent),
+                      ),
+                      if (tokens != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.blue.shade900.withValues(alpha: 0.3)
+                                : Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            tokens,
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: isDark
+                                    ? Colors.blue.shade200
+                                    : Colors.blue.shade800),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (text != null && text.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      text,
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: isDark
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade800),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        } else if (kind == 'tool_call') {
+          final isBash = tool?.toLowerCase() == 'bash';
+          final isEdit =
+              tool?.toLowerCase() == 'edit' || tool?.toLowerCase() == 'write';
+          final icon = isBash
+              ? Icons.terminal
+              : (isEdit ? Icons.edit_note : Icons.build_outlined);
+          final iconColor = isBash
+              ? Colors.amber.shade700
+              : (isEdit ? Colors.teal : Colors.orange);
+
+          stepWidgets.add(
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1B2028) : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, size: 16, color: iconColor),
+                      const SizedBox(width: 6),
+                      Text(
+                        '● ${tool ?? "Tool"}',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: iconColor),
+                      ),
+                    ],
+                  ),
+                  if (command != null && command.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      width: double.infinity,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF14171D)
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        command,
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 12),
+                      ),
+                    ),
+                  ],
+                  if (text != null && text.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      text,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade700),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        } else if (kind == 'result') {
+          // Rendered separately in prominent result banner
+        } else {
+          if (text != null && text.isNotEmpty) {
+            stepWidgets.add(
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                child: Text(
+                  text,
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? Colors.grey.shade300
+                          : Colors.grey.shade800),
+                ),
+              ),
+            );
+          }
+        }
+      }
+    } else {
+      // Fallback: parse lines from event.message
+      final lines = event.message.split('\n');
+      for (final line in lines) {
+        final t = line.trim();
+        if (t.isEmpty) continue;
+        if (t.startsWith('▸ Thought') || t.startsWith('Thought for')) {
+          stepWidgets.add(
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 2),
+              child: Row(
+                children: [
+                  const Icon(Icons.psychology_outlined,
+                      size: 16, color: Colors.blueAccent),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      t,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.blueAccent),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        } else if (t.startsWith('● ')) {
+          stepWidgets.add(
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 2),
+              child: Text(
+                t,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.orange),
+              ),
+            ),
+          );
+        } else {
+          stepWidgets.add(
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              child: Text(
+                t,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontFamily: t.startsWith('/') ||
+                          t.startsWith('git') ||
+                          t.startsWith('rm')
+                      ? 'monospace'
+                      : null,
+                  color: isDark ? Colors.grey.shade300 : Colors.grey.shade800,
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    final finalResult = event.details['final_result']?.toString() ??
+        _extractFinalResultFallback(event.message);
+
+    return Card(
+      key: const Key('completed_execution_view'),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: borderColor),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (finalResult.trim().isNotEmpty) ...[
+              Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.green),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Final Result',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.green.shade900.withValues(alpha: 0.2)
+                      : Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.green.shade800
+                        : Colors.green.shade200,
+                  ),
+                ),
+                child: SelectableText(
+                  finalResult.trim(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.45,
+                    fontWeight: FontWeight.w500,
+                    color: isDark
+                        ? Colors.green.shade100
+                        : Colors.green.shade900,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Row(
+              children: [
+                const Icon(Icons.playlist_add_check, color: Colors.blueGrey),
+                const SizedBox(width: 8),
+                Text(
+                  'Execution Transcript',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                if (event.details['tool_count'] != null)
+                  Chip(
+                    label: Text(
+                      '${event.details["tool_count"]} tool calls',
+                      style: const TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+            const Divider(),
+            if (stepWidgets.isNotEmpty) ...stepWidgets,
+          ],
+        ),
+      ),
     );
   }
 }

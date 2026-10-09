@@ -35,7 +35,7 @@ class ConnectionService extends ChangeNotifier {
 
   /// Test-harness only: permits connecting directly to a loopback AgentDesk
   /// daemon without a relay. Never enabled by the app; production traffic is
-  /// relay-only (no LAN, no USB/adb reverse, no direct laptop sockets).
+  /// relay-only (no direct laptop sockets, no USB/adb reverse).
   final bool allowLoopbackTestServer;
 
   final ConnectionConfigurationStore _configurationStore;
@@ -659,6 +659,7 @@ class ConnectionService extends ChangeNotifier {
     required String prompt,
     String? workspace,
     String? agentId,
+    String? mode,
   }) async {
     final res = await sendRequest(
       'start_task',
@@ -666,6 +667,7 @@ class ConnectionService extends ChangeNotifier {
         prompt: prompt,
         workspace: workspace,
         agentId: agentId,
+        mode: mode,
       ),
     );
     if (res.type == 'error') {

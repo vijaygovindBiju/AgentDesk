@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/client_metrics.dart';
 import '../services/connection_service.dart';
@@ -112,13 +113,31 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         title: const Text('Event Logs'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.copy_rounded),
+            tooltip: 'Copy all logs',
+            onPressed: _lines.isEmpty
+                ? null
+                : () {
+                    widget.metrics.recordTap();
+                    final fullText = _lines.map((l) => l.text).join('\n');
+                    Clipboard.setData(ClipboardData(text: fullText));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('All logs copied to clipboard! 📋'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh tail',
             onPressed: _isLoading ? null : _loadTail,
           ),
         ],
       ),
-      body: Column(
+      body: SelectionArea(
+        child: Column(
         children: [
           if (_isLoading) const LinearProgressIndicator(),
           if (_error != null)
@@ -216,6 +235,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

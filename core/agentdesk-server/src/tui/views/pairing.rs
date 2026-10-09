@@ -3,12 +3,12 @@
 //! Uses existing PairingManager and renders Unicode block QR code.
 
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 use crate::tui::state::TuiState;
+use crate::tui::theme::Theme;
 
 pub fn render_pairing(f: &mut Frame, area: Rect, state: &TuiState) {
     let qr_line_count = state.pairing_qr.as_ref().map(|q| q.lines().count()).unwrap_or(22);
@@ -26,30 +26,30 @@ pub fn render_pairing(f: &mut Frame, area: Rect, state: &TuiState) {
         f.render_widget(Clear, popup_area);
         let block = Block::default()
             .title(" PAIRING SUCCESS ")
-            .title_style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            .title_style(Theme::primary())
             .borders(Borders::ALL)
-            .border_type(BorderType::Double)
-            .border_style(Style::default().fg(Color::Green));
+            .border_type(BorderType::Rounded)
+            .border_style(ratatui::style::Style::default().fg(Theme::EMERALD));
         let inner = block.inner(popup_area);
         f.render_widget(block, popup_area);
 
         let mut lines = Vec::new();
         lines.push(Line::raw(""));
         lines.push(Line::from(vec![
-            Span::styled("  ✓ SUCCESS! Phone paired successfully!", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled("  ✓ SUCCESS! Phone paired successfully!", Theme::primary()),
         ]));
         lines.push(Line::raw(""));
         lines.push(Line::from(vec![
-            Span::styled("  Device Name: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(dev_name, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled("  Device Name: ", Theme::text_muted()),
+            Span::styled(dev_name, Theme::text_bold()),
         ]));
         lines.push(Line::from(vec![
-            Span::styled("  Device ID:   ", Style::default().fg(Color::DarkGray)),
-            Span::styled(dev_id, Style::default().fg(Color::Cyan)),
+            Span::styled("  Device ID:   ", Theme::text_muted()),
+            Span::styled(dev_id, Theme::accent()),
         ]));
         lines.push(Line::raw(""));
         lines.push(Line::from(vec![
-            Span::styled("  Remote supervision is now active. Press [Esc] to continue.", Style::default().fg(Color::White)),
+            Span::styled("  Remote supervision is now active. Press [Esc] to continue.", Theme::text_secondary()),
         ]));
         f.render_widget(Paragraph::new(lines), inner);
         return;
@@ -65,31 +65,31 @@ pub fn render_pairing(f: &mut Frame, area: Rect, state: &TuiState) {
         lines.push(Line::from(vec![
             Span::styled(
                 "── PAIR AGENTDESK PHONE [Relay Only] ──",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Theme::brand(),
             ),
         ]));
 
         if let Some(ref qr_str) = state.pairing_qr {
             for qline in qr_str.lines() {
                 lines.push(Line::from(vec![
-                    Span::styled(qline, Style::default().fg(Color::White)),
+                    Span::styled(qline, Theme::text_bold()),
                 ]));
             }
         } else {
             lines.push(Line::from(vec![
-                Span::styled("Generating pairing session and QR code...", Style::default().fg(Color::Yellow)),
+                Span::styled("Generating pairing session and QR code...", Theme::warning()),
             ]));
         }
 
         if area.height >= lines.len() as u16 + 1 {
             lines.push(Line::from(vec![
-                Span::styled("Scan with AgentDesk app | Esc to close", Style::default().fg(Color::DarkGray)),
+                Span::styled("Scan with AgentDesk app | Esc to close", Theme::text_muted()),
             ]));
         }
 
         if let Some(ref err) = state.pairing_error {
             lines.push(Line::from(vec![
-                Span::styled(format!("Error: {err}"), Style::default().fg(Color::Red)),
+                Span::styled(format!("Error: {err}"), Theme::error()),
             ]));
         }
 
@@ -110,10 +110,10 @@ pub fn render_pairing(f: &mut Frame, area: Rect, state: &TuiState) {
 
         let block = Block::default()
             .title(" PAIR AGENTDESK SUPERVISION PHONE ")
-            .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .title_style(Theme::brand())
             .borders(Borders::ALL)
-            .border_type(BorderType::Double)
-            .border_style(Style::default().fg(Color::Cyan));
+            .border_type(BorderType::Rounded)
+            .border_style(ratatui::style::Style::default().fg(Theme::CYAN));
 
         let inner = block.inner(popup_area);
         f.render_widget(block, popup_area);
@@ -122,39 +122,39 @@ pub fn render_pairing(f: &mut Frame, area: Rect, state: &TuiState) {
 
         let relay_display = state.relay_url.as_deref().unwrap_or(crate::config::DEFAULT_RELAY_URL);
         lines.push(Line::from(vec![
-            Span::styled("Connection: ", Style::default().fg(Color::DarkGray)),
-            Span::styled("Public Relay (Outbound WSS/TLS)", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled("Connection: ", Theme::text_muted()),
+            Span::styled("Public Relay (Outbound WSS/TLS)", Theme::brand()),
             Span::raw("  "),
-            Span::styled(format!("({relay_display})"), Style::default().fg(Color::White)),
+            Span::styled(format!("({relay_display})"), Theme::text_secondary()),
         ]));
         lines.push(Line::raw(""));
 
         if let Some(ref qr_str) = state.pairing_qr {
             for qline in qr_str.lines() {
                 lines.push(Line::from(vec![
-                    Span::styled(qline, Style::default().fg(Color::White)),
+                    Span::styled(qline, Theme::text_bold()),
                 ]));
             }
 
             lines.push(Line::raw(""));
             if let Some(ref inst) = state.pairing_instance_id {
                 lines.push(Line::from(vec![
-                    Span::styled("  Instance: ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(inst, Style::default().fg(Color::Cyan)),
+                    Span::styled("  Instance: ", Theme::text_muted()),
+                    Span::styled(inst, Theme::accent()),
                 ]));
             }
             lines.push(Line::from(vec![
-                Span::styled("  Scan with AgentDesk Android app. Expires in 3 minutes.", Style::default().fg(Color::DarkGray)),
+                Span::styled("  Scan with AgentDesk Android app. Expires in 3 minutes.", Theme::text_secondary()),
             ]));
         } else {
             lines.push(Line::from(vec![
-                Span::styled("  Generating pairing session and QR code...", Style::default().fg(Color::Yellow)),
+                Span::styled("  Generating pairing session and QR code...", Theme::warning()),
             ]));
         }
 
         if let Some(ref err) = state.pairing_error {
             lines.push(Line::from(vec![
-                Span::styled(format!("  Error: {err}"), Style::default().fg(Color::Red)),
+                Span::styled(format!("  Error: {err}"), Theme::error()),
             ]));
         }
 

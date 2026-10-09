@@ -3,20 +3,21 @@
 //! The dashboard never acts as a raw terminal log dump; logs are progressive disclosure.
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 use ratatui::Frame;
 
 use crate::tui::state::TuiState;
+use crate::tui::theme::Theme;
 
 pub fn render_logs(f: &mut Frame, area: Rect, state: &TuiState) {
     let block = Block::default()
         .title(" BOUNDED LOG VIEWER (PROGRESSIVE DISCLOSURE) ")
-        .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .title_style(Theme::brand())
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(ratatui::style::Style::default().fg(Theme::BORDER));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -25,18 +26,18 @@ pub fn render_logs(f: &mut Frame, area: Rect, state: &TuiState) {
         let text = vec![
             Line::raw(""),
             Line::from(vec![
-                Span::styled("  ○ ", Style::default().fg(Color::DarkGray)),
-                Span::styled("No log window currently loaded.", Style::default().fg(Color::White)),
+                Span::styled("  ○ ", Theme::text_muted()),
+                Span::styled("No log window currently loaded.", Theme::text_bold()),
             ]),
             Line::raw(""),
             Line::from(vec![
-                Span::styled("  In AgentDesk, raw logs stay boundedly stored on the laptop.", Style::default().fg(Color::DarkGray)),
+                Span::styled("  In AgentDesk, raw logs stay boundedly stored on the laptop.", Theme::text_secondary()),
             ]),
             Line::from(vec![
-                Span::styled("  To inspect logs, select an Error from [e] Errors and choose Level 3,", Style::default().fg(Color::DarkGray)),
+                Span::styled("  To inspect logs, select an Error from [e] Errors and choose Level 3,", Theme::text_secondary()),
             ]),
             Line::from(vec![
-                Span::styled("  or inspect an agent task from [a] Agents.", Style::default().fg(Color::DarkGray)),
+                Span::styled("  or inspect an agent task from [a] Agents.", Theme::text_secondary()),
             ]),
         ];
         f.render_widget(Paragraph::new(text), inner);
@@ -53,8 +54,8 @@ pub fn render_logs(f: &mut Frame, area: Rect, state: &TuiState) {
         .split(inner);
 
     let stats = Line::from(vec![
-        Span::styled(format!("Retrieved {} lines   ", state.logs_lines.len()), Style::default().fg(Color::Cyan)),
-        Span::styled(format!("Offset: {} ", state.logs_scroll), Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("Retrieved {} lines   ", state.logs_lines.len()), Theme::brand()),
+        Span::styled(format!("Offset: {} ", state.logs_scroll), Theme::text_muted()),
     ]);
     f.render_widget(Paragraph::new(stats), chunks[0]);
 

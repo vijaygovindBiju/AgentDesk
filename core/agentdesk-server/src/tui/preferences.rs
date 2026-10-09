@@ -11,6 +11,23 @@ pub struct WorkspacePreferences {
     pub last_agent_id: Option<String>,
     /// Last used workspace / project directory.
     pub last_workspace: Option<PathBuf>,
+    /// Whether --dangerously-skip-permissions is enabled.
+    #[serde(default)]
+    pub dangerously_skip_permissions: bool,
+    /// Recent workspace directories.
+    #[serde(default)]
+    pub recent_workspaces: Vec<PathBuf>,
+}
+
+impl WorkspacePreferences {
+    /// Add or update a workspace path at the front of recent list (max 10 entries).
+    pub fn add_recent_workspace(&mut self, path: PathBuf) {
+        self.recent_workspaces.retain(|p| p != &path);
+        self.recent_workspaces.insert(0, path);
+        if self.recent_workspaces.len() > 10 {
+            self.recent_workspaces.truncate(10);
+        }
+    }
 }
 
 pub fn preferences_path(config_dir: &Path) -> PathBuf {
@@ -48,14 +65,20 @@ mod tests {
         let initial = load_preferences(config_dir);
         assert_eq!(initial, WorkspacePreferences::default());
 
-        let prefs = WorkspacePreferences {
+        let mut prefs = WorkspacePreferences {
             last_agent_id: Some("antigravity".into()),
             last_workspace: Some(PathBuf::from("/tmp/test-project")),
+            dangerously_skip_permissions: true,
+            recent_workspaces: vec![PathBuf::from("/tmp/test-project")],
         };
+        prefs.add_recent_workspace(PathBuf::from("/tmp/another-project"));
 
         save_preferences(config_dir, &prefs).unwrap();
 
         let loaded = load_preferences(config_dir);
         assert_eq!(loaded, prefs);
+        assert!(loaded.dangerously_skip_permissions);
+        assert_eq!(loaded.recent_workspaces.len(), 2);
+        assert_eq!(loaded.recent_workspaces[0], PathBuf::from("/tmp/another-project"));
     }
 }

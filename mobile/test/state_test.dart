@@ -11,6 +11,7 @@ Event createTestEvent({
   Severity severity = Severity.routine,
   String summary = 'Summary',
   String message = 'Message',
+  String kind = 'test',
 }) {
   return Event(
     schemaVersion: 1,
@@ -23,7 +24,7 @@ Event createTestEvent({
     ts: DateTime.utc(2026, 9, 19, 12, 0, 0),
     category: category,
     severity: severity,
-    kind: 'test',
+    kind: kind,
     operation: Operation.build,
     summary: summary,
     message: message,
@@ -215,6 +216,31 @@ void main() {
       expect(state.pendingRequests.isEmpty, isTrue);
       // Still in tier 0 entries for resolved history until dismissed
       expect(state.entriesForTier(0).length, 1);
+    });
+
+    test('task_completed is never actionable and never appears in pendingRequests', () {
+      final state = AgentDeskState();
+      final completedEvent = createTestEvent(
+        id: 'comp-1',
+        seq: 1,
+        category: Category.completed,
+        kind: 'task_completed',
+      );
+      state.applyEvent(EventPush(
+        event: completedEvent,
+        entry: QueueEntry(
+          eventId: 'comp-1',
+          tier: Category.completed.tier,
+          score: 80,
+          state: EntryState.new_,
+          seq: 1,
+        ),
+      ));
+
+      expect(state.pendingRequestCount, 0);
+      expect(state.pendingRequests, isEmpty);
+      expect(state.entriesForTier(0), isEmpty);
+      expect(state.entriesForTier(2).length, 1);
     });
   });
 

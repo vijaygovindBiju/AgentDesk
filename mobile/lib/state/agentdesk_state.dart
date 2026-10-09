@@ -30,10 +30,23 @@ class AgentDeskState extends ChangeNotifier {
         .length;
   }
 
+  bool isRequestEntry(QueueEntry entry) {
+    final ev = _events[entry.eventId];
+    if (ev != null) {
+      if (ev.category == Category.completed || ev.kind == 'task_completed') {
+        return false;
+      }
+      if (ev.request != null || ev.category == Category.request) {
+        return true;
+      }
+    }
+    return entry.tier == 0;
+  }
+
   int get pendingRequestCount {
     return _queue.values
         .where((e) =>
-            (e.tier == 0 || _events[e.eventId]?.request != null) &&
+            isRequestEntry(e) &&
             _shouldDisplay(e) &&
             (e.resolution == Resolution.unresolved ||
                 e.resolution == Resolution.pendingDelivery))
@@ -43,7 +56,7 @@ class AgentDeskState extends ChangeNotifier {
   List<QueueEntry> get pendingRequests {
     final list = _queue.values
         .where((e) =>
-            (e.tier == 0 || _events[e.eventId]?.request != null) &&
+            isRequestEntry(e) &&
             _shouldDisplay(e) &&
             (e.resolution == Resolution.unresolved ||
                 e.resolution == Resolution.pendingDelivery))
@@ -75,7 +88,7 @@ class AgentDeskState extends ChangeNotifier {
   bool _shouldDisplay(QueueEntry entry) {
     if (entry.isLive) return true;
     
-    final isReq = entry.tier == 0 || _events[entry.eventId]?.request != null;
+    final isReq = isRequestEntry(entry);
     // Dismissed requests that are still unresolved or pending delivery remain visible in Requests tier.
     if (isReq &&
         entry.state == EntryState.dismissed &&
@@ -97,7 +110,7 @@ class AgentDeskState extends ChangeNotifier {
   List<QueueEntry> entriesForTier(int tier) {
     final list = _queue.values
         .where((e) {
-          final isReq = e.tier == 0 || _events[e.eventId]?.request != null;
+          final isReq = isRequestEntry(e);
           if (tier == 0) {
             return isReq && _shouldDisplay(e);
           }

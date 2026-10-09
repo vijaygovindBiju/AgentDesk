@@ -53,6 +53,7 @@ pub struct OpenTask {
     pub started_at: DateTime<Utc>,
     pub latest_working_event: Option<EventId>,
     pub working_events: Vec<EventId>,
+    pub request_events: Vec<EventId>,
     pub escalation_level: u8,
 }
 
@@ -106,9 +107,11 @@ impl TaskTracker {
 
         match event.category {
             Category::Completed | Category::Error => {
-                // Closes the task
-                if let Some(task) = self.open_tasks.remove(&task_id) {
-                    Some(task.working_events)
+                // Closes the task and supersedes both working and request events
+                if let Some(mut task) = self.open_tasks.remove(&task_id) {
+                    let mut superseded = task.working_events;
+                    superseded.append(&mut task.request_events);
+                    Some(superseded)
                 } else {
                     None
                 }
@@ -124,6 +127,7 @@ impl TaskTracker {
                         started_at: event.ts,
                         latest_working_event: None,
                         working_events: Vec::new(),
+                        request_events: Vec::new(),
                         escalation_level: 0,
                     });
                 task.latest_working_event = Some(event.event_id);
@@ -131,8 +135,8 @@ impl TaskTracker {
                 None
             }
             Category::Request => {
-                // Opens or updates task without working event
-                self.open_tasks
+                let task = self
+                    .open_tasks
                     .entry(task_id.clone())
                     .or_insert_with(|| OpenTask {
                         task_id,
@@ -141,9 +145,17 @@ impl TaskTracker {
                         started_at: event.ts,
                         latest_working_event: None,
                         working_events: Vec::new(),
+                        request_events: Vec::new(),
                         escalation_level: 0,
                     });
-                None
+                // When a new request arrives for a task, any prior unhandled request on that task is superseded
+                let stale = std::mem::take(&mut task.request_events);
+                task.request_events.push(event.event_id);
+                if !stale.is_empty() {
+                    Some(stale)
+                } else {
+                    None
+                }
             }
         }
     }
@@ -326,5 +338,29 @@ mod tests {
         let ev = make_event(None, Category::Working, Operation::Build, Utc::now());
         assert!(tracker.observe_event(&ev).is_none());
         assert_eq!(tracker.open_tasks_len(), 0);
+    }
+
+    #[test]
+    fn request_superseded_when_task_completes() {
+        let mut tracker = TaskTracker::default();
+        let start = Utc::now();
+        let req = make_event(Some("task-1"), Category::Request, Operation::Build, start);
+        assert!(tracker.observe_event(&req).is_none());
+
+        let comp = make_event(Some("task-1"), Category::Completed, Operation::Build, start + Duration::seconds(2));
+        let superseded = tracker.observe_event(&comp).expect("task was open");
+        assert_eq!(superseded, vec![req.event_id]);
+    }
+
+    #[test]
+    fn prior_request_superseded_by_new_request_or_working() {
+        let mut tracker = TaskTracker::default();
+        let start = Utc::now();
+        let req1 = make_event(Some("task-1"), Category::Request, Operation::Build, start);
+        assert!(tracker.observe_event(&req1).is_none());
+
+        let req2 = make_event(Some("task-1"), Category::Request, Operation::Build, start + Duration::seconds(1));
+        let superseded = tracker.observe_event(&req2).expect("prior request should be superseded");
+        assert_eq!(superseded, vec![req1.event_id]);
     }
 }

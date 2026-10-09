@@ -8,7 +8,7 @@
 //! - Choice + Write-in ("Other")
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Wrap};
 use ratatui::Frame;
@@ -16,33 +16,34 @@ use ratatui::Frame;
 use agentdesk_model::{Decision, QuestionType};
 
 use crate::tui::state::TuiState;
+use crate::tui::theme::Theme;
 
 pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
     let requests = state.requests();
 
     let block = Block::default()
         .title(" REQUESTS / HUMAN SUPERVISION REQUIRED ")
-        .title_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        .title_style(Theme::warning())
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::Yellow));
+        .border_style(ratatui::style::Style::default().fg(Theme::AMBER));
 
     if requests.is_empty() {
         let text = vec![
             Line::raw(""),
             Line::from(vec![
-                Span::styled("  ✓ ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled("  ✓ ", Theme::primary()),
                 Span::styled(
                     "No pending requests — all agents are running autonomously!",
-                    Style::default().fg(Color::White),
+                    Theme::text_bold(),
                 ),
             ]),
             Line::raw(""),
             Line::from(vec![
-                Span::styled("  When an agent asks for permission, confirmation, or answers,", Style::default().fg(Color::DarkGray)),
+                Span::styled("  When an agent asks for permission, confirmation, or answers,", Theme::text_secondary()),
             ]),
             Line::from(vec![
-                Span::styled("  the structured decision card will appear here and on your phone.", Style::default().fg(Color::DarkGray)),
+                Span::styled("  the structured decision card will appear here and on your phone.", Theme::text_secondary()),
             ]),
         ];
         f.render_widget(Paragraph::new(text).block(block), area);
@@ -67,16 +68,16 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
         let list_block = Block::default()
             .title(" Queue ")
             .borders(Borders::RIGHT)
-            .border_style(Style::default().fg(Color::DarkGray));
+            .border_style(ratatui::style::Style::default().fg(Theme::BORDER));
 
         let mut lines = Vec::new();
         for (idx, (_, ev)) in requests.iter().enumerate() {
             let is_sel = idx == state.requests_index;
             let marker = if is_sel { "▶ " } else { "  " };
             let style = if is_sel {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Theme::warning()
             } else {
-                Style::default().fg(Color::White)
+                Theme::text_normal()
             };
 
             lines.push(Line::from(vec![
@@ -84,7 +85,7 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
                 Span::styled(&ev.agent_name, style),
             ]));
             lines.push(Line::from(vec![
-                Span::styled(format!("   {}", ev.project), Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("   {}", ev.project), Theme::text_muted()),
             ]));
             lines.push(Line::raw(""));
         }
@@ -138,12 +139,12 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
     // 1. Header Info
     let header_lines = vec![
         Line::from(vec![
-            Span::styled("Agent:   ", Style::default().fg(Color::DarkGray)),
-            Span::styled(&event.agent_name, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-            Span::styled("   Project: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(&event.project, Style::default().fg(Color::Cyan)),
+            Span::styled("Agent:   ", Theme::text_muted()),
+            Span::styled(&event.agent_name, Theme::text_bold()),
+            Span::styled("   Project: ", Theme::text_muted()),
+            Span::styled(&event.project, Theme::accent()),
             if let Some(ref t) = event.task_id {
-                Span::styled(format!("   Task: {t}"), Style::default().fg(Color::DarkGray))
+                Span::styled(format!("   Task: {t}"), Theme::text_muted())
             } else {
                 Span::raw("")
             },
@@ -154,15 +155,15 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
     // 2. Prompt Box
     let prompt_block = Block::default()
         .title(card_title)
-        .title_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        .title_style(Theme::warning())
         .borders(Borders::ALL)
-        .border_type(BorderType::Double)
-        .border_style(Style::default().fg(Color::Yellow));
+        .border_type(BorderType::Rounded)
+        .border_style(ratatui::style::Style::default().fg(Theme::AMBER));
 
     let prompt_text = Line::from(vec![
         Span::styled(
             format!("  {}", req_info.prompt),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            Theme::text_bold(),
         ),
     ]);
     f.render_widget(
@@ -179,14 +180,14 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
             // Approval buttons
             let approve_sel = state.request_approval_decision == Decision::Approve;
             let approve_style = if approve_sel {
-                Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD)
+                ratatui::style::Style::default().fg(ratatui::style::Color::Black).bg(Theme::EMERALD).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::Green)
+                ratatui::style::Style::default().fg(Theme::EMERALD)
             };
             let deny_style = if !approve_sel {
-                Style::default().fg(Color::Black).bg(Color::Red).add_modifier(Modifier::BOLD)
+                ratatui::style::Style::default().fg(ratatui::style::Color::Black).bg(Theme::RED).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::Red)
+                ratatui::style::Style::default().fg(Theme::RED)
             };
 
             let label_approve = if req_info.options.len() >= 2 {
@@ -216,15 +217,15 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
 
                 let prefix = if is_cursor { "  ▶ " } else { "    " };
                 let style = if is_cursor {
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                    Theme::brand()
                 } else if is_selected {
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+                    Theme::text_bold()
                 } else {
-                    Style::default().fg(Color::Gray)
+                    Theme::text_secondary()
                 };
 
                 control_lines.push(Line::from(vec![
-                    Span::styled(prefix, Style::default().fg(Color::Cyan)),
+                    Span::styled(prefix, Theme::accent()),
                     Span::styled(format!("{radio} {opt}"), style),
                 ]));
 
@@ -233,9 +234,9 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
                     let cursor_char = if is_cursor { "█" } else { " " };
                     control_lines.push(Line::from(vec![
                         Span::raw("        "),
-                        Span::styled("Custom: ", Style::default().fg(Color::DarkGray)),
-                        Span::styled(&state.request_text_input, Style::default().fg(Color::White).add_modifier(Modifier::UNDERLINED)),
-                        Span::styled(cursor_char, Style::default().fg(Color::Cyan)),
+                        Span::styled("Custom: ", Theme::text_muted()),
+                        Span::styled(&state.request_text_input, Theme::text_bold().add_modifier(Modifier::UNDERLINED)),
+                        Span::styled(cursor_char, Theme::accent()),
                     ]));
                 }
             }
@@ -249,15 +250,15 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
 
                 let prefix = if is_cursor { "  ▶ " } else { "    " };
                 let style = if is_cursor {
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                    Theme::brand()
                 } else if is_checked {
-                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                    Theme::primary()
                 } else {
-                    Style::default().fg(Color::Gray)
+                    Theme::text_secondary()
                 };
 
                 control_lines.push(Line::from(vec![
-                    Span::styled(prefix, Style::default().fg(Color::Cyan)),
+                    Span::styled(prefix, Theme::accent()),
                     Span::styled(format!("{check} {opt}"), style),
                 ]));
             }
@@ -266,14 +267,14 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
             // Free-form input box
             control_lines.push(Line::from(vec![
                 Span::raw("    "),
-                Span::styled("Enter response:", Style::default().fg(Color::DarkGray)),
+                Span::styled("Enter response:", Theme::text_muted()),
             ]));
             control_lines.push(Line::raw(""));
             control_lines.push(Line::from(vec![
                 Span::raw("    "),
-                Span::styled("> ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                Span::styled(&state.request_text_input, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Span::styled("█", Style::default().fg(Color::Cyan)),
+                Span::styled("> ", Theme::brand()),
+                Span::styled(&state.request_text_input, Theme::text_bold()),
+                Span::styled("█", Theme::accent()),
             ]));
         }
     }
@@ -288,7 +289,7 @@ pub fn render_requests(f: &mut Frame, area: Rect, state: &TuiState) {
         QuestionType::FreeText => "Enter = submit    Type response    Backspace = delete    Esc = back",
     };
     let hint = Line::from(vec![
-        Span::styled(hint_text, Style::default().fg(Color::DarkGray)),
+        Span::styled(hint_text, Theme::text_muted()),
     ]);
     f.render_widget(Paragraph::new(hint), card_chunks[3]);
 }

@@ -41,6 +41,7 @@ pub enum AdapterCommand {
         prompt: String,
         workspace: Option<String>,
         agent_id: Option<String>,
+        mode: Option<String>,
         now: DateTime<Utc>,
     },
 }
@@ -431,6 +432,16 @@ impl CoreTask {
                             }
                         }
 
+                        // Record human response into pinned request window so it appears in request logs
+                        let response_desc = match &req_response {
+                            RequestResponse::SelectOption { option } => format!("> User selected: {option}"),
+                            RequestResponse::SelectMultiple { options } => format!("> User selected: {}", options.join(", ")),
+                            RequestResponse::TextInput { text } => format!("> User input: {text}"),
+                            RequestResponse::Approve => "> User approved".to_string(),
+                            RequestResponse::Deny => "> User denied".to_string(),
+                        };
+                        self.log_store.append_to_pinned(&req.event_id, response_desc, now);
+
                         // Deliver to adapter. Use the blocking send path so a full channel
                         // returns an explicit error rather than silently dropping the command.
                         let event_id = req.event_id;
@@ -587,6 +598,7 @@ impl CoreTask {
                         prompt: task.prompt.clone(),
                         workspace: task.workspace.clone(),
                         agent_id: task.agent_id.clone(),
+                        mode: task.mode.clone(),
                         now,
                     });
                 }
