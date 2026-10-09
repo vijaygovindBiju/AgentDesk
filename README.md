@@ -1161,4 +1161,4 @@ The project is currently an engineering-focused prototype. Real-agent adapters s
 
 ## License
 
-The Rust workspace declares the MIT license. See the repository metadata and package manifests for the applicable licensing information.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
