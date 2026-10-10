@@ -593,6 +593,11 @@ impl CoreTask {
                 }
             }
             Body::StartTask(ref task) => {
+                let agent_id = task.agent_id.as_deref().unwrap_or("antigravity-session");
+                self.log_store.append(agent_id, format!("> Prompt: {}", task.prompt), now);
+                for line in task.prompt.lines() {
+                    self.log_store.append(agent_id, format!("User: {}", line), now);
+                }
                 if let Some(tx) = &self.adapter_responder {
                     let _ = tx.try_send(AdapterCommand::StartTask {
                         prompt: task.prompt.clone(),

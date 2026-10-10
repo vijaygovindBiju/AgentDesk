@@ -53,6 +53,8 @@ pub struct TerminalSession {
     pub shell: String,
     /// Working directory the shell was spawned in.
     pub cwd: PathBuf,
+    /// Whether child program enabled X10 / SGR mouse tracking (e.g. vim, htop, less).
+    pub mouse_tracking: bool,
 }
 
 impl TerminalSession {
@@ -81,6 +83,7 @@ impl TerminalSession {
             screen,
             shell: shell.to_string(),
             cwd: cwd.to_path_buf(),
+            mouse_tracking: false,
         };
 
         // Give shell brief startup window to emit initial DA queries and answer them
@@ -104,11 +107,28 @@ impl TerminalSession {
             received = true;
             let rep = handle_terminal_queries(&chunk.bytes, &self.screen);
             query_replies.extend(rep);
+
+            // Track if child process enabled or disabled mouse tracking (\x1b[?1000h or \x1b[?1006h)
+            if chunk.bytes.windows(8).any(|w| w == b"\x1b[?1000h" || w == b"\x1b[?1002h" || w == b"\x1b[?1006h") {
+                self.mouse_tracking = true;
+            } else if chunk.bytes.windows(8).any(|w| w == b"\x1b[?1000l" || w == b"\x1b[?1002l" || w == b"\x1b[?1006l") {
+                self.mouse_tracking = false;
+            }
+
             self.screen.process_bytes(&chunk.bytes);
         }
 
         if !query_replies.is_empty() {
             let _ = self.pty.send_input(&query_replies);
+        }
+
+        // OSC 52 System Clipboard synchronization
+        if let Some(ref b64) = self.screen.osc52_clipboard.take() {
+            if let Some(bytes) = crate::tui::clipboard::base64_decode(b64) {
+                if let Ok(text) = String::from_utf8(bytes) {
+                    crate::tui::clipboard::copy_to_clipboard(&text);
+                }
+            }
         }
 
         received

@@ -182,36 +182,82 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     itemCount: _lines.length,
                     itemBuilder: (context, index) {
                       final line = _lines[index];
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 2),
-                        color: index % 2 == 0
-                            ? Colors.black.withValues(alpha: 0.02)
-                            : Colors.transparent,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 55,
-                              child: Text(
-                                '${line.offset}',
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
-                                  color: Colors.grey,
+                      final text = line.text;
+                      final lower = text.toLowerCase();
+                      final isUser = text.startsWith('> Prompt:') ||
+                          text.startsWith('> User') ||
+                          lower.startsWith('> user selected:') ||
+                          lower.startsWith('> user approved') ||
+                          lower.startsWith('> user denied') ||
+                          lower.startsWith('> user input:') ||
+                          text.startsWith('User:');
+                      final isAgent = text.startsWith('Agent:') ||
+                          text.startsWith('●') ||
+                          text.startsWith('▸') ||
+                          lower.startsWith('executing prompt:');
+                      
+                      Color textColor;
+                      if (lower.contains('error') || lower.contains('fail') || lower.contains('fatal')) {
+                        textColor = const Color(0xFFF85149);
+                      } else if (lower.contains('warning') || lower.contains('warn')) {
+                        textColor = const Color(0xFFD29922);
+                      } else if (lower.contains('ok') || lower.contains('passed') || lower.contains('success') || lower.contains('✓')) {
+                        textColor = const Color(0xFF7EE787);
+                      } else if (isUser) {
+                        textColor = const Color(0xFF58D68D);
+                      } else if (isAgent) {
+                        textColor = const Color(0xFF58A6FF);
+                      } else if (text.startsWith('>') || text.startsWith('\$')) {
+                        textColor = const Color(0xFF79C0FF);
+                      } else {
+                        textColor = Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFFC9D1D9)
+                            : Colors.grey.shade800;
+                      }
+
+                      return InkWell(
+                        onLongPress: () {
+                          Clipboard.setData(ClipboardData(text: line.text));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Copied line to clipboard! 📋\n"${line.text}"'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 2),
+                          color: index % 2 == 0
+                              ? Colors.black.withValues(alpha: 0.02)
+                              : Colors.transparent,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 55,
+                                child: Text(
+                                  '${line.offset}',
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                line.text,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
+                              Expanded(
+                                child: Text(
+                                  line.text,
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    fontWeight: (isUser || isAgent) ? FontWeight.bold : FontWeight.normal,
+                                    color: textColor,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },

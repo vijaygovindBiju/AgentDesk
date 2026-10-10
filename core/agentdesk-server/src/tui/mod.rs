@@ -4,6 +4,7 @@
 
 pub mod app;
 pub mod client;
+pub mod clipboard;
 pub mod key_encoder;
 pub mod preferences;
 pub mod state;

@@ -12,8 +12,43 @@ pub fn encode_key_event(key: KeyEvent) -> Option<Vec<u8>> {
 
     let mut bytes = Vec::new();
 
-    // 1. Control key combinations
-    if key.modifiers.contains(KeyModifiers::CONTROL) {
+    // 1. Disambiguated Kitty keyboard protocol encoding when extended modifiers are present
+    // E.g. Ctrl+Enter, Shift+Enter, Alt+Enter, Ctrl+Tab, Ctrl+Backspace, Shift+Backspace
+    let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    let has_shift = key.modifiers.contains(KeyModifiers::SHIFT);
+    let has_alt = key.modifiers.contains(KeyModifiers::ALT);
+
+    // Calculate kitty modifier parameter (1 + bits):
+    // shift = 1, alt = 2, ctrl = 4, super = 8
+    let mut mod_mask = 0u8;
+    if has_shift { mod_mask |= 1; }
+    if has_alt { mod_mask |= 2; }
+    if has_ctrl { mod_mask |= 4; }
+    let kitty_mod = 1 + mod_mask;
+
+    // Disambiguated non-character keys with modifiers
+    match key.code {
+        KeyCode::Enter if has_ctrl || has_shift || has_alt => {
+            // Kitty protocol for Enter (unicode 13) with modifiers: \x1b[13;<mod>u
+            return Some(format!("\x1b[13;{}u", kitty_mod).into_bytes());
+        }
+        KeyCode::Tab if has_ctrl || has_alt => {
+            // Kitty protocol for Tab (unicode 9) with modifiers: \x1b[9;<mod>u
+            return Some(format!("\x1b[9;{}u", kitty_mod).into_bytes());
+        }
+        KeyCode::Backspace if has_ctrl || has_shift || has_alt => {
+            // Kitty protocol for Backspace (unicode 127) with modifiers: \x1b[127;<mod>u
+            return Some(format!("\x1b[127;{}u", kitty_mod).into_bytes());
+        }
+        KeyCode::Esc if has_ctrl || has_shift || has_alt => {
+            // Kitty protocol for Esc (unicode 27) with modifiers: \x1b[27;<mod>u
+            return Some(format!("\x1b[27;{}u", kitty_mod).into_bytes());
+        }
+        _ => {}
+    }
+
+    // 2. Control key combinations
+    if has_ctrl {
         match key.code {
             KeyCode::Char(c) => {
                 let lower = c.to_ascii_lowercase();
@@ -46,8 +81,8 @@ pub fn encode_key_event(key: KeyEvent) -> Option<Vec<u8>> {
         return Some(bytes);
     }
 
-    // 2. Alt / Meta key combinations
-    if key.modifiers.contains(KeyModifiers::ALT) {
+    // 3. Alt / Meta key combinations
+    if has_alt {
         bytes.push(0x1B);
         match key.code {
             KeyCode::Char(c) => bytes.extend_from_slice(c.to_string().as_bytes()),
@@ -58,7 +93,7 @@ pub fn encode_key_event(key: KeyEvent) -> Option<Vec<u8>> {
         return Some(bytes);
     }
 
-    // 3. Normal / un-modified keys
+    // 4. Normal / un-modified keys
     match key.code {
         KeyCode::Char(c) => {
             bytes.extend_from_slice(c.to_string().as_bytes());
@@ -145,5 +180,29 @@ mod tests {
     fn test_encode_function_keys() {
         assert_eq!(encode_key_event(make_key(KeyCode::F(1), KeyModifiers::NONE)), Some(b"\x1bOP".to_vec()));
         assert_eq!(encode_key_event(make_key(KeyCode::F(10), KeyModifiers::NONE)), Some(b"\x1b[21~".to_vec()));
+    }
+
+    #[test]
+    fn test_kitty_protocol_disambiguated_modifiers() {
+        // Ctrl+Enter -> \x1b[13;5u (ctrl = bit 2 -> 4, +1 = 5)
+        assert_eq!(
+            encode_key_event(make_key(KeyCode::Enter, KeyModifiers::CONTROL)),
+            Some(b"\x1b[13;5u".to_vec())
+        );
+        // Shift+Enter -> \x1b[13;2u (shift = bit 0 -> 1, +1 = 2)
+        assert_eq!(
+            encode_key_event(make_key(KeyCode::Enter, KeyModifiers::SHIFT)),
+            Some(b"\x1b[13;2u".to_vec())
+        );
+        // Ctrl+Tab -> \x1b[9;5u
+        assert_eq!(
+            encode_key_event(make_key(KeyCode::Tab, KeyModifiers::CONTROL)),
+            Some(b"\x1b[9;5u".to_vec())
+        );
+        // Ctrl+Backspace -> \x1b[127;5u
+        assert_eq!(
+            encode_key_event(make_key(KeyCode::Backspace, KeyModifiers::CONTROL)),
+            Some(b"\x1b[127;5u".to_vec())
+        );
     }
 }

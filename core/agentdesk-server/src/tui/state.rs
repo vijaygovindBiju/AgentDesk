@@ -54,6 +54,8 @@ pub enum WorkspaceOverlay {
     Menu,
     Pairing,
     PromptInput,
+    Search,
+    UrlPicker,
 }
 
 /// Prompt input history with draft preservation and Up/Down navigation.
@@ -242,6 +244,21 @@ mod prompt_history_tests {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SplitPaneLayout {
+    #[default]
+    Single,
+    Horizontal,
+    Vertical,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PaneFocus {
+    #[default]
+    Primary,
+    Secondary,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActiveTerminalTab {
     Shell,
@@ -365,6 +382,85 @@ pub struct TuiState {
     pub prompt_input_cursor: usize,    // Cursor position (for future cursor display)
     pub prompt_history: PromptHistory, // Prompt history for Up/Down navigation
     pub last_injected_prompt: Option<(String, std::time::Instant)>,
+
+    // Terminal-only distraction-free full-screen mode
+    pub terminal_only_mode: bool,
+
+    // Split pane & session multiplexing state
+    pub split_layout: SplitPaneLayout,
+    pub pane_focus: PaneFocus,
+    pub pane_zoomed: bool,
+    pub secondary_session: Option<TerminalSession>,
+    pub secondary_scroll: usize,
+
+    // Terminal scrollback viewport offset
+    pub terminal_scroll: usize,
+
+    // Terminal mouse text selection
+    pub terminal_selection: Option<TextSelection>,
+    pub is_mouse_selecting: bool,
+    pub clipboard_notice: Option<(String, std::time::Instant)>,
+
+    // Scrollback regex search
+    pub search_query: String,
+    pub search_matches: Vec<SearchMatch>,
+    pub search_match_index: usize,
+
+    // Interactive URL picker
+    pub detected_urls: Vec<String>,
+    pub url_picker_index: usize,
+
+    // Visual keyboard selection
+    pub is_visual_mode: bool,
+    pub visual_cursor: (u16, u16),
+    pub visual_anchor: (u16, u16),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchMatchLocation {
+    Scrollback(usize),
+    Screen(u16),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SearchMatch {
+    pub location: SearchMatchLocation,
+    pub start_col: u16,
+    pub end_col: u16,
+}
+
+/// Highlighted text range in the terminal grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TextSelection {
+    pub start_col: u16,
+    pub start_row: u16,
+    pub end_col: u16,
+    pub end_row: u16,
+}
+
+impl TextSelection {
+    pub fn normalized(&self) -> ((u16, u16), (u16, u16)) {
+        if (self.start_row, self.start_col) <= (self.end_row, self.end_col) {
+            ((self.start_row, self.start_col), (self.end_row, self.end_col))
+        } else {
+            ((self.end_row, self.end_col), (self.start_row, self.start_col))
+        }
+    }
+
+    pub fn contains(&self, row: u16, col: u16) -> bool {
+        let ((r1, c1), (r2, c2)) = self.normalized();
+        if row < r1 || row > r2 {
+            false
+        } else if r1 == r2 {
+            col >= c1 && col <= c2
+        } else if row == r1 {
+            col >= c1
+        } else if row == r2 {
+            col <= c2
+        } else {
+            true
+        }
+    }
 }
 
 impl Default for TuiState {
@@ -482,6 +578,24 @@ impl TuiState {
             prompt_input_cursor: 0,
             prompt_history: PromptHistory::new(),
             last_injected_prompt: None,
+            terminal_only_mode: false,
+            split_layout: SplitPaneLayout::Single,
+            pane_focus: PaneFocus::Primary,
+            pane_zoomed: false,
+            secondary_session: None,
+            secondary_scroll: 0,
+            terminal_scroll: 0,
+            terminal_selection: None,
+            is_mouse_selecting: false,
+            clipboard_notice: None,
+            search_query: String::new(),
+            search_matches: Vec::new(),
+            search_match_index: 0,
+            detected_urls: Vec::new(),
+            url_picker_index: 0,
+            is_visual_mode: false,
+            visual_cursor: (0, 0),
+            visual_anchor: (0, 0),
         }
     }
 
@@ -1017,5 +1131,159 @@ impl TuiState {
                 }
             }
         }
+    }
+
+    /// Perform incremental regex search across terminal scrollback and screen rows.
+    /// Perform incremental regex search across terminal scrollback and screen rows.
+    pub fn perform_regex_search(&mut self) {
+        self.search_matches.clear();
+        self.search_match_index = 0;
+        if self.search_query.trim().is_empty() {
+            return;
+        }
+
+        let re = match regex::RegexBuilder::new(&self.search_query).case_insensitive(true).build() {
+            Ok(r) => r,
+            Err(_) => return,
+        };
+
+        let (scrollback, screen_rows_text, sb_len) = if let Some(ref session) = self.shell_session {
+            let sb = session.screen.scrollback().to_vec();
+            let rows_text: Vec<String> = (0..session.screen.rows).map(|r| session.screen.row_text(r)).collect();
+            let sb_len = sb.len();
+            (sb, rows_text, sb_len)
+        } else {
+            return;
+        };
+
+        for (sb_idx, line) in scrollback.iter().enumerate() {
+            for m in re.find_iter(line) {
+                self.search_matches.push(SearchMatch {
+                    location: SearchMatchLocation::Scrollback(sb_idx),
+                    start_col: m.start() as u16,
+                    end_col: m.end().saturating_sub(1) as u16,
+                });
+            }
+        }
+
+        for (r, line) in screen_rows_text.iter().enumerate() {
+            for m in re.find_iter(line) {
+                self.search_matches.push(SearchMatch {
+                    location: SearchMatchLocation::Screen(r as u16),
+                    start_col: m.start() as u16,
+                    end_col: m.end().saturating_sub(1) as u16,
+                });
+            }
+        }
+
+        if !self.search_matches.is_empty() {
+            self.jump_to_search_match(0, sb_len);
+        }
+    }
+
+    /// Select next search match.
+    pub fn select_next_search_match(&mut self) {
+        if self.search_matches.is_empty() {
+            return;
+        }
+        let sb_len = self.shell_session.as_ref().map(|s| s.screen.scrollback().len()).unwrap_or(0);
+        self.search_match_index = (self.search_match_index + 1) % self.search_matches.len();
+        self.jump_to_search_match(self.search_match_index, sb_len);
+    }
+
+    /// Select previous search match.
+    pub fn select_prev_search_match(&mut self) {
+        if self.search_matches.is_empty() {
+            return;
+        }
+        let sb_len = self.shell_session.as_ref().map(|s| s.screen.scrollback().len()).unwrap_or(0);
+        if self.search_match_index == 0 {
+            self.search_match_index = self.search_matches.len() - 1;
+        } else {
+            self.search_match_index -= 1;
+        }
+        self.jump_to_search_match(self.search_match_index, sb_len);
+    }
+
+    /// Jump viewport to a specific search match.
+    pub fn jump_to_search_match(&mut self, index: usize, sb_len: usize) {
+        if let Some(m) = self.search_matches.get(index) {
+            match m.location {
+                SearchMatchLocation::Scrollback(sb_idx) => {
+                    self.terminal_scroll = sb_len.saturating_sub(sb_idx);
+                }
+                SearchMatchLocation::Screen(_) => {
+                    self.terminal_scroll = 0;
+                }
+            }
+        }
+    }
+
+    /// Scan terminal scrollback and visible screen rows for URLs.
+    pub fn scan_terminal_urls(&mut self) {
+        let mut urls = Vec::new();
+        if let Some(ref session) = self.shell_session {
+            if let Ok(re) = regex::Regex::new(r#"https?://[^\s<>'"\)\]\}]+"#) {
+                let punctuation: &[_] = &['.', ',', ';', ':', '!', '?', ')', ']', '}'];
+                for line in session.screen.scrollback() {
+                    for mat in re.find_iter(line) {
+                        let u = mat.as_str().trim_end_matches(punctuation).to_string();
+                        if !urls.contains(&u) {
+                            urls.push(u);
+                        }
+                    }
+                }
+                for r in 0..session.screen.rows {
+                    let line = session.screen.row_text(r);
+                    for mat in re.find_iter(&line) {
+                        let u = mat.as_str().trim_end_matches(punctuation).to_string();
+                        if !urls.contains(&u) {
+                            urls.push(u);
+                        }
+                    }
+                }
+            }
+        }
+        self.detected_urls = urls;
+        self.url_picker_index = 0;
+    }
+
+    /// Start vi-style visual keyboard selection at cursor position.
+    pub fn start_visual_mode(&mut self, cursor_row: u16, cursor_col: u16) {
+        self.is_visual_mode = true;
+        self.visual_cursor = (cursor_row, cursor_col);
+        self.visual_anchor = (cursor_row, cursor_col);
+        self.terminal_selection = Some(TextSelection {
+            start_row: cursor_row,
+            start_col: cursor_col,
+            end_row: cursor_row,
+            end_col: cursor_col,
+        });
+    }
+
+    /// Move visual cursor and update text selection.
+    pub fn move_visual_cursor(
+        &mut self,
+        delta_row: i32,
+        delta_col: i32,
+        max_rows: u16,
+        max_cols: u16,
+    ) {
+        if !self.is_visual_mode {
+            return;
+        }
+        let cur_r = self.visual_cursor.0 as i32 + delta_row;
+        let cur_c = self.visual_cursor.1 as i32 + delta_col;
+
+        let new_r = cur_r.clamp(0, max_rows.saturating_sub(1) as i32) as u16;
+        let new_c = cur_c.clamp(0, max_cols.saturating_sub(1) as i32) as u16;
+
+        self.visual_cursor = (new_r, new_c);
+        self.terminal_selection = Some(TextSelection {
+            start_row: self.visual_anchor.0,
+            start_col: self.visual_anchor.1,
+            end_row: new_r,
+            end_col: new_c,
+        });
     }
 }

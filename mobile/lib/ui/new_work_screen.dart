@@ -360,15 +360,24 @@ class _NewWorkScreenState extends State<NewWorkScreen> {
         onEffortChanged: (e) => setState(() => _activeEffort = e),
       );
     } else {
-      final current = _promptController.text;
-      if (current.isEmpty) {
-        _promptController.text = '$cmd ';
+      final text = _promptController.text;
+      final selection = _promptController.selection;
+      final toInsert = '$cmd ';
+      
+      if (selection.start >= 0 && selection.end >= 0) {
+        final newText = text.replaceRange(selection.start, selection.end, toInsert);
+        final newOffset = selection.start + toInsert.length;
+        _promptController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: newOffset),
+        );
       } else {
-        _promptController.text = '$current\n$cmd ';
+        final newText = text.isEmpty ? toInsert : '$text\n$toInsert';
+        _promptController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: newText.length),
+        );
       }
-      _promptController.selection = TextSelection.fromPosition(
-        TextPosition(offset: _promptController.text.length),
-      );
     }
   }
 
@@ -727,6 +736,8 @@ class _NewWorkScreenState extends State<NewWorkScreen> {
                 const SizedBox(height: 8),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: Row(
                     children: _slashCommands.map((cmd) {
                       return Padding(

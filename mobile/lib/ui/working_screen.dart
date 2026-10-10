@@ -272,31 +272,13 @@ class _StatusCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark
-            ? (isWorking ? const Color(0xFF1E2638) : AppTheme.surfaceCard)
-            : null,
-        gradient: isDark
-            ? null
-            : LinearGradient(
-                colors: isWorking
-                    ? [Colors.blue.shade700, Colors.blue.shade500]
-                    : [Colors.green.shade700, Colors.green.shade500],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+            ? (isWorking ? const Color(0xFF161F2E) : AppTheme.surfaceCard)
+            : (isWorking ? Colors.blue.shade50 : Colors.green.shade50),
         borderRadius: BorderRadius.circular(16),
-        border: isDark
-            ? Border.all(
-                color: isWorking ? AppTheme.primaryCyan : AppTheme.primaryEmerald.withValues(alpha: 0.5),
-                width: 1.5,
-              )
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: (isWorking ? Colors.blue : Colors.green).withValues(alpha: 0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+          color: isWorking ? AppTheme.primaryCyan : AppTheme.primaryEmerald.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
       ),
       child: Column(
         children: [

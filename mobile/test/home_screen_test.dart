@@ -104,6 +104,79 @@ void main() {
       expect(find.text('task: Compiling large crate'), findsOneWidget);
     });
 
+    testWidgets('terminal stream picks the newest working event by seq',
+        (tester) async {
+      final state = AgentDeskState();
+      final connection = ConnectionService(state: state);
+      final metrics = ClientMetrics();
+
+      final ev1 = testEvent(
+        id: 'work-1',
+        seq: 1,
+        category: Category.working,
+        summary: 'Older task',
+      );
+      final ev2 = testEvent(
+        id: 'work-2',
+        seq: 24,
+        category: Category.working,
+        summary: 'Newest task running',
+      );
+      state.applyEvent(EventPush(
+        event: ev1,
+        entry: const QueueEntry(
+          eventId: 'work-1',
+          tier: 3,
+          score: 60,
+          state: EntryState.new_,
+          seq: 1,
+        ),
+      ));
+      state.applyEvent(EventPush(
+        event: ev2,
+        entry: const QueueEntry(
+          eventId: 'work-2',
+          tier: 3,
+          score: 20,
+          state: EntryState.new_,
+          seq: 24,
+        ),
+      ));
+
+      await tester.pumpWidget(MaterialApp(
+        home: HomeScreen(
+          state: state,
+          connection: connection,
+          metrics: metrics,
+        ),
+      ));
+
+      expect(find.text('task: Newest task running'), findsOneWidget);
+    });
+
+    testWidgets('copy button copies fallback terminal text when no log lines',
+        (tester) async {
+      final state = AgentDeskState();
+      final connection = ConnectionService(state: state);
+      final metrics = ClientMetrics();
+
+      await tester.pumpWidget(MaterialApp(
+        home: HomeScreen(
+          state: state,
+          connection: connection,
+          metrics: metrics,
+        ),
+      ));
+
+      // Find copy button tooltip / icon and tap it
+      final copyBtn = find.byTooltip('Copy terminal output');
+      expect(copyBtn, findsOneWidget);
+      await tester.tap(copyBtn);
+      await tester.pump();
+
+      expect(find.text('Terminal output copied to clipboard! 📋'), findsOneWidget);
+    });
+
     testWidgets('shows still blocking indicator for dismissed-but-unresolved request',
         (tester) async {
       final state = AgentDeskState();

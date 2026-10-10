@@ -497,7 +497,7 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
                         Operation::Other,
                         details.clone(),
                         Details::new(),
-                        vec![],
+                        vec![format!("Agent: {details}")],
                         None,
                     );
                     out.push(ev);
@@ -579,7 +579,7 @@ impl<T: PtyTransport> AntigravityPtyAdapter<T> {
                 if was_working {
                     self.active_prompt = None;
                     if let Some(summary) = extract_work_summary(&self.screen.snapshot()) {
-                        if has_positive_completion_evidence(&summary, had_active_prompt) {
+                        if has_positive_completion_evidence(&summary, had_active_prompt || was_working) {
                             let mut details = Details::new();
                             details.insert("status".to_string(), serde_json::json!("completed"));
                             details.insert("description".to_string(), serde_json::json!(&summary));
@@ -663,7 +663,11 @@ impl<T: PtyTransport> Adapter for AntigravityPtyAdapter<T> {
                 Operation::Other,
                 msg,
                 Details::new(),
-                vec![],
+                vec![
+                    format!("AgentDesk terminal connected to agent '{}'", self.config.agent_name),
+                    format!("Project: {} • PTY Geometry: {}x{}", self.config.project, self.config.cols, self.config.rows),
+                    "Agent is ready. Send a prompt to begin execution.".to_string(),
+                ],
                 None,
             );
             out.push(ev);
@@ -888,10 +892,12 @@ impl<T: PtyTransport> Adapter for AntigravityPtyAdapter<T> {
         self.current_state = AntigravityState::Working {
             details: format!("Executing prompt: {prompt}"),
         };
-        let mut prompt_lines: Vec<String> = prompt.lines().map(|s| format!("> {s}")).collect();
-        if prompt_lines.is_empty() {
-            prompt_lines.push(format!("> {prompt}"));
+        let mut prompt_lines: Vec<String> = Vec::new();
+        prompt_lines.push(format!("> Prompt: {prompt}"));
+        for line in prompt.lines() {
+            prompt_lines.push(format!("User: {line}"));
         }
+        prompt_lines.push(format!("Agent: Executing prompt: {prompt}"));
         let ev = self.event(
             "progress",
             Operation::Other,

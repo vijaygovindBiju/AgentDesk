@@ -453,6 +453,16 @@ pub fn question_details_map(
     d
 }
 
+/// Format prompt string into standard log lines for timeline and terminal stream.
+pub fn format_prompt_log_lines(prompt: &str) -> Vec<String> {
+    let mut lines = Vec::new();
+    lines.push(format!("> Prompt: {prompt}"));
+    for line in prompt.lines() {
+        lines.push(format!("User: {line}"));
+    }
+    lines
+}
+
 /// State machine tracking Antigravity session transitions.
 pub struct AntigravityStateMachine {
     agent_id: String,
@@ -460,6 +470,7 @@ pub struct AntigravityStateMachine {
     current_state: AntigravityState,
     confirmed_state_count: usize,
     active_prompt: Option<String>,
+    prompt_start_time: Option<std::time::Instant>,
 }
 
 impl AntigravityStateMachine {
@@ -470,6 +481,7 @@ impl AntigravityStateMachine {
             current_state: AntigravityState::Initializing,
             confirmed_state_count: 0,
             active_prompt: None,
+            prompt_start_time: None,
         }
     }
 
@@ -483,16 +495,35 @@ impl AntigravityStateMachine {
 
     pub fn start_prompt(&mut self, prompt: &str) -> Option<RawAgentEvent> {
         self.active_prompt = Some(prompt.to_string());
+        self.prompt_start_time = Some(std::time::Instant::now());
         self.current_state = AntigravityState::Working {
             details: format!("Executing prompt: {prompt}"),
         };
-        self.state_to_event(&self.current_state.clone())
+        let mut event = self.state_to_event(&self.current_state.clone());
+        if let Some(ref mut ev) = event {
+            ev.log_lines = format_prompt_log_lines(prompt);
+            ev.log_lines.push(format!("Agent: Executing prompt: {prompt}"));
+        }
+        event
     }
 
     /// Update with a new screen snapshot and return a `RawAgentEvent` if an actionable
     /// state transition occurred.
     pub fn update(&mut self, snapshot: &ScreenSnapshot) -> Option<RawAgentEvent> {
+        let is_recent_prompt = self
+            .prompt_start_time
+            .map(|t| t.elapsed() < std::time::Duration::from_millis(1500))
+            .unwrap_or(false);
+
         let detected = detect_state(snapshot);
+
+        // If no active prompt was tracked via start_prompt, try extracting user prompt from screen
+        if self.active_prompt.is_none() {
+            if let Some(p) = extract_user_prompt_from_snapshot(snapshot) {
+                self.active_prompt = Some(p);
+            }
+        }
+
         if detected != self.current_state {
             if self.current_state.same_request(&detected) {
                 self.current_state = detected;
@@ -501,7 +532,8 @@ impl AntigravityStateMachine {
             let prev_state = std::mem::replace(&mut self.current_state, detected.clone());
             self.confirmed_state_count = 1;
             let had_active_prompt = self.active_prompt.is_some();
-            if (matches!(prev_state, AntigravityState::Working { .. })
+            let was_working = matches!(prev_state, AntigravityState::Working { .. });
+            if (was_working
                 || matches!(
                     prev_state,
                     AntigravityState::CommandConfirmation { .. }
@@ -511,20 +543,34 @@ impl AntigravityStateMachine {
                 || had_active_prompt)
                 && matches!(detected, AntigravityState::IdlePrompt)
             {
-                self.active_prompt = None;
                 if let Some(summary) = extract_work_summary(snapshot) {
-                    if has_positive_completion_evidence(&summary, had_active_prompt) {
+                    if has_positive_completion_evidence(&summary, had_active_prompt || was_working) {
                         self.current_state = AntigravityState::Completed {
                             message: summary,
                         };
-                        return self.state_to_event(&self.current_state.clone());
+                        let ev = self.state_to_event(&self.current_state.clone());
+                        self.active_prompt = None;
+                        self.prompt_start_time = None;
+                        return ev;
                     }
                 }
+                // If there is no completion evidence yet and we are within the initial launch grace period,
+                // keep the working state and do not revert to IdlePrompt prematurely.
+                if is_recent_prompt && had_active_prompt {
+                    self.current_state = prev_state;
+                    return None;
+                }
+
+                self.active_prompt = None;
+                self.prompt_start_time = None;
                 self.current_state = AntigravityState::IdlePrompt;
                 return self.state_to_event(&self.current_state.clone());
             }
             if matches!(detected, AntigravityState::Completed { .. }) {
+                let ev = self.state_to_event(&detected);
                 self.active_prompt = None;
+                self.prompt_start_time = None;
+                return ev;
             }
             self.state_to_event(&detected)
         } else {
@@ -552,6 +598,8 @@ impl AntigravityStateMachine {
             } => {
                 let op = classify_command_operation(command);
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(format!("Command: {command}"));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -566,7 +614,7 @@ impl AntigravityStateMachine {
                         options,
                         *selected_option_index,
                     ),
-                    log_lines: vec![format!("Command: {command}")],
+                    log_lines,
                     request: Some(approval_menu_request(command_approval_prompt(command), options)),
                 })
             }
@@ -576,6 +624,8 @@ impl AntigravityStateMachine {
                 options,
             } => {
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(format!("File: {file_path}"));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -590,7 +640,7 @@ impl AntigravityStateMachine {
                         options,
                         *selected_option_index,
                     ),
-                    log_lines: vec![format!("File: {file_path}")],
+                    log_lines,
                     request: Some(approval_menu_request(file_edit_approval_prompt(file_path), options)),
                 })
             }
@@ -601,6 +651,8 @@ impl AntigravityStateMachine {
                 selected_index,
             } => {
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(format!("Trust requested for directory {directory}"));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -609,7 +661,7 @@ impl AntigravityStateMachine {
                     operation: Operation::Other,
                     message: format!("Workspace trust required for: {directory}"),
                     details: workspace_trust_details_map(directory, question, options, *selected_index),
-                    log_lines: vec![format!("Trust requested for directory {directory}")],
+                    log_lines,
                     request: Some(workspace_trust_request(question, options)),
                 })
             }
@@ -619,6 +671,8 @@ impl AntigravityStateMachine {
                 details,
             } => {
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(question.clone());
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -627,7 +681,7 @@ impl AntigravityStateMachine {
                     operation: Operation::Other,
                     message: question.clone(),
                     details: question_details_map(question, *form, details),
-                    log_lines: vec![question.clone()],
+                    log_lines,
                     request: Some(RequestInfo {
                         prompt: question.clone(),
                         options: details.answer_options(),
@@ -637,6 +691,8 @@ impl AntigravityStateMachine {
             }
             AntigravityState::Working { details } => {
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(format!("Agent: {details}"));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -645,7 +701,7 @@ impl AntigravityStateMachine {
                     operation: Operation::Other,
                     message: details.clone(),
                     details: BTreeMap::new(),
-                    log_lines: vec![],
+                    log_lines,
                     request: None,
                 })
             }
@@ -664,6 +720,9 @@ impl AntigravityStateMachine {
                     "summary".to_string(),
                     serde_json::Value::String(message.clone()),
                 );
+                if let Some(ref p) = self.active_prompt {
+                    details.insert("prompt".to_string(), serde_json::Value::String(p.clone()));
+                }
                 if let Some(final_res) = extract_final_result(message) {
                     details.insert(
                         "final_result".to_string(),
@@ -689,7 +748,8 @@ impl AntigravityStateMachine {
                         details.insert("execution_steps".to_string(), val);
                     }
                 }
-                let log_lines = message.lines().map(|s| s.to_string()).collect();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.extend(message.lines().map(|s| s.to_string()));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -759,6 +819,8 @@ impl AntigravityStateMachine {
             } => {
                 let op = classify_command_operation(command);
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(format!("Command: {command}"));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -773,7 +835,7 @@ impl AntigravityStateMachine {
                         options,
                         *selected_option_index,
                     ),
-                    log_lines: vec![format!("Command: {command}")],
+                    log_lines,
                     request: Some(approval_menu_request(command_approval_prompt(command), options)),
                 })
             }
@@ -783,6 +845,8 @@ impl AntigravityStateMachine {
                 options,
             } => {
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(format!("File: {file_path}"));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -797,7 +861,7 @@ impl AntigravityStateMachine {
                         options,
                         *selected_option_index,
                     ),
-                    log_lines: vec![format!("File: {file_path}")],
+                    log_lines,
                     request: Some(approval_menu_request(file_edit_approval_prompt(file_path), options)),
                 })
             }
@@ -808,6 +872,8 @@ impl AntigravityStateMachine {
                 selected_index,
             } => {
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(format!("Trust requested for directory {directory}"));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -816,7 +882,7 @@ impl AntigravityStateMachine {
                     operation: Operation::Other,
                     message: format!("Workspace trust required for: {directory}"),
                     details: workspace_trust_details_map(directory, question, options, *selected_index),
-                    log_lines: vec![format!("Trust requested for directory {directory}")],
+                    log_lines,
                     request: Some(workspace_trust_request(question, options)),
                 })
             }
@@ -826,6 +892,8 @@ impl AntigravityStateMachine {
                 details,
             } => {
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(question.clone());
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -834,7 +902,7 @@ impl AntigravityStateMachine {
                     operation: Operation::Other,
                     message: question.clone(),
                     details: question_details_map(question, *form, details),
-                    log_lines: vec![question.clone()],
+                    log_lines,
                     request: Some(RequestInfo {
                         prompt: question.clone(),
                         options: details.answer_options(),
@@ -844,6 +912,8 @@ impl AntigravityStateMachine {
             }
             AntigravityState::Working { details } => {
                 let seq = self.next_seq();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.push(format!("Agent: {details}"));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -852,7 +922,7 @@ impl AntigravityStateMachine {
                     operation: Operation::Other,
                     message: details.clone(),
                     details: BTreeMap::new(),
-                    log_lines: vec![],
+                    log_lines,
                     request: None,
                 })
             }
@@ -871,6 +941,9 @@ impl AntigravityStateMachine {
                     "summary".to_string(),
                     serde_json::Value::String(message.clone()),
                 );
+                if let Some(ref p) = self.active_prompt {
+                    details.insert("prompt".to_string(), serde_json::Value::String(p.clone()));
+                }
                 if let Some(final_res) = extract_final_result(message) {
                     details.insert(
                         "final_result".to_string(),
@@ -896,7 +969,8 @@ impl AntigravityStateMachine {
                         details.insert("execution_steps".to_string(), val);
                     }
                 }
-                let log_lines = message.lines().map(|s| s.to_string()).collect();
+                let mut log_lines = self.active_prompt.as_deref().map(format_prompt_log_lines).unwrap_or_default();
+                log_lines.extend(message.lines().map(|s| s.to_string()));
                 Some(RawAgentEvent {
                     agent_id: self.agent_id.clone(),
                     agent_seq: seq,
@@ -954,6 +1028,25 @@ impl AntigravityStateMachine {
             AntigravityState::Initializing => None,
         }
     }
+}
+
+/// Returns true if the line matches a standard shell prompt (fish, bash, zsh, starship, bobthefish).
+pub fn is_shell_prompt_line(line: &str) -> bool {
+    let t = line.trim();
+    if is_menu_row(t) {
+        return false;
+    }
+    t.starts_with("╰─❯")
+        || t.starts_with("╭─")
+        || t.starts_with("❯")
+        || t.ends_with("╰─❯")
+        || t.ends_with("❯")
+        || t == "$"
+        || t == "%"
+        || t == "#"
+        || t.starts_with("$ ")
+        || t.starts_with("% ")
+        || t.starts_with("# ")
 }
 
 /// Detect the semantic state from a screen snapshot.
@@ -1038,6 +1131,7 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
             || t.starts_with("? ")
             || t == "?"
             || t.contains("Send message")
+            || is_shell_prompt_line(t)
     };
 
     let last_rule_idx = snapshot.lines.iter().rposition(|l| is_rule_line(l));
@@ -1084,7 +1178,7 @@ pub fn detect_state(snapshot: &ScreenSnapshot) -> AntigravityState {
             && usize::from(snapshot.cursor_row) < snapshot.lines.len()
             && {
                 let cur = snapshot.lines[usize::from(snapshot.cursor_row)].trim();
-                !is_menu_row(cur) && (cur.starts_with("> ") || cur == ">" || cur.is_empty())
+                !is_menu_row(cur) && (cur.starts_with("> ") || cur == ">" || cur.starts_with("╰─❯") || cur.starts_with("❯") || cur.is_empty())
             })
     );
 
@@ -1582,9 +1676,23 @@ pub fn has_positive_completion_evidence(summary: &str, had_active_prompt: bool) 
     let has_tools_or_thoughts = steps.iter().any(|s| s.kind == "tool_call" || s.kind == "thought");
     let has_tool_markers = trimmed.lines().any(|l| {
         let t = l.trim();
-        t.starts_with('●') || t.starts_with('▸') || t.starts_with("✓ ")
+        t.starts_with('●')
+            || t.starts_with('▸')
+            || t.starts_with("✓ ")
+            || t.starts_with("• ")
+            || t.starts_with("###")
+            || t.starts_with("####")
     });
-    has_tools_or_thoughts || has_tool_markers
+    let has_structured_content = trimmed.lines().any(|l| {
+        let t = l.trim();
+        t.starts_with("• ")
+            || t.starts_with("###")
+            || t.starts_with("####")
+            || t.starts_with("```")
+    });
+    let has_result_or_message = steps.iter().any(|s| s.kind == "result" || s.kind == "message")
+        && trimmed.lines().count() >= 2;
+    has_tools_or_thoughts || has_tool_markers || has_structured_content || has_result_or_message
 }
 
 /// Extract the final non-chrome, non-empty text block from a work summary string.
@@ -1708,22 +1816,68 @@ fn extract_agent_reply(snapshot: &ScreenSnapshot) -> Option<String> {
     (!message.is_empty() && !is_idle_welcome_text(&message)).then_some(message)
 }
 
-/// Extract summary of the work done prior to the idle prompt.
-pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
-    let lines = &snapshot.lines;
+/// Extract clean prompt text from a single command or chat input line.
+pub fn extract_prompt_from_line(line: &str) -> Option<String> {
+    let t = line.trim();
+    if is_terminal_artifact(t) || is_idle_welcome_text(t) || is_menu_row(t) {
+        return None;
+    }
+    // Shell command with agy -i '<prompt>' or agy -i "<prompt>"
+    if let Some(idx) = t.find("-i ") {
+        let after = t[idx + 3..].trim();
+        if (after.starts_with('\'') && after.ends_with('\'') && after.len() >= 2)
+            || (after.starts_with('"') && after.ends_with('"') && after.len() >= 2)
+        {
+            let inner = &after[1..after.len() - 1];
+            if !inner.trim().is_empty() {
+                return Some(inner.trim().to_string());
+            }
+        } else if !after.is_empty() {
+            return Some(after.to_string());
+        }
+    }
+    // Interactive chat prompt starting with "> "
+    if let Some(rest) = t.strip_prefix("> ") {
+        let p = rest.trim();
+        if !p.is_empty()
+            && !is_idle_welcome_text(p)
+            && !is_menu_row(p)
+            && !is_terminal_artifact(p)
+            && !p.contains("Navigate")
+            && !p.contains("Yes,")
+            && !p.contains("No,")
+        {
+            return Some(p.to_string());
+        }
+    }
+    None
+}
+
+/// Extract user prompt row from screen snapshot if present.
+pub fn extract_user_prompt_from_snapshot(snapshot: &ScreenSnapshot) -> Option<String> {
+    let mut combined_lines = snapshot.scrollback_lines.clone();
+    let scrollback_count = combined_lines.len();
+    combined_lines.extend(snapshot.lines.iter().cloned());
+    let lines = &combined_lines;
+
     let rules: Vec<usize> = (0..lines.len()).filter(|&i| is_rule_line(&lines[i])).collect();
-    let transcript_end = rules
+    let prompt_box_rule = rules
         .iter()
         .rev()
-        .nth(1)
-        .copied()
-        .or_else(|| rules.last().copied())
-        .unwrap_or(lines.len());
+        .find(|&&r| lines.len().saturating_sub(r) <= 6 && (r + 1..lines.len()).any(|i| {
+            let t = lines[i].trim();
+            t.starts_with("> ") || t == ">" || t.starts_with("? ") || t == "?" || t.contains("Send message")
+        }));
+    let transcript_end = prompt_box_rule.copied().unwrap_or(lines.len());
 
-    // Find the user prompt row above transcript_end, if visible.
     let user_row = (0..transcript_end).rev().find(|&i| {
         let t = lines[i].trim();
-        (snapshot.line_fg.get(i).copied().flatten() == Some(FG_USER_PROMPT) && t.starts_with("> "))
+        let is_fg_prompt = if i >= scrollback_count {
+            snapshot.line_fg.get(i - scrollback_count).copied().flatten() == Some(FG_USER_PROMPT)
+        } else {
+            false
+        };
+        (is_fg_prompt && t.starts_with("> "))
             || (t.starts_with("> ")
                 && !is_menu_row(t)
                 && !is_terminal_artifact(t)
@@ -1731,6 +1885,67 @@ pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
                 && !t.contains("Navigate")
                 && !t.contains("Yes,")
                 && !t.contains("No,"))
+            || t.contains("agy -i")
+            || t.contains("agy --dangerously-skip-permissions")
+            || t.starts_with("╰─❯ agy")
+            || t.starts_with("❯ agy")
+            || (t.contains(" agy ")
+                && (t.starts_with('$')
+                    || t.starts_with('%')
+                    || t.starts_with('#')
+                    || t.starts_with('❯')
+                    || t.starts_with("╰─❯")))
+    })?;
+
+    extract_prompt_from_line(&lines[user_row])
+}
+
+/// Extract summary of the work done prior to the idle prompt.
+pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
+    let mut combined_lines = snapshot.scrollback_lines.clone();
+    let scrollback_count = combined_lines.len();
+    combined_lines.extend(snapshot.lines.iter().cloned());
+    let lines = &combined_lines;
+
+    let rules: Vec<usize> = (0..lines.len()).filter(|&i| is_rule_line(&lines[i])).collect();
+    // In Antigravity interactive Bubbletea TUI, the active prompt box is drawn at the bottom
+    // framed by rules (e.g. within 6 lines of the bottom).
+    // Markdown horizontal rules in the middle of transcripts must NOT be treated as the prompt box!
+    let prompt_box_rule = rules
+        .iter()
+        .rev()
+        .find(|&&r| lines.len().saturating_sub(r) <= 6 && (r + 1..lines.len()).any(|i| {
+            let t = lines[i].trim();
+            t.starts_with("> ") || t == ">" || t.starts_with("? ") || t == "?" || t.contains("Send message")
+        }));
+    let transcript_end = prompt_box_rule.copied().unwrap_or(lines.len());
+
+    // Find the user prompt row above transcript_end, if visible.
+    let user_row = (0..transcript_end).rev().find(|&i| {
+        let t = lines[i].trim();
+        let is_fg_prompt = if i >= scrollback_count {
+            snapshot.line_fg.get(i - scrollback_count).copied().flatten() == Some(FG_USER_PROMPT)
+        } else {
+            false
+        };
+        (is_fg_prompt && t.starts_with("> "))
+            || (t.starts_with("> ")
+                && !is_menu_row(t)
+                && !is_terminal_artifact(t)
+                && !is_idle_welcome_text(t)
+                && !t.contains("Navigate")
+                && !t.contains("Yes,")
+                && !t.contains("No,"))
+            || t.contains("agy -i")
+            || t.contains("agy --dangerously-skip-permissions")
+            || t.starts_with("╰─❯ agy")
+            || t.starts_with("❯ agy")
+            || (t.contains(" agy ")
+                && (t.starts_with('$')
+                    || t.starts_with('%')
+                    || t.starts_with('#')
+                    || t.starts_with('❯')
+                    || t.starts_with("╰─❯")))
     });
 
     // Check if there are visible tool calls or thought blocks
@@ -1765,7 +1980,12 @@ pub fn extract_work_summary(snapshot: &ScreenSnapshot) -> Option<String> {
             }
             continue;
         }
-        if trimmed.starts_with("> ") || trimmed == ">" || trimmed.starts_with("? ") || trimmed == "?" {
+        if trimmed.starts_with("> ")
+            || trimmed == ">"
+            || trimmed.starts_with("? ")
+            || trimmed == "?"
+            || is_shell_prompt_line(trimmed)
+        {
             continue;
         }
         summary_lines.push(lines[i].trim_end());
@@ -2487,6 +2707,7 @@ mod tests {
             ],
             reversed_lines: vec![(1, "Yes, run command".to_string())],
             line_fg: vec![],
+            scrollback_lines: vec![],
         };
 
         let state = detect_state(&snapshot);
@@ -2521,6 +2742,7 @@ mod tests {
             ],
             reversed_lines: vec![(1, "Yes, run command".to_string())],
             line_fg: vec![],
+            scrollback_lines: vec![],
         };
 
         let event = sm.update(&snapshot).expect("Must emit event on transition");
@@ -2541,6 +2763,7 @@ mod tests {
             lines: vec![format!("{spinner} Generating...")],
             reversed_lines: vec![],
             line_fg: vec![],
+            scrollback_lines: vec![],
         };
 
         assert_eq!(
@@ -2566,6 +2789,7 @@ mod tests {
             ],
             reversed_lines: vec![],
             line_fg: vec![],
+            scrollback_lines: vec![],
         };
 
         assert_eq!(detect_state(&snapshot), AntigravityState::IdlePrompt);
@@ -2585,6 +2809,7 @@ mod tests {
             lines: vec!["⠙ Working...".to_string()],
             reversed_lines: vec![],
             line_fg: vec![],
+            scrollback_lines: vec![],
         };
         let ev1 = sm.update(&working_snap);
         assert!(ev1.is_some());
@@ -2605,6 +2830,7 @@ mod tests {
             ],
             reversed_lines: vec![],
             line_fg: vec![],
+            scrollback_lines: vec![],
         };
         let ev2 = sm.update(&idle_snap).expect("Must emit task_completed event");
         assert_eq!(ev2.kind, "task_completed");
@@ -2661,6 +2887,7 @@ mod tests {
             lines: raw_lines,
             reversed_lines: vec![],
             line_fg: vec![],
+            scrollback_lines: vec![],
         };
 
         // 1. Extract summary
@@ -2836,6 +3063,79 @@ The directory and Rust grep program have been created:
         assert!(res.contains("/tmp/test_folder/grep -n \"edition\" /tmp/test_folder/Cargo.toml"));
         assert!(!res.contains("● Bash"));
         assert!(!res.contains("Thought for 4s"));
+    }
+
+    #[test]
+    fn test_fish_shell_agy_execution_emits_task_completed_for_structure_query() {
+        let mut sm = AntigravityStateMachine::new("test-agent");
+
+        // Step 1: Agent is initially working in fish terminal
+        let working_lines = vec![
+            "╭─ 🟥 pirate @ 📍 Reactor in /m/p/S/c/AgentDesk on master ●7".to_string(),
+            "╰─❯ agy -i \"what is the structure of forgex\"".to_string(),
+            "Thinking... ⣾".to_string(),
+        ];
+        let snap_working = ScreenSnapshot {
+            cols: 80,
+            rows: working_lines.len() as u16,
+            cursor_row: (working_lines.len() - 1) as u16,
+            cursor_col: 10,
+            in_alt_screen: false,
+            cursor_visible: true,
+            lines: working_lines,
+            reversed_lines: vec![],
+            line_fg: vec![],
+            scrollback_lines: vec![],
+        };
+        let _ev1 = sm.update(&snap_working);
+        assert!(matches!(sm.current_state, AntigravityState::Working { .. }));
+
+        // Step 2: Agent completes and fish shell prompt returns
+        let completed_lines = vec![
+            "╭─ 🟥 pirate @ 📍 Reactor in /m/p/S/c/AgentDesk on master ●7".to_string(),
+            "╰─❯ agy -i \"what is the structure of forgex\"".to_string(),
+            "#### Key Components:".to_string(),
+            "".to_string(),
+            "• Core Domain & Scoring (core & scoring): Implements the math, rule classification, and recovery engine.".to_string(),
+            "• Embedded Storage (storage): Zero-config SQLite database managed via rusqlite.".to_string(),
+            "• Interactive TUI & Watcher CLI (cli): Built-in interactive Ratatui terminal dashboard.".to_string(),
+            "• REST Sync Server (server): Axum-powered local daemon enabling secure pairing and multi-device state synchronization.".to_string(),
+            "• Native FFI & Flutter App (ffi & mobile): A companion mobile and desktop UI supporting remote REST and native embedded offline operation via libforgex_ffi.".to_string(),
+            "──────────────────────────────────────────────────".to_string(),
+            "### Quick Exploration".to_string(),
+            "".to_string(),
+            "• Check the full documentation in README.md.".to_string(),
+            "• Launch the CLI help via cargo run -p forgex -- --help.".to_string(),
+            "╭─ 🟥 pirate @ 📍 Reactor in /m/p/S/c/AgentDesk on master ●7".to_string(),
+            "╰─❯ ".to_string(),
+        ];
+        let snap_completed = ScreenSnapshot {
+            cols: 80,
+            rows: completed_lines.len() as u16,
+            cursor_row: (completed_lines.len() - 1) as u16,
+            cursor_col: 4,
+            in_alt_screen: false,
+            cursor_visible: true,
+            lines: completed_lines,
+            reversed_lines: vec![],
+            line_fg: vec![],
+            scrollback_lines: vec![],
+        };
+
+        // Screen state is detected as IdlePrompt because fish prompt is back
+        let detected = detect_state(&snap_completed);
+        assert_eq!(detected, AntigravityState::IdlePrompt);
+
+        // State machine transitions from Working -> Completed and emits task_completed event
+        let ev2 = sm.update(&snap_completed).expect("Must emit task_completed event");
+        assert_eq!(ev2.kind, "task_completed");
+        assert!(ev2.message.contains("Key Components:"));
+        assert!(ev2.message.contains("Core Domain & Scoring"));
+        assert!(ev2.message.contains("Embedded Storage"));
+        assert!(ev2.message.contains("Quick Exploration"));
+        // Shell prompt headers must be stripped from summary
+        assert!(!ev2.message.contains("╰─❯ "));
+        assert!(!ev2.message.contains("Reactor in /m/p/S/c/AgentDesk"));
     }
 }
 

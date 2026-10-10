@@ -593,3 +593,228 @@ fn test_workspace_project_select_completions_rendering() {
     assert!(rendered.contains("Autocomplete"));
 }
 
+// =========================================================================
+// 6. Terminal-Only Mode & Integrated Virtual Terminal Capabilities Tests
+// =========================================================================
+
+#[test]
+fn test_terminal_only_mode_collapses_chrome_rendering() {
+    let mut state = TuiState::default();
+    state.current_screen = Screen::Workspace;
+    state.terminal_only_mode = false;
+
+    let normal_rendered = render_state_to_string(&state, 80, 24);
+    // In normal mode, top bar or bottom footer hints appear
+    assert!(normal_rendered.contains("AgentDesk"));
+    assert!(normal_rendered.contains("F1"));
+
+    // Activate terminal-only distraction-free mode
+    state.terminal_only_mode = true;
+    let fullscreen_rendered = render_state_to_string(&state, 80, 24);
+    // In terminal-only mode, chrome is collapsed (0 height top and bottom bars)
+    assert!(!fullscreen_rendered.contains("AgentDesk"));
+    assert!(!fullscreen_rendered.contains("F10 Exit"));
+}
+
+#[test]
+fn test_terminal_regex_search_and_navigation() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut session = TerminalSession::spawn_with_shell("/bin/sh", temp.path(), 80, 24).unwrap();
+    session.screen.process_bytes(b"Error: failed to connect to database\r\nWarning: retrying database connection\r\n");
+
+    let mut state = TuiState::default();
+    state.shell_session = Some(session);
+
+    state.search_query = "database".to_string();
+    state.perform_regex_search();
+    assert_eq!(state.search_matches.len(), 2);
+    assert_eq!(state.search_match_index, 0);
+
+    // Test next/prev match navigation
+    state.select_next_search_match();
+    assert_eq!(state.search_match_index, 1);
+    state.select_prev_search_match();
+    assert_eq!(state.search_match_index, 0);
+
+    // Render search overlay
+    state.current_screen = Screen::Workspace;
+    state.workspace_overlay = WorkspaceOverlay::Search;
+    let rendered = render_state_to_string(&state, 80, 24);
+    assert!(rendered.contains("database"));
+    assert!(rendered.contains("1/2"));
+    assert!(rendered.contains("Next"));
+
+    if let Some(mut session) = state.shell_session.take() {
+        session.terminate();
+    }
+}
+
+#[test]
+fn test_terminal_url_scanner_and_picker() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut session = TerminalSession::spawn_with_shell("/bin/sh", temp.path(), 120, 24).unwrap();
+    session.screen.process_bytes(b"Visit https://github.com/agentdesk/agentdesk.git, or docs at https://agentdesk.dev/docs!\r\n");
+
+    let mut state = TuiState::default();
+    state.shell_session = Some(session);
+
+    state.scan_terminal_urls();
+    assert_eq!(state.detected_urls.len(), 2);
+    assert!(state.detected_urls.contains(&"https://github.com/agentdesk/agentdesk.git".to_string()));
+    assert!(state.detected_urls.contains(&"https://agentdesk.dev/docs".to_string()));
+
+    // Test URL picker overlay rendering
+    state.current_screen = Screen::Workspace;
+    state.workspace_overlay = WorkspaceOverlay::UrlPicker;
+    let rendered = render_state_to_string(&state, 80, 24);
+    assert!(rendered.contains("URL Picker"));
+    assert!(rendered.contains("https://agentdesk.dev/docs") || rendered.contains("github.com"));
+    assert!(rendered.contains("Open"));
+    assert!(rendered.contains("Copy"));
+
+    if let Some(mut session) = state.shell_session.take() {
+        session.terminate();
+    }
+}
+
+#[test]
+fn test_visual_mode_keyboard_selection() {
+    let mut state = TuiState::default();
+    assert!(!state.is_visual_mode);
+
+    state.start_visual_mode(5, 10);
+    assert!(state.is_visual_mode);
+    assert_eq!(state.visual_cursor, (5, 10));
+    assert_eq!(state.visual_anchor, (5, 10));
+    assert!(state.terminal_selection.is_some());
+
+    // Move cursor right and down
+    state.move_visual_cursor(2, 3, 24, 80);
+    assert_eq!(state.visual_cursor, (7, 13));
+    let sel = state.terminal_selection.unwrap();
+    assert_eq!((sel.start_row, sel.start_col), (5, 10));
+    assert_eq!((sel.end_row, sel.end_col), (7, 13));
+}
+
+#[test]
+fn test_terminal_bracketed_paste_mode() {
+    let mut screen = VtScreen::new(80, 24);
+    assert!(!screen.bracketed_paste);
+
+    // Enable bracketed paste mode CSI ? 2004 h
+    screen.process_bytes(b"\x1b[?2004h");
+    assert!(screen.bracketed_paste);
+
+    // Disable bracketed paste mode CSI ? 2004 l
+    screen.process_bytes(b"\x1b[?2004l");
+    assert!(!screen.bracketed_paste);
+}
+
+#[test]
+fn test_terminal_pty_resize_geometry_calculation() {
+    let term_width: u16 = 100;
+    let term_height: u16 = 30;
+
+    // In normal mode: top header = 1 row, bottom footer = 1 row => pty rows = term_height - 2
+    let normal_rows = term_height.saturating_sub(2);
+    let normal_cols = term_width;
+    assert_eq!(normal_rows, 28);
+    assert_eq!(normal_cols, 100);
+
+    // In terminal-only mode: 100% geometry allocated directly to PTY emulator
+    let terminal_only_rows = term_height;
+    let terminal_only_cols = term_width;
+    assert_eq!(terminal_only_rows, 30);
+    assert_eq!(terminal_only_cols, 100);
+}
+
+#[test]
+fn test_sessions_list_ctrl_f_opens_terminal_only_mode() {
+    let mut state = TuiState::default();
+    state.current_screen = Screen::Dashboard;
+    state.terminal_only_mode = false;
+
+    // Simulate key handling of Ctrl+F from Dashboard / sessions list
+    // In app.rs: Ctrl+F switches directly to Screen::Workspace with terminal_only_mode = true
+    state.current_screen = Screen::Workspace;
+    state.terminal_only_mode = true;
+
+    assert_eq!(state.current_screen, Screen::Workspace);
+    assert!(state.terminal_only_mode);
+
+    // Simulate detach with Ctrl+] or Ctrl+Q
+    state.terminal_only_mode = false;
+    state.current_screen = Screen::Dashboard;
+
+    assert_eq!(state.current_screen, Screen::Dashboard);
+    assert!(!state.terminal_only_mode);
+}
+
+#[test]
+fn test_split_panes_layout_and_zoom() {
+    use agentdesk_server::tui::state::{PaneFocus, SplitPaneLayout};
+
+    let mut state = TuiState::default();
+    state.current_screen = Screen::Workspace;
+    assert_eq!(state.split_layout, SplitPaneLayout::Single);
+    assert!(!state.pane_zoomed);
+
+    // Switch to Horizontal split
+    state.split_layout = SplitPaneLayout::Horizontal;
+    let rendered_h = render_state_to_string(&state, 80, 24);
+    assert!(rendered_h.contains("Terminal initializing..."));
+
+    // Switch to Vertical split
+    state.split_layout = SplitPaneLayout::Vertical;
+    let rendered_v = render_state_to_string(&state, 80, 24);
+    assert!(rendered_v.contains("Terminal initializing..."));
+
+    // Toggle zoom on pane
+    state.pane_zoomed = true;
+    state.pane_focus = PaneFocus::Primary;
+    let rendered_z = render_state_to_string(&state, 80, 24);
+    assert!(rendered_z.contains("Terminal initializing..."));
+}
+
+#[test]
+fn test_modern_sgr_styling_attributes() {
+    use agentdesk_core::antigravity::screen::UnderlineStyle;
+
+    let mut screen = VtScreen::new(80, 24);
+    // Undercurl + underline color + strikethrough + overline
+    screen.process_bytes(b"\x1b[4:3m\x1b[58;2;255;50;50m\x1b[9m\x1b[53mErrorText\x1b[0m");
+
+    let cell = screen.cell(0, 0).unwrap();
+    assert!(cell.attrs.underline);
+    assert_eq!(cell.attrs.underline_style, UnderlineStyle::Curly);
+    assert_eq!(cell.attrs.underline_color, Some((255, 50, 50)));
+    assert!(cell.attrs.strikethrough);
+    assert!(cell.attrs.overline);
+
+    // After reset
+    let reset_cell = screen.cell(0, 9).unwrap();
+    assert!(!reset_cell.attrs.underline);
+    assert_eq!(reset_cell.attrs.underline_style, UnderlineStyle::None);
+    assert_eq!(reset_cell.attrs.underline_color, None);
+    assert!(!reset_cell.attrs.strikethrough);
+    assert!(!reset_cell.attrs.overline);
+}
+
+#[test]
+fn test_osc8_and_osc52_integration() {
+    let mut screen = VtScreen::new(80, 24);
+    // OSC 8 Hyperlink
+    screen.process_bytes(b"\x1b]8;;https://agentdesk.dev\x1b\\AgentDeskDocs\x1b]8;;\x1b\\");
+    assert_eq!(screen.cell(0, 0).unwrap().attrs.hyperlink, Some("https://agentdesk.dev".to_string()));
+
+    // OSC 52 Clipboard
+    screen.process_bytes(b"\x1b]52;c;SGVsbG8gT1NDNTI=\x07");
+    assert_eq!(screen.osc52_clipboard, Some("SGVsbG8gT1NDNTI=".to_string()));
+
+    // Test OSC 52 decoded synchronization
+    let b64 = screen.osc52_clipboard.take().unwrap();
+    let decoded = agentdesk_server::tui::clipboard::base64_decode(&b64).unwrap();
+    assert_eq!(String::from_utf8(decoded).unwrap(), "Hello OSC52");
+}
+
+

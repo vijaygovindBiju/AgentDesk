@@ -69,9 +69,9 @@ class RequestsScreen extends StatelessWidget {
               actions: [_buildControlAction(context), const SizedBox(width: 8)],
             ),
             body: const _EmptyPage(
-              icon: Icons.inbox_outlined,
+              icon: Icons.check_circle_outline,
               title: 'No pending requests',
-              message: 'Human attention requests will appear here.',
+              message: 'When the coding agent needs human approval or input, it will appear here.',
             ),
           );
         }

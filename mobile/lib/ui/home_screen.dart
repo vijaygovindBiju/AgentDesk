@@ -177,59 +177,55 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   if (!isConnected)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: Card(
-                        elevation: 3,
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.qr_code_scanner,
+                              size: 24,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      Icons.qr_code_scanner,
-                                      size: 32,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
+                                  Text(
+                                    'Connect to Laptop',
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                   ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Connect to Laptop',
-                                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                  Text(
+                                    'Run "agentdesk pair" on laptop to scan',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          fontSize: 11,
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Run "agentdesk pair" in your laptop terminal, then scan the QR code to pair.',
-                                          style: Theme.of(context).textTheme.bodySmall,
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 14),
-                              FilledButton.icon(
-                                key: const Key('home_banner_scan_button'),
-                                onPressed: () => _openQrScanner(context),
-                                icon: const Icon(Icons.qr_code_scanner),
-                                label: const Text('Scan QR Code to Pair'),
+                            ),
+                            FilledButton(
+                              key: const Key('home_banner_scan_button'),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                            ],
-                          ),
+                              onPressed: () => _openQrScanner(context),
+                              child: const Text('Scan QR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -245,14 +241,6 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          floatingActionButton: isConnected
-              ? null
-              : FloatingActionButton.extended(
-                  key: const Key('home_fab_scan_button'),
-                  onPressed: () => _openQrScanner(context),
-                  icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('Scan QR Code'),
-                ),
         );
       },
     );
@@ -322,20 +310,53 @@ class _LiveTerminalCardState extends State<LiveTerminalCard> {
     if (isWorking) {
       final workingEntries = widget.state.entriesForTier(3);
       if (workingEntries.isNotEmpty) {
-        targetId = workingEntries.first.eventId;
+        final sorted = workingEntries.toList()
+          ..sort((a, b) {
+            final evA = widget.state.eventFor(a.eventId);
+            final evB = widget.state.eventFor(b.eventId);
+            final seqA = evA?.seq ?? a.seq;
+            final seqB = evB?.seq ?? b.seq;
+            return seqB.compareTo(seqA);
+          });
+        targetId = sorted.first.eventId;
       }
     } else if (widget.state.pendingRequests.isNotEmpty) {
-      targetId = widget.state.pendingRequests.first.eventId;
+      final sorted = widget.state.pendingRequests.toList()
+        ..sort((a, b) {
+          final evA = widget.state.eventFor(a.eventId);
+          final evB = widget.state.eventFor(b.eventId);
+          final seqA = evA?.seq ?? a.seq;
+          final seqB = evB?.seq ?? b.seq;
+          return seqB.compareTo(seqA);
+        });
+      targetId = sorted.first.eventId;
     } else {
       final completed = widget.state.entriesForTier(2);
       if (completed.isNotEmpty) {
-        targetId = completed.first.eventId;
+        final sorted = completed.toList()
+          ..sort((a, b) {
+            final evA = widget.state.eventFor(a.eventId);
+            final evB = widget.state.eventFor(b.eventId);
+            final seqA = evA?.seq ?? a.seq;
+            final seqB = evB?.seq ?? b.seq;
+            return seqB.compareTo(seqA);
+          });
+        targetId = sorted.first.eventId;
       }
+    }
+
+    // Fallback: If no tiered queue entry is found, pick the most recent known event
+    if (targetId == null && widget.state.events.isNotEmpty) {
+      final sortedEvents = widget.state.events.values.toList()
+        ..sort((a, b) => b.seq.compareTo(a.seq));
+      targetId = sortedEvents.first.eventId;
     }
 
     if (targetId != _activeEventId) {
       _activeEventId = targetId;
       _fetchLatestLogs();
+    } else if (_activeEventId != null && _logLines.isEmpty) {
+      _fetchLatestLogs(silent: true);
     }
   }
 
@@ -345,11 +366,36 @@ class _LiveTerminalCardState extends State<LiveTerminalCard> {
       final res = await widget.connection.getEventLogs(
         _activeEventId!,
         logOffsetTail,
-        45,
+        150,
       );
       if (!mounted) return;
+      var lines = res.lines;
+      if (lines.isEmpty) {
+        final event = widget.state.eventFor(_activeEventId!);
+        if (event != null && (event.summary.isNotEmpty || event.message.isNotEmpty)) {
+          final syntheticLines = <LogLine>[];
+          final prompt = event.details['prompt'] as String?;
+          if (prompt != null && prompt.isNotEmpty) {
+            syntheticLines.add(LogLine(offset: 0, ts: event.ts, text: '> Prompt: $prompt'));
+            for (final l in prompt.split('\n')) {
+              syntheticLines.add(LogLine(offset: syntheticLines.length, ts: event.ts, text: 'User: $l'));
+            }
+          }
+          if (event.summary.isNotEmpty) {
+            for (final l in event.summary.split('\n')) {
+              syntheticLines.add(LogLine(offset: syntheticLines.length, ts: event.ts, text: l));
+            }
+          }
+          if (event.message.isNotEmpty && event.message != event.summary) {
+            for (final l in event.message.split('\n')) {
+              syntheticLines.add(LogLine(offset: syntheticLines.length, ts: event.ts, text: l));
+            }
+          }
+          lines = syntheticLines;
+        }
+      }
       setState(() {
-        _logLines = res.lines;
+        _logLines = lines;
       });
       _scrollToBottom();
     } catch (_) {}
@@ -386,8 +432,16 @@ class _LiveTerminalCardState extends State<LiveTerminalCard> {
         lower.startsWith('> user selected:') ||
         lower.startsWith('> user approved') ||
         lower.startsWith('> user denied') ||
-        lower.startsWith('> user input:')) {
+        lower.startsWith('> user input:') ||
+        line.startsWith('User:')) {
       return const Color(0xFF58D68D); // Bright Mint / Emerald for user input
+    }
+    if (line.startsWith('Agent:') ||
+        line.startsWith('●') ||
+        line.startsWith('▸') ||
+        lower.startsWith('executing prompt:') ||
+        lower.startsWith('agent:')) {
+      return const Color(0xFF79C0FF); // Light Blue / Cyan for agent text
     }
     if (line.startsWith('>') || line.startsWith('\$') || lower.contains('compiling') || lower.contains('running')) {
       return const Color(0xFF58A6FF); // Cyan / Blue
@@ -440,34 +494,13 @@ class _LiveTerminalCardState extends State<LiveTerminalCard> {
             ),
             child: Row(
               children: [
-                // Window control dots
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFF5F56),
-                    shape: BoxShape.circle,
-                  ),
+                // Terminal header title
+                const Icon(
+                  Icons.terminal,
+                  size: 16,
+                  color: Color(0xFF8B949E),
                 ),
-                const SizedBox(width: 6),
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFBD2E),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF27C93F),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 const Text(
                   'TERMINAL STREAM',
                   style: TextStyle(
@@ -515,173 +548,210 @@ class _LiveTerminalCardState extends State<LiveTerminalCard> {
                   ),
                 ),
                 // Copy Button
-                InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: _logLines.isEmpty
-                      ? null
-                      : () {
-                          widget.metrics.recordTap();
-                          final fullText = _logLines.map((l) => l.text).join('\n');
-                          Clipboard.setData(ClipboardData(text: fullText));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Terminal output copied to clipboard! 📋'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      Icons.copy_rounded,
-                      size: 13,
-                      color: isDark ? const Color(0xFF8B949E) : Colors.grey.shade400,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                // Fullscreen Button
-                if (_activeEventId != null)
-                  InkWell(
+                Tooltip(
+                  message: 'Copy terminal output',
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(6),
                     onTap: () {
                       widget.metrics.recordTap();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => LogViewerScreen(
-                            eventId: _activeEventId!,
-                            connection: widget.connection,
-                            metrics: widget.metrics,
-                          ),
+                      final fullText = _logLines.isNotEmpty
+                          ? _logLines.map((l) => l.text).join('\n')
+                          : [
+                              'agentdesk-daemon v${widget.state.welcome?.daemonVersion ?? "0.1.0"} • ${widget.connection.status == ConnectionStatus.connected ? "relay connected" : "standby"}',
+                              if (widget.state.welcome != null)
+                                'pipeline: ${widget.state.welcome!.pipelineMode.name} • transport: ${widget.state.welcome!.transport.name}',
+                              if (event != null)
+                                'task: ${event.summary}',
+                              if (event != null && event.message.isNotEmpty)
+                                'detail: ${event.message}',
+                              '> agent waiting for prompt',
+                            ].join('\n');
+                      Clipboard.setData(ClipboardData(text: fullText));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Terminal output copied to clipboard! 📋'),
+                          duration: Duration(seconds: 2),
                         ),
                       );
                     },
                     child: Padding(
-                      padding: const EdgeInsets.all(4.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 7.0, vertical: 5.0),
                       child: Icon(
-                        Icons.open_in_full,
-                        size: 13,
+                        Icons.copy_rounded,
+                        size: 15,
                         color: isDark ? const Color(0xFF8B949E) : Colors.grey.shade400,
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(width: 4),
+                // Fullscreen Button
+                Tooltip(
+                  message: 'Fullscreen viewer',
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      widget.metrics.recordTap();
+                      final evId = _activeEventId ?? (widget.state.events.isNotEmpty ? widget.state.events.values.first.eventId : null);
+                      if (evId != null) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => LogViewerScreen(
+                              eventId: evId,
+                              connection: widget.connection,
+                              metrics: widget.metrics,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 7.0, vertical: 5.0),
+                      child: Icon(
+                        Icons.open_in_full,
+                        size: 15,
+                        color: isDark ? const Color(0xFF8B949E) : Colors.grey.shade400,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           // Terminal Output Stream Body
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: _logLines.isNotEmpty
-                  ? Stack(
-                      children: [
-                        NotificationListener<ScrollNotification>(
-                          onNotification: (notification) {
-                            if (notification is ScrollUpdateNotification) {
+            child: SelectionContainer.disabled(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: _logLines.isNotEmpty
+                    ? Stack(
+                        children: [
+                          NotificationListener<ScrollNotification>(
+                            onNotification: (notification) {
                               if (_scrollController.hasClients) {
                                 final max = _scrollController.position.maxScrollExtent;
                                 final current = _scrollController.position.pixels;
-                                final isScrolledUp = (max - current) > 60;
+                                final isScrolledUp = (max - current) > 15;
                                 if (isScrolledUp != _userScrolledUp) {
                                   setState(() {
                                     _userScrolledUp = isScrolledUp;
                                   });
                                 }
                               }
-                            }
-                            return false;
-                          },
-                          child: ListView.builder(
-                            key: const Key('home_live_terminal_list'),
-                            controller: _scrollController,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            itemCount: _logLines.length + 1,
-                            itemBuilder: (context, index) {
-                              if (index == _logLines.length) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        isWorking ? '> executing... ' : '> ready ',
-                                        style: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 11,
-                                          color: Color(0xFF6E7681),
-                                        ),
-                                      ),
-                                      const _BlinkingCursor(),
-                                    ],
-                                  ),
-                                );
-                              }
-                              final line = _logLines[index].text;
-                              final isUserInput = line.startsWith('> Prompt:') ||
-                                  line.startsWith('> User') ||
-                                  line.toLowerCase().startsWith('> user selected:') ||
-                                  line.toLowerCase().startsWith('> user approved') ||
-                                  line.toLowerCase().startsWith('> user denied') ||
-                                  line.toLowerCase().startsWith('> user input:');
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
-                                child: Text(
-                                  line,
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                    fontWeight: isUserInput ? FontWeight.w700 : FontWeight.normal,
-                                    color: _colorForLine(line),
-                                    height: 1.35,
-                                  ),
-                                ),
-                              );
+                              return false;
                             },
-                          ),
-                        ),
-                        if (_userScrolledUp)
-                          Positioned(
-                            bottom: 4,
-                            right: 4,
-                            child: Material(
-                              color: isDark ? const Color(0xFF21262D) : const Color(0xFF30363D),
-                              borderRadius: BorderRadius.circular(14),
-                              elevation: 4,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () {
-                                  setState(() {
-                                    _userScrolledUp = false;
-                                  });
-                                  _scrollToBottom(force: true);
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.arrow_downward_rounded,
-                                        size: 13,
-                                        color: AppTheme.primaryCyan,
+                            child: Scrollbar(
+                              controller: _scrollController,
+                              thumbVisibility: _userScrolledUp,
+                              child: ListView.builder(
+                                key: const Key('home_live_terminal_list'),
+                                controller: _scrollController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                itemCount: _logLines.length + 1,
+                                itemBuilder: (context, index) {
+                                  if (index == _logLines.length) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            isWorking ? '> executing... ' : '> ready ',
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 11,
+                                              color: Color(0xFF6E7681),
+                                            ),
+                                          ),
+                                          const _BlinkingCursor(),
+                                        ],
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Scroll to bottom',
+                                    );
+                                  }
+                                  final line = _logLines[index].text;
+                                  final isUserInput = line.startsWith('> Prompt:') ||
+                                      line.startsWith('> User') ||
+                                      line.toLowerCase().startsWith('> user selected:') ||
+                                      line.toLowerCase().startsWith('> user approved') ||
+                                      line.toLowerCase().startsWith('> user denied') ||
+                                      line.toLowerCase().startsWith('> user input:') ||
+                                      line.startsWith('User:');
+                                  final isAgentText = line.startsWith('Agent:') ||
+                                      line.startsWith('●') ||
+                                      line.startsWith('▸') ||
+                                      line.toLowerCase().startsWith('executing prompt:');
+                                  return InkWell(
+                                    borderRadius: BorderRadius.circular(4),
+                                    onLongPress: () {
+                                      Clipboard.setData(ClipboardData(text: line));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Copied line to clipboard! 📋\n"$line"'),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(bottom: 2),
+                                      child: Text(
+                                        line,
                                         style: TextStyle(
                                           fontFamily: 'monospace',
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.primaryCyan,
+                                          fontSize: 11,
+                                          fontWeight: (isUserInput || isAgentText) ? FontWeight.w700 : FontWeight.normal,
+                                          color: _colorForLine(line),
+                                          height: 1.35,
                                         ),
                                       ),
-                                    ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          if (_userScrolledUp)
+                            Positioned(
+                              bottom: 4,
+                              right: 4,
+                              child: Material(
+                                color: isDark ? const Color(0xFF21262D) : const Color(0xFF30363D),
+                                borderRadius: BorderRadius.circular(14),
+                                elevation: 4,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () {
+                                    setState(() {
+                                      _userScrolledUp = false;
+                                    });
+                                    _scrollToBottom(force: true);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.arrow_downward_rounded,
+                                          size: 13,
+                                          color: AppTheme.primaryCyan,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Scroll to bottom',
+                                          style: TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryCyan,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    )
+                        ],
+                      )
                   : SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       child: Column(
@@ -729,8 +799,9 @@ class _LiveTerminalCardState extends State<LiveTerminalCard> {
                         ],
                       ),
                     ),
+                ),
+              ),
             ),
-          ),
           // Action Buttons Bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),

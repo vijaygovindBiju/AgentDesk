@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crossterm::event::{
-    Event as CrosstermEvent, EventStream, KeyCode, KeyEvent, KeyModifiers,
+    DisableMouseCapture, EnableMouseCapture, Event as CrosstermEvent, EventStream, KeyCode,
+    KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 use crossterm::execute;
 use crossterm::terminal::{
@@ -24,7 +25,10 @@ use crate::pairing::load_session_file;
 use crate::tui::client::{TuiBridge, TuiEvent};
 use crate::tui::key_encoder::encode_key_event;
 use crate::tui::preferences::{WorkspacePreferences, save_preferences};
-use crate::tui::state::{ActiveTerminalTab, DashboardSection, DisclosureLevel, PairingMode, Screen, TuiState, WorkspaceOverlay};
+use crate::tui::state::{
+    DashboardSection, DisclosureLevel, PairingMode, Screen, TextSelection,
+    TuiState, WorkspaceOverlay,
+};
 use crate::tui::terminal_session::TerminalSession;
 use crate::tui::views::render_ui;
 
@@ -34,6 +38,8 @@ pub struct TuiApp {
     pub rx_events: mpsc::Receiver<TuiEvent>,
     pub config_dir: PathBuf,
     pub state_machine: agentdesk_core::AntigravityStateMachine,
+    pub last_click: Option<(std::time::Instant, u16, u16)>,
+    pub click_count: usize,
 }
 
 impl TuiApp {
@@ -49,6 +55,8 @@ impl TuiApp {
             rx_events,
             config_dir,
             state_machine: agentdesk_core::AntigravityStateMachine::new("antigravity-tui"),
+            last_click: None,
+            click_count: 0,
         }
     }
 
@@ -57,7 +65,14 @@ impl TuiApp {
         // Safe terminal setup
         enable_raw_mode()?;
         let mut stdout = stdout();
-        execute!(stdout, EnterAlternateScreen)?;
+        execute!(
+            stdout,
+            EnterAlternateScreen,
+            EnableMouseCapture,
+            crossterm::event::PushKeyboardEnhancementFlags(
+                crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+            )
+        )?;
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
 
@@ -65,8 +80,13 @@ impl TuiApp {
         let default_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
             crate::logging::set_suppress_stderr(false);
+            let _ = execute!(
+                io::stdout(),
+                crossterm::event::PopKeyboardEnhancementFlags,
+                LeaveAlternateScreen,
+                DisableMouseCapture
+            );
             let _ = disable_raw_mode();
-            let _ = execute!(io::stdout(), LeaveAlternateScreen);
             default_hook(info);
         }));
 
@@ -81,8 +101,13 @@ impl TuiApp {
 
         // Restore terminal
         crate::logging::set_suppress_stderr(false);
+        let _ = execute!(
+            terminal.backend_mut(),
+            crossterm::event::PopKeyboardEnhancementFlags,
+            LeaveAlternateScreen,
+            DisableMouseCapture
+        );
         disable_raw_mode()?;
-        execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
         terminal.show_cursor()?;
 
         res
@@ -97,7 +122,11 @@ impl TuiApp {
         loop {
             if let Ok(size) = terminal.size() {
                 let term_cols = size.width;
-                let term_rows = size.height.saturating_sub(2);
+                let term_rows = if self.state.terminal_only_mode {
+                    size.height
+                } else {
+                    size.height.saturating_sub(2)
+                };
                 if let Some(ref mut session) = self.state.shell_session {
                     session.resize(term_cols, term_rows);
                     session.pump_output();
@@ -120,10 +149,30 @@ impl TuiApp {
                                 break; // User requested quit
                             }
                         }
+                        CrosstermEvent::Mouse(mouse) => {
+                            self.handle_mouse(mouse);
+                        }
                         CrosstermEvent::Resize(cols, rows) => {
+                            let term_rows = if self.state.terminal_only_mode {
+                                rows
+                            } else {
+                                rows.saturating_sub(2)
+                            };
                             if let Some(ref mut session) = self.state.shell_session {
-                                session.resize(cols, rows.saturating_sub(2));
+                                session.resize(cols, term_rows);
                                 session.pump_output();
+                            }
+                        }
+                        CrosstermEvent::Paste(text) => {
+                            if let Some(ref mut session) = self.state.shell_session {
+                                if session.screen.bracketed_paste {
+                                    let _ = session.send_input(b"\x1b[200~");
+                                    let _ = session.send_input(text.as_bytes());
+                                    let _ = session.send_input(b"\x1b[201~");
+                                } else {
+                                    let _ = session.send_input(text.as_bytes());
+                                }
+                                let _ = session.pump_output();
                             }
                         }
                         _ => {}
@@ -147,6 +196,251 @@ impl TuiApp {
             }
         }
     }
+
+    fn handle_mouse(&mut self, mouse: MouseEvent) {
+        if self.state.current_screen == Screen::Workspace
+            && self.state.workspace_overlay == WorkspaceOverlay::None
+        {
+            let term_y = if self.state.terminal_only_mode { 0 } else { 1 };
+            let term_height = self
+                .state
+                .shell_session
+                .as_ref()
+                .map(|s| s.screen.rows)
+                .unwrap_or(24);
+            let term_width = self
+                .state
+                .shell_session
+                .as_ref()
+                .map(|s| s.screen.cols)
+                .unwrap_or(80);
+
+            let is_inside_terminal = mouse.row >= term_y
+                && mouse.row < term_y + term_height
+                && mouse.column < term_width;
+
+            let grid_row = mouse.row.saturating_sub(term_y);
+            let grid_col = mouse.column;
+
+            // Forward mouse event to child process if mouse tracking is active
+            if is_inside_terminal && self.state.shell_session.as_ref().map(|s| s.mouse_tracking).unwrap_or(false) {
+                let col_1based = grid_col + 1;
+                let row_1based = grid_row + 1;
+                let (cb, is_release) = match mouse.kind {
+                    MouseEventKind::Down(MouseButton::Left) => (0, false),
+                    MouseEventKind::Down(MouseButton::Middle) => (1, false),
+                    MouseEventKind::Down(MouseButton::Right) => (2, false),
+                    MouseEventKind::Up(MouseButton::Left) => (0, true),
+                    MouseEventKind::Up(MouseButton::Middle) => (1, true),
+                    MouseEventKind::Up(MouseButton::Right) => (2, true),
+                    MouseEventKind::Drag(MouseButton::Left) => (32, false),
+                    MouseEventKind::ScrollUp => (64, false),
+                    MouseEventKind::ScrollDown => (65, false),
+                    _ => (0, false),
+                };
+                let suffix = if is_release { 'm' } else { 'M' };
+                let sgr = format!("\x1b[<{};{};{}{}", cb, col_1based, row_1based, suffix);
+                if let Some(ref mut session) = self.state.shell_session {
+                    let _ = session.send_input(sgr.as_bytes());
+                    let _ = session.pump_output();
+                }
+                return;
+            }
+
+            match mouse.kind {
+                MouseEventKind::ScrollUp => {
+                    let max_scroll = self
+                        .state
+                        .shell_session
+                        .as_ref()
+                        .map(|s| s.screen.scrollback().len())
+                        .unwrap_or(0);
+                    self.state.terminal_scroll =
+                        std::cmp::min(self.state.terminal_scroll + 3, max_scroll);
+                    self.state.terminal_selection = None;
+                    self.state.is_mouse_selecting = false;
+                }
+                MouseEventKind::ScrollDown => {
+                    self.state.terminal_scroll = self.state.terminal_scroll.saturating_sub(3);
+                    self.state.terminal_selection = None;
+                    self.state.is_mouse_selecting = false;
+                }
+                MouseEventKind::Down(MouseButton::Left) => {
+                    if is_inside_terminal {
+                        let now = std::time::Instant::now();
+                        let is_same_cell = self
+                            .last_click
+                            .map(|(inst, r, c)| r == grid_row && c == grid_col && inst.elapsed() < Duration::from_millis(500))
+                            .unwrap_or(false);
+                        if is_same_cell {
+                            self.click_count = (self.click_count % 3) + 1;
+                        } else {
+                            self.click_count = 1;
+                        }
+                        self.last_click = Some((now, grid_row, grid_col));
+
+                        if self.click_count == 2 {
+                            // Double-click word selection
+                            if let Some(ref session) = self.state.shell_session {
+                                let line_text = if self.state.terminal_scroll == 0 {
+                                    session.screen.row_text(grid_row)
+                                } else {
+                                    let sb = session.screen.scrollback();
+                                    let source = (grid_row as isize) - (self.state.terminal_scroll as isize);
+                                    if source < 0 {
+                                        let idx = (sb.len() as isize) + source;
+                                        if idx >= 0 && (idx as usize) < sb.len() {
+                                            sb[idx as usize].clone()
+                                        } else {
+                                            String::new()
+                                        }
+                                    } else {
+                                        session.screen.row_text(source as u16)
+                                    }
+                                };
+                                let (word_start, word_end) = find_word_boundaries(&line_text, grid_col as usize);
+                                let sel = TextSelection {
+                                    start_row: grid_row,
+                                    start_col: word_start,
+                                    end_row: grid_row,
+                                    end_col: word_end,
+                                };
+                                self.state.terminal_selection = Some(sel);
+                                self.state.is_mouse_selecting = false;
+                                let selected_text = crate::tui::views::workspace::extract_selected_text(
+                                    &session.screen,
+                                    self.state.terminal_scroll,
+                                    session.screen.rows,
+                                    session.screen.cols,
+                                    sel,
+                                );
+                                if !selected_text.trim().is_empty() {
+                                    crate::tui::clipboard::copy_to_clipboard(&selected_text);
+                                    self.state.clipboard_notice = Some((
+                                        format!("Copied: {}", selected_text),
+                                        std::time::Instant::now(),
+                                    ));
+                                }
+                            }
+                        } else if self.click_count == 3 {
+                            // Triple-click line selection
+                            if let Some(ref session) = self.state.shell_session {
+                                let sel = TextSelection {
+                                    start_row: grid_row,
+                                    start_col: 0,
+                                    end_row: grid_row,
+                                    end_col: term_width.saturating_sub(1),
+                                };
+                                self.state.terminal_selection = Some(sel);
+                                self.state.is_mouse_selecting = false;
+                                let selected_text = crate::tui::views::workspace::extract_selected_text(
+                                    &session.screen,
+                                    self.state.terminal_scroll,
+                                    session.screen.rows,
+                                    session.screen.cols,
+                                    sel,
+                                );
+                                if !selected_text.trim().is_empty() {
+                                    crate::tui::clipboard::copy_to_clipboard(&selected_text);
+                                    self.state.clipboard_notice = Some((
+                                        format!("Copied line ({} chars)", selected_text.chars().count()),
+                                        std::time::Instant::now(),
+                                    ));
+                                }
+                            }
+                        } else {
+                            self.state.terminal_selection = Some(TextSelection {
+                                start_col: grid_col,
+                                start_row: grid_row,
+                                end_col: grid_col,
+                                end_row: grid_row,
+                            });
+                            self.state.is_mouse_selecting = true;
+                        }
+                    } else {
+                        self.state.terminal_selection = None;
+                        self.state.is_mouse_selecting = false;
+                    }
+                }
+                MouseEventKind::Drag(MouseButton::Left) => {
+                    if self.state.is_mouse_selecting {
+                        if mouse.row < term_y {
+                            let max_scroll = self
+                                .state
+                                .shell_session
+                                .as_ref()
+                                .map(|s| s.screen.scrollback().len())
+                                .unwrap_or(0);
+                            self.state.terminal_scroll =
+                                std::cmp::min(self.state.terminal_scroll + 1, max_scroll);
+                        } else if mouse.row >= term_y + term_height {
+                            self.state.terminal_scroll = self.state.terminal_scroll.saturating_sub(1);
+                        }
+
+                        let clamped_row = std::cmp::min(grid_row, term_height.saturating_sub(1));
+                        let clamped_col = std::cmp::min(grid_col, term_width.saturating_sub(1));
+                        if let Some(ref mut sel) = self.state.terminal_selection {
+                            sel.end_col = clamped_col;
+                            sel.end_row = clamped_row;
+                        }
+                    }
+                }
+                MouseEventKind::Up(MouseButton::Left) => {
+                    if self.state.is_mouse_selecting {
+                        self.state.is_mouse_selecting = false;
+                        if let Some(sel) = self.state.terminal_selection {
+                            if sel.start_col != sel.end_col || sel.start_row != sel.end_row {
+                                if let Some(ref session) = self.state.shell_session {
+                                    let selected_text = crate::tui::views::workspace::extract_selected_text(
+                                        &session.screen,
+                                        self.state.terminal_scroll,
+                                        session.screen.rows,
+                                        session.screen.cols,
+                                        sel,
+                                    );
+                                    if !selected_text.trim().is_empty() {
+                                        crate::tui::clipboard::copy_to_clipboard(&selected_text);
+                                        self.state.clipboard_notice = Some((
+                                            format!("Copied {} chars", selected_text.chars().count()),
+                                            std::time::Instant::now(),
+                                        ));
+                                    }
+                                }
+                            } else {
+                                self.state.terminal_selection = None;
+                            }
+                        }
+                    }
+                }
+                MouseEventKind::Down(MouseButton::Right) => {
+                    self.state.terminal_selection = None;
+                    self.state.is_mouse_selecting = false;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn find_word_boundaries(line: &str, col: usize) -> (u16, u16) {
+    let chars: Vec<char> = line.chars().collect();
+    if chars.is_empty() {
+        return (0, 0);
+    }
+    let col = col.min(chars.len().saturating_sub(1));
+    let is_word_char = |c: char| c.is_alphanumeric() || c == '_' || c == '-' || c == '.' || c == ':';
+    let mut start = col;
+    while start > 0 && is_word_char(chars[start - 1]) {
+        start -= 1;
+    }
+    let mut end = col;
+    while end + 1 < chars.len() && is_word_char(chars[end + 1]) {
+        end += 1;
+    }
+    (start as u16, end as u16)
+}
+
+impl TuiApp {
 
     async fn handle_daemon_event(&mut self, event: TuiEvent) {
         match event {
@@ -254,7 +548,6 @@ impl TuiApp {
                     }
                 }
 
-                self.inspect_shell_screen().await;
                 self.state.current_screen = Screen::Workspace;
                 self.state.workspace_overlay = WorkspaceOverlay::None;
                 self.state.agent_session_running = true;
@@ -414,6 +707,11 @@ impl TuiApp {
                 }
                 KeyCode::Char('d') | KeyCode::Char('p') | KeyCode::F(2) => {
                     self.state.open_project_select();
+                    return Ok(false);
+                }
+                KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.state.terminal_only_mode = true;
+                    self.launch_selected_agent().await;
                     return Ok(false);
                 }
                 KeyCode::Enter => {
@@ -689,6 +987,62 @@ impl TuiApp {
                             _ => {}
                         }
                     }
+                    WorkspaceOverlay::Search => {
+                        match key.code {
+                            KeyCode::Esc | KeyCode::Enter => {
+                                self.state.workspace_overlay = WorkspaceOverlay::None;
+                            }
+                            KeyCode::Backspace => {
+                                self.state.search_query.pop();
+                                self.state.perform_regex_search();
+                            }
+                            KeyCode::Char('n') => {
+                                self.state.select_next_search_match();
+                            }
+                            KeyCode::Char('N') => {
+                                self.state.select_prev_search_match();
+                            }
+                            KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                                self.state.search_query.push(c);
+                                self.state.perform_regex_search();
+                            }
+                            _ => {}
+                        }
+                    }
+                    WorkspaceOverlay::UrlPicker => {
+                        match key.code {
+                            KeyCode::Esc => {
+                                self.state.workspace_overlay = WorkspaceOverlay::None;
+                            }
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                if self.state.url_picker_index > 0 {
+                                    self.state.url_picker_index -= 1;
+                                }
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                if !self.state.detected_urls.is_empty()
+                                    && self.state.url_picker_index + 1 < self.state.detected_urls.len()
+                                {
+                                    self.state.url_picker_index += 1;
+                                }
+                            }
+                            KeyCode::Enter => {
+                                if let Some(url) = self.state.detected_urls.get(self.state.url_picker_index).cloned() {
+                                    crate::tui::clipboard::open_url_in_browser(&url);
+                                    self.state.clipboard_notice = Some((format!("Opened {}", url), std::time::Instant::now()));
+                                }
+                                self.state.workspace_overlay = WorkspaceOverlay::None;
+                            }
+                            KeyCode::Char('c') | KeyCode::Char('y') => {
+                                if let Some(url) = self.state.detected_urls.get(self.state.url_picker_index).cloned() {
+                                    crate::tui::clipboard::copy_to_clipboard(&url);
+                                    self.state.clipboard_notice = Some(("Copied URL to clipboard".into(), std::time::Instant::now()));
+                                }
+                                self.state.workspace_overlay = WorkspaceOverlay::None;
+                            }
+                            _ => {}
+                        }
+                    }
                     _ => {
                         self.state.workspace_overlay = WorkspaceOverlay::None;
                     }
@@ -697,6 +1051,142 @@ impl TuiApp {
             }
 
             // In Workspace without overlay:
+            // Check visual mode navigation
+            if self.state.is_visual_mode {
+                let max_cols = self.state.shell_session.as_ref().map(|s| s.screen.cols).unwrap_or(80);
+                let max_rows = self.state.shell_session.as_ref().map(|s| s.screen.rows).unwrap_or(24);
+                match key.code {
+                    KeyCode::Esc => {
+                        self.state.is_visual_mode = false;
+                        self.state.terminal_selection = None;
+                        return Ok(false);
+                    }
+                    KeyCode::Char('y') => {
+                        if let Some(ref session) = self.state.shell_session {
+                            if let Some(sel) = self.state.terminal_selection {
+                                let text = crate::tui::views::workspace::extract_selected_text(
+                                    &session.screen,
+                                    self.state.terminal_scroll,
+                                    session.screen.rows,
+                                    session.screen.cols,
+                                    sel,
+                                );
+                                if !text.is_empty() {
+                                    crate::tui::clipboard::copy_to_clipboard(&text);
+                                    self.state.clipboard_notice = Some((
+                                        format!("Yanked {} chars", text.chars().count()),
+                                        std::time::Instant::now(),
+                                    ));
+                                }
+                            }
+                        }
+                        self.state.is_visual_mode = false;
+                        self.state.terminal_selection = None;
+                        return Ok(false);
+                    }
+                    KeyCode::Left | KeyCode::Char('h') => {
+                        self.state.move_visual_cursor(0, -1, max_rows, max_cols);
+                        return Ok(false);
+                    }
+                    KeyCode::Right | KeyCode::Char('l') => {
+                        self.state.move_visual_cursor(0, 1, max_rows, max_cols);
+                        return Ok(false);
+                    }
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        self.state.move_visual_cursor(-1, 0, max_rows, max_cols);
+                        return Ok(false);
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        self.state.move_visual_cursor(1, 0, max_rows, max_cols);
+                        return Ok(false);
+                    }
+                    _ => {}
+                }
+            }
+
+            // Ctrl+F in terminal view: Toggles terminal-only mode on and off
+            if key.code == KeyCode::Char('f') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                self.state.terminal_only_mode = !self.state.terminal_only_mode;
+                if let Some(ref mut session) = self.state.shell_session {
+                    let rows = if self.state.terminal_only_mode {
+                        session.screen.rows.saturating_add(2)
+                    } else {
+                        session.screen.rows.saturating_sub(2)
+                    };
+                    session.resize(session.screen.cols, rows);
+                    session.pump_output();
+                }
+                return Ok(false);
+            }
+
+            // Ctrl+] or Ctrl+Q in terminal-only mode: Detaches from active terminal and returns to supervisor view
+            if self.state.terminal_only_mode
+                && ((key.code == KeyCode::Char(']') && key.modifiers.contains(KeyModifiers::CONTROL))
+                    || (key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::CONTROL)))
+            {
+                self.state.terminal_only_mode = false;
+                self.state.current_screen = self.state.previous_screen.unwrap_or(Screen::Dashboard);
+                if let Some(ref mut session) = self.state.shell_session {
+                    let rows = session.screen.rows.saturating_sub(2);
+                    session.resize(session.screen.cols, rows);
+                    session.pump_output();
+                }
+                return Ok(false);
+            }
+
+            // Interactive URL Picker (o / Ctrl+O)
+            if (key.code == KeyCode::Char('o') && key.modifiers.contains(KeyModifiers::CONTROL))
+                || ((self.state.terminal_only_mode || self.state.terminal_scroll > 0)
+                    && key.code == KeyCode::Char('o')
+                    && !key.modifiers.contains(KeyModifiers::CONTROL))
+            {
+                self.state.scan_terminal_urls();
+                self.state.workspace_overlay = WorkspaceOverlay::UrlPicker;
+                return Ok(false);
+            }
+
+            // Scrollback Regex Search (/)
+            if (self.state.terminal_only_mode || self.state.terminal_scroll > 0)
+                && key.code == KeyCode::Char('/')
+                && !key.modifiers.contains(KeyModifiers::CONTROL)
+            {
+                self.state.search_query.clear();
+                self.state.search_matches.clear();
+                self.state.search_match_index = 0;
+                self.state.workspace_overlay = WorkspaceOverlay::Search;
+                return Ok(false);
+            }
+
+            // Navigate search matches with n / N
+            if (self.state.terminal_only_mode || self.state.terminal_scroll > 0)
+                && !self.state.search_matches.is_empty()
+            {
+                if key.code == KeyCode::Char('n') && !key.modifiers.contains(KeyModifiers::CONTROL) {
+                    self.state.select_next_search_match();
+                    return Ok(false);
+                }
+                if key.code == KeyCode::Char('N')
+                    || (key.code == KeyCode::Char('n') && key.modifiers.contains(KeyModifiers::SHIFT))
+                {
+                    self.state.select_prev_search_match();
+                    return Ok(false);
+                }
+            }
+
+            // Visual Keyboard Selection (v)
+            if (self.state.terminal_only_mode || self.state.terminal_scroll > 0)
+                && key.code == KeyCode::Char('v')
+                && !key.modifiers.contains(KeyModifiers::CONTROL)
+            {
+                let (cr, cc) = if let Some(ref session) = self.state.shell_session {
+                    (session.screen.cursor_row, session.screen.cursor_col)
+                } else {
+                    (0, 0)
+                };
+                self.state.start_visual_mode(cr, cc);
+                return Ok(false);
+            }
+
             // Check hotkeys
             if key.code == KeyCode::F(1) || (key.code == KeyCode::Char('a') && key.modifiers.contains(KeyModifiers::ALT)) {
                 self.state.agent_switch_index = self.state.selected_agent_index;
@@ -720,10 +1210,26 @@ impl TuiApp {
                 return Ok(false);
             }
             if key.code == KeyCode::F(6) || (key.code == KeyCode::Char('t') && key.modifiers.contains(KeyModifiers::ALT)) {
-                self.state.active_terminal_tab = match self.state.active_terminal_tab {
-                    ActiveTerminalTab::Shell => ActiveTerminalTab::Agent,
-                    ActiveTerminalTab::Agent => ActiveTerminalTab::Shell,
+                // Cycle split pane layout: Single -> Horizontal -> Vertical -> Single
+                self.state.split_layout = match self.state.split_layout {
+                    crate::tui::state::SplitPaneLayout::Single => crate::tui::state::SplitPaneLayout::Horizontal,
+                    crate::tui::state::SplitPaneLayout::Horizontal => crate::tui::state::SplitPaneLayout::Vertical,
+                    crate::tui::state::SplitPaneLayout::Vertical => crate::tui::state::SplitPaneLayout::Single,
                 };
+                self.state.pane_zoomed = false;
+                return Ok(false);
+            }
+            // Switch pane focus: Ctrl+W or Tab in split mode
+            if key.code == KeyCode::Char('w') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                self.state.pane_focus = match self.state.pane_focus {
+                    crate::tui::state::PaneFocus::Primary => crate::tui::state::PaneFocus::Secondary,
+                    crate::tui::state::PaneFocus::Secondary => crate::tui::state::PaneFocus::Primary,
+                };
+                return Ok(false);
+            }
+            // Zoom / Fullscreen toggle pane: Alt+Z
+            if key.code == KeyCode::Char('z') && key.modifiers.contains(KeyModifiers::ALT) {
+                self.state.pane_zoomed = !self.state.pane_zoomed;
                 return Ok(false);
             }
             if key.code == KeyCode::F(8) {
@@ -741,6 +1247,42 @@ impl TuiApp {
                 return Ok(false);
             }
 
+            // PageUp / PageDown in Workspace (without overlay) scroll terminal scrollback
+            if key.code == KeyCode::PageUp {
+                let max_scroll = self
+                    .state
+                    .shell_session
+                    .as_ref()
+                    .map(|s| s.screen.scrollback().len())
+                    .unwrap_or(0);
+                self.state.terminal_scroll =
+                    std::cmp::min(self.state.terminal_scroll + 15, max_scroll);
+                return Ok(false);
+            }
+            if key.code == KeyCode::PageDown {
+                self.state.terminal_scroll = self.state.terminal_scroll.saturating_sub(15);
+                return Ok(false);
+            }
+
+            // Clear selection on key press (Esc clears selection without forwarding Esc to shell)
+            if self.state.terminal_selection.is_some() {
+                self.state.terminal_selection = None;
+                if key.code == KeyCode::Esc {
+                    return Ok(false);
+                }
+            }
+
+            // If terminal is scrolled up into history:
+            // Esc resets scrollback to 0 without sending Esc to shell
+            if self.state.terminal_scroll > 0 && key.code == KeyCode::Esc {
+                self.state.terminal_scroll = 0;
+                return Ok(false);
+            }
+            // Any other typing or Enter resets scrollback back to 0 so prompt is visible
+            if self.state.terminal_scroll > 0 {
+                self.state.terminal_scroll = 0;
+            }
+
             // All other keystrokes go straight to the active PTY!
             if let Some(bytes) = encode_key_event(key) {
                 if let Some(ref mut session) = self.state.shell_session {
@@ -749,6 +1291,20 @@ impl TuiApp {
                 }
                 self.inspect_shell_screen().await;
             }
+            return Ok(false);
+        }
+
+        // Ctrl+F from sessions list directly opens selected session into terminal-only full-screen mode
+        if key.code == KeyCode::Char('f') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.state.terminal_only_mode = true;
+            self.state.previous_screen = Some(self.state.current_screen);
+            if self.state.shell_session.is_none() {
+                let ws = self.state.workspace_dir.clone();
+                if let Ok(session) = TerminalSession::spawn_shell(&ws, 80, 24) {
+                    self.state.shell_session = Some(session);
+                }
+            }
+            self.state.current_screen = Screen::Workspace;
             return Ok(false);
         }
 
@@ -1419,7 +1975,6 @@ impl TuiApp {
             }
         }
 
-        self.inspect_shell_screen().await;
         self.state.agent_session_running = true;
     }
 }

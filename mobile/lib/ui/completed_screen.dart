@@ -66,7 +66,37 @@ class CompletedScreen extends StatelessWidget {
             actions: [_buildControlAction(context), const SizedBox(width: 8)],
           ),
           body: entries.isEmpty
-              ? const Center(child: Text('No completed tasks yet.'))
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.task_alt,
+                          size: 48,
+                          color: isDark ? AppTheme.textSecondary : Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No completed tasks yet',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Finished tasks and work summaries from your coding agent will appear here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppTheme.textSecondary : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: entries.length,
