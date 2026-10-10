@@ -183,7 +183,20 @@ A normal user should need only:
 
 The user should **not** install or understand Rust, Cargo, Flutter, Dart, Android Studio, Android SDK tools, ADB, Git, Node.js, npm, Java/JDK, compilers, build tools, or AgentDesk source code.
 
-### Linux laptop
+### Quick Run with npx / npm
+
+If you have Node.js installed, you can launch AgentDesk immediately:
+
+```bash
+# Run immediately without installation
+npx agentdesk
+
+# Or install globally
+npm install -g agentdesk
+agentdesk
+```
+
+### Linux Laptop (Native Installer)
 
 Once a matching prebuilt GitHub Release is published, copy and run this one command:
 

@@ -1,0 +1,40 @@
+{
+  "name": "agentdesk",
+  "version": "0.2.0",
+  "description": "Attention and control layer for interactive coding agents",
+  "bin": {
+    "agentdesk": "./bin/agentdesk.js"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node bin/agentdesk.js --version"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vijaygovindBiju/AgentDesk.git"
+  },
+  "keywords": [
+    "agentdesk",
+    "ai",
+    "coding-agent",
+    "tui",
+    "terminal",
+    "supervisor",
+    "antigravity",
+    "acp",
+    "remote-control"
+  ],
+  "author": "vijaygovindBiju",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/vijaygovindBiju/AgentDesk/issues"
+  },
+  "homepage": "https://github.com/vijaygovindBiju/AgentDesk#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
