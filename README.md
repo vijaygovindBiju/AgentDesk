@@ -160,9 +160,13 @@ This rule prevents arbitrary agent output, repository content, or tool output fr
 | Device pairing and revocation | QR pairing, per-device credentials, and device registry | ✅ Implemented |
 | Remote connectivity | Outbound WSS/TLS over Public Relay only (no LAN or USB dependencies) | ✅ Implemented |
 | Desktop Terminal Workspace | Interactive terminal emulator hosting `$SHELL` inside a real PTY with VT100/ANSI rendering, SGR styles, and cursor navigation | ✅ Implemented |
+| Split Panes and Zoom | Interactive horizontal/vertical split terminals with live PTY sessions and toggleable zoom view (`Ctrl+S`, `Ctrl+Z`) | ✅ Implemented (v0.2.0) |
+| Visual Selection & Clipboard | Visual selection mode with copy/paste supporting OSC 52, Wayland (`wl-copy`), and X11 (`xclip`) | ✅ Implemented (v0.2.0) |
+| Terminal Search & URL Picker | Regex pattern search in terminal history with navigation (`Ctrl+F`) and interactive URL extractor (`Ctrl+U`) | ✅ Implemented (v0.2.0) |
 | Automatic Agent Discovery | PATH inspection detecting installed coding agents (`agy`, `claude`, `codex`, `gemini`) with honest availability status | ✅ Implemented |
 | Remote prompt dispatch (“start work”) | Submitting new prompts directly from the mobile New Work tab over WSS relay into the agent idle prompt | ✅ Implemented |
 | Full Markdown Result Rendering | Multi-paragraph final response (headers, bullet points, usage code blocks) surfaced prominently on Completed screen and detail view | ✅ Implemented |
+| Mobile UI Supervision Overhaul | Quick action buttons, execution mode selector, and enhanced logs viewer for phone supervision | ✅ Implemented (v0.2.0) |
 | Persistence and offline synchronization | Durable event store, offline command queue, and replay | 📋 Planned |
 | Background notifications | Mobile notifications when the app is not foregrounded | 📋 Planned |
 
@@ -203,12 +207,11 @@ See [Prebuilt Linux Installer](#prebuilt-linux-installer) and [Release Artifacts
 
 ### Android phone
 
-Install `AgentDesk-vX.Y.Z.apk` from the project's published release page. The
-release workflow currently builds the Android ARM64 APK with Flutter's default
-release signing configuration; production signing secrets must be configured
-before distributing it as a production-signed app.
-A normal user must not be asked to install Flutter, Android SDK tools, ADB,
-Gradle, or source code to obtain the phone application.
+Download and install the prebuilt Android client directly:
+- **Direct Repository Download**: [AgentDesk-v0.2.0.apk](AgentDesk-v0.2.0.apk) (ARM64, Android 8.0+)
+- **GitHub Release Page**: [AgentDesk Releases (v0.2.0)](https://github.com/vijaygovindBiju/AgentDesk/releases/tag/v0.2.0)
+
+A normal user does **not** need to install Flutter, Android SDK tools, ADB, Gradle, or compile source code to obtain the phone application. Simply transfer or open the APK on your Android device and install it.
 
 ### Pairing and Remote-First Connectivity
 
@@ -607,17 +610,9 @@ The required production workflow is:
 4. Open the mobile application and pair it with the laptop.
 5. Start a supported coding agent and supervise it from the phone.
 
-The installer and release workflow are implemented, but the current repository
-still has no published GitHub Release. After the first version-matching tag is
-published and its workflow completes, normal users can install the prebuilt
-Linux daemon and Android ARM64 APK without development tooling. There is no
-automatic QR or guided pairing flow yet.
+The release workflow publishes prebuilt daemon binaries and the Android APK for tagged releases. Normal users can install the prebuilt Linux daemon and Android ARM64 APK ([AgentDesk-v0.2.0.apk](AgentDesk-v0.2.0.apk)) without development tooling, and pair instantly using the integrated QR code pairing flow (`agentdesk pair`).
 
-**End-user availability:** Until that first release is published, the normal
-user installation command correctly reports that no release exists. Do not ask
-end users to install Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK,
-Node/npm, compilers, build tools, or source code as a workaround. The
-source-build workflow is for developers and contributors only.
+**End-user availability:** Release assets are distributed on GitHub Releases and in the repository. Do not ask end users to install Rust, Cargo, Flutter, Android SDK tools, ADB, Git, Java/JDK, Node/npm, compilers, build tools, or source code as a workaround. The source-build workflow is for developers and contributors only.
 
 Do not use `--insecure-dev` for production deployment. It enables plaintext `ws://` only on loopback.
 
@@ -756,21 +751,12 @@ On the first daemon run:
 1. The daemon creates or loads its shared authentication token in the configured AgentDesk directory.
 2. In TLS mode, it creates or loads the self-signed certificate and prints its SHA-256 fingerprint.
 3. The daemon prints the WebSocket address, transport mode, token, and fingerprint when applicable.
-4. The phone requires a server URL, device ID, token, and a fingerprint for `wss://`.
-5. The phone stores URL, device ID, and fingerprint in ordinary app preferences.
-6. The phone stores the authentication token through OS-backed secure storage.
-7. The phone connects, performs the `hello` handshake, receives `welcome` and `snapshot`, and begins showing the event queue.
-8. If configuration is incomplete, the app reports a configuration-required state instead of repeatedly attempting an invalid connection.
+4. Automated pairing: run `agentdesk pair` (or select Pair in the TUI) to render a terminal QR code with a one-time pairing URI.
+5. On the phone, tap "Scan QR Code" in the AgentDesk app. The app automatically scans and parses the relay endpoint, device ID, token, and fingerprint.
+6. The phone securely stores the credentials in OS-backed secure storage and connects immediately through the public relay.
+7. The device is registered in the laptop device registry (`agentdesk devices`). Devices can be viewed or revoked at any time.
 
-There is no QR pairing flow, device registry, automatic certificate transfer, or automatic token configuration. The token and TLS fingerprint are entered manually.
-
-### Production distribution experience
-
-The release workflow provides the zero-development-dependency distribution
-artifacts: a prebuilt Linux daemon and an Android ARM64 APK. Guided pairing,
-automatic configuration, and project selection are still planned; the current
-phone setup requires the server URL, device ID, token, and TLS fingerprint to be
-entered manually.
+Manual configuration is also supported in Settings for custom setups.
 
 ## Production vs Development
 
@@ -802,8 +788,8 @@ entered manually.
 | Linux desktop package | ✅ Published as prebuilt x86_64 and aarch64 archives |
 | Windows package | 🚧 Not yet available |
 | macOS package | 🚧 Not yet available |
-| Automatic pairing | 📋 Planned; current setup is manual |
-| Automatic configuration | 📋 Planned; current URL, token, device ID, and fingerprint setup is manual |
+| Automatic pairing | ✅ Implemented via interactive QR flow (`agentdesk pair`) |
+| Automatic configuration | ✅ Handled during QR pairing exchange over secure relay |
 
 ## Normal User Installation Goal
 
@@ -814,25 +800,24 @@ Laptop
   ↓
 Install AgentDesk desktop application
   ↓
-Open AgentDesk
+Open AgentDesk (or run `agentdesk pair`)
   ↓
 Phone
   ↓
-Install AgentDesk Android application
+Install AgentDesk Android application (AgentDesk-v0.2.0.apk)
   ↓
-Pair laptop and phone
+Scan QR code from phone
   ↓
-Connected
+Connected via Relay
   ↓
 Start supported coding agent
   ↓
 Supervise from phone
 ```
 
-The tag-driven release workflow provides the prebuilt daemon and Android APK
-needed for the zero-development-dependency installation experience. Automatic
-pairing and project selection remain product work; the current connection setup
-is documented as manual configuration below.
+The tag-driven release workflow and repository provide the prebuilt daemon and Android APK
+needed for the zero-development-dependency installation experience. Direct APK download
+is available right in the repository and on the GitHub Releases page.
 
 ## Prebuilt Linux Installer
 
@@ -853,7 +838,7 @@ To install a specific release:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vijaygovindBiju/AgentDesk/master/install.sh \
-  | VERSION=v0.1.0 bash
+  | VERSION=v0.2.0 bash
 ```
 
 If no GitHub Release is published yet, the installer reports:
@@ -928,9 +913,7 @@ SHA256SUMS
 ```
 
 The Linux archives contain the prebuilt `agentdesk` executable. The Android APK
-is installed directly by the user and does not require Flutter, Gradle, Android
-SDK tools, or ADB. The first public artifacts become available after a
-version-matching tag is published and the release workflow completes.
+([`AgentDesk-v0.2.0.apk`](AgentDesk-v0.2.0.apk)) is installed directly by the user on phone hardware without requiring Flutter, Gradle, Android SDK tools, or ADB. Public release artifacts are also published on [GitHub Releases](https://github.com/vijaygovindBiju/AgentDesk/releases).
 
 ## Running the Simulator
 
