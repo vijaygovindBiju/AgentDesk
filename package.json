@@ -1,9 +1,10 @@
 {
-  "name": "agentdesk",
+  "name": "agentdesk-tui",
   "version": "0.2.0",
   "description": "Attention and control layer for interactive coding agents",
   "bin": {
-    "agentdesk": "bin/agentdesk.js"
+    "agentdesk": "bin/agentdesk.js",
+    "agentdesk-tui": "bin/agentdesk.js"
   },
   "files": [
     "bin",

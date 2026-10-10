@@ -189,10 +189,10 @@ If you have Node.js installed, you can launch AgentDesk immediately:
 
 ```bash
 # Run immediately without installation
-npx agentdesk
+npx agentdesk-tui
 
 # Or install globally
-npm install -g agentdesk
+npm install -g agentdesk-tui
 agentdesk
 ```
 
