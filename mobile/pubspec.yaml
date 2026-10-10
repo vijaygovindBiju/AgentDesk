@@ -19,8 +19,18 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
   assets:
     - assets/branding/agentdesk_logo.png
+    - assets/branding/agentdesk_logo_foreground.png
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/branding/agentdesk_logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#0E1B33"
+  adaptive_icon_foreground: "assets/branding/agentdesk_logo_foreground.png"
