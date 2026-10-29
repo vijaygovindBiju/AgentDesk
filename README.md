@@ -1,6 +1,12 @@
-# AgentDesk
+# AgentDesk 📱💻
 
-AgentDesk is a laptop-side attention and control layer for interactive coding agents, with a Flutter Android client for human supervision.
+> **Attention and control layer for interactive coding agents, with a companion Flutter mobile client for human supervision.**  
+> *Optimize for human attention, not information volume.*
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/Server-Rust%202021-orange.svg)](https://www.rust-lang.org)
+[![Flutter](https://img.shields.io/badge/Mobile-Flutter%203.x-blue.svg)](https://flutter.dev)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Android-brightgreen.svg)]()
 
 Coding agents produce substantially more terminal output than a person can continuously monitor. AgentDesk keeps the agent process and detailed logs on the laptop, classifies activity into a small attention model, and sends the phone only the events that are useful for human supervision. The phone can inspect details, page through relevant logs, and return structured decisions without becoming a second terminal.
 
